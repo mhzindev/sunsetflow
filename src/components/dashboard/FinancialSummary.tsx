@@ -1,6 +1,5 @@
-
 import { Card } from "@/components/ui/card";
-import { trending-up as TrendingUp, trending-down as TrendingDown, wallet as Wallet, credit-card as CreditCard } from "lucide-react";
+import { TrendingUp, TrendingDown, Wallet, CreditCard } from "lucide-react";
 
 export const FinancialSummary = () => {
   const summaryCards = [

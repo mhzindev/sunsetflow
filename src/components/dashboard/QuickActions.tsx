@@ -1,7 +1,6 @@
-
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { file-plus as FilePlus, receipt as Receipt, trending-up as TrendingUp } from "lucide-react";
+import { FilePlus, Receipt, TrendingUp } from "lucide-react";
 
 export const QuickActions = () => {
   const actions = [
