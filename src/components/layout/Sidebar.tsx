@@ -2,12 +2,12 @@
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { 
-  circle-dollar-sign as CircleDollarSign, 
-  trending-up as TrendingUp, 
-  wallet as Wallet, 
-  receipt as Receipt, 
-  file-text as FileText,
-  settings as Settings
+  CircleDollarSign, 
+  TrendingUp, 
+  Wallet, 
+  Receipt, 
+  FileText,
+  Settings
 } from "lucide-react";
 import { PageSection } from "@/pages/Index";
 
