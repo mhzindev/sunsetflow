@@ -1,4 +1,3 @@
-
 import { useState } from 'react';
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -68,8 +67,8 @@ export const PaymentList = () => {
       providerName: 'João Silva - Técnico',
       amount: 1200.00,
       dueDate: '2024-02-10',
-      status: 'pending',
-      type: 'partial',
+      status: 'partial',
+      type: 'full',
       description: 'Pagamento parcial - Projeto especial',
       notes: 'Pagamento de 50% do projeto'
     }
