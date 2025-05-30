@@ -35,6 +35,9 @@ export const FinancialProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [payments, setPayments] = useState<Payment[]>([]);
 
+  // Saldo inicial da empresa
+  const INITIAL_BALANCE = 45720;
+
   // Calcular dados financeiros baseados nas transações
   const calculateFinancialData = (): FinancialData => {
     const currentDate = new Date();
@@ -56,11 +59,12 @@ export const FinancialProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       .filter(t => t.type === 'expense' && t.status === 'completed')
       .reduce((sum, t) => sum + t.amount, 0);
 
+    // Calcular saldo total: saldo inicial + todas as entradas - todas as saídas
     const totalBalance = transactions
       .filter(t => t.status === 'completed')
       .reduce((sum, t) => {
         return t.type === 'income' ? sum + t.amount : sum - t.amount;
-      }, 45720); // Saldo inicial
+      }, INITIAL_BALANCE);
 
     const pendingPayments = payments
       .filter(p => p.status === 'pending' || p.status === 'overdue')
@@ -92,12 +96,38 @@ export const FinancialProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     };
     setPayments(prev => [newPayment, ...prev]);
     console.log('Payment added to financial system:', newPayment);
+
+    // Quando um pagamento é agendado, automaticamente criar uma transação de saída correspondente
+    const paymentTransaction = {
+      type: 'expense' as const,
+      category: 'service_payment' as const,
+      amount: paymentData.amount,
+      description: `Pagamento agendado: ${paymentData.description}`,
+      date: paymentData.dueDate,
+      method: 'transfer' as const,
+      status: 'pending' as const,
+      userId: '1', // Sistema
+      userName: 'Sistema - Pagamento Agendado'
+    };
+
+    addTransaction(paymentTransaction);
   };
 
   const updatePaymentStatus = (paymentId: string, status: Payment['status']) => {
-    setPayments(prev => prev.map(p => 
-      p.id === paymentId ? { ...p, status } : p
-    ));
+    setPayments(prev => prev.map(p => {
+      if (p.id === paymentId) {
+        // Quando um pagamento é marcado como concluído, atualizar a transação correspondente
+        if (status === 'completed') {
+          setTransactions(prevTrans => prevTrans.map(t => 
+            t.description.includes(`Pagamento agendado: ${p.description}`) 
+              ? { ...t, status: 'completed' as const, paymentDate: new Date().toISOString() }
+              : t
+          ));
+        }
+        return { ...p, status };
+      }
+      return p;
+    }));
   };
 
   const getRecentTransactions = (limit = 5) => {
@@ -116,6 +146,12 @@ export const FinancialProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       .filter(p => p.status === 'pending' && new Date(p.dueDate) <= next7Days)
       .reduce((sum, p) => sum + p.amount, 0);
 
+    // Próximos 30 dias
+    const next30Days = new Date(today.getTime() + 30 * 24 * 60 * 60 * 1000);
+    const expected30DaysIncome = payments
+      .filter(p => p.status === 'pending' && new Date(p.dueDate) <= next30Days)
+      .reduce((sum, p) => sum + p.amount, 0);
+
     projections.push({
       period: 'Próximos 7 dias',
       expectedIncome: expected7DaysIncome,
@@ -123,12 +159,6 @@ export const FinancialProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       netFlow: expected7DaysIncome - 8300.00,
       status: expected7DaysIncome - 8300.00 > 0 ? 'positive' : 'negative'
     });
-
-    // Próximos 30 dias
-    const next30Days = new Date(today.getTime() + 30 * 24 * 60 * 60 * 1000);
-    const expected30DaysIncome = payments
-      .filter(p => p.status === 'pending' && new Date(p.dueDate) <= next30Days)
-      .reduce((sum, p) => sum + p.amount, 0);
 
     projections.push({
       period: 'Próximos 30 dias',

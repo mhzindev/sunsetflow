@@ -20,10 +20,10 @@ export const FinancialSummary = () => {
     return `${sign}${change.toFixed(1)}%`;
   };
 
-  // Calcular mudanças (simulado com base nos dados atuais)
-  const previousMonthIncome = data.monthlyIncome * 0.92; // Simula mês anterior
-  const previousMonthExpenses = data.monthlyExpenses * 1.03; // Simula mês anterior
-  const previousBalance = data.totalBalance * 0.89; // Simula saldo anterior
+  // Calcular mudanças simuladas (baseado em dados históricos fictícios)
+  const previousMonthIncome = data.monthlyIncome > 0 ? data.monthlyIncome * 0.92 : 8500;
+  const previousMonthExpenses = data.monthlyExpenses > 0 ? data.monthlyExpenses * 1.03 : 7200;
+  const previousBalance = data.totalBalance * 0.89;
 
   const summaryCards = [
     {

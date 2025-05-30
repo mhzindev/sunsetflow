@@ -6,8 +6,14 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { PaymentType } from '@/types/payment';
+import { useFinancial } from '@/contexts/FinancialContext';
+import { useToastFeedback } from '@/hooks/useToastFeedback';
 
 export const PaymentForm = () => {
+  const { addPayment } = useFinancial();
+  const { showSuccess, showError } = useToastFeedback();
+  const [isLoading, setIsLoading] = useState(false);
+  
   const [formData, setFormData] = useState({
     providerId: '',
     amount: '',
@@ -25,9 +31,101 @@ export const PaymentForm = () => {
     { id: '4', name: 'Carlos Oliveira - Freelancer' }
   ];
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const resetForm = () => {
+    setFormData({
+      providerId: '',
+      amount: '',
+      dueDate: new Date().toISOString().split('T')[0],
+      type: 'full',
+      description: '',
+      installments: 1,
+      notes: ''
+    });
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    console.log('Payment scheduled:', formData);
+    
+    if (!formData.providerId || !formData.amount || !formData.description) {
+      showError('Erro de Validação', 'Por favor, preencha todos os campos obrigatórios');
+      return;
+    }
+
+    const amount = parseFloat(formData.amount);
+    if (isNaN(amount) || amount <= 0) {
+      showError('Valor Inválido', 'Por favor, insira um valor válido maior que zero');
+      return;
+    }
+
+    setIsLoading(true);
+
+    try {
+      // Simular processamento
+      await new Promise(resolve => setTimeout(resolve, 1000));
+
+      const selectedProvider = mockProviders.find(p => p.id === formData.providerId);
+      
+      if (formData.type === 'installment' && formData.installments > 1) {
+        // Criar múltiplos pagamentos para parcelamento
+        const installmentAmount = amount / formData.installments;
+        const baseDate = new Date(formData.dueDate);
+        
+        for (let i = 0; i < formData.installments; i++) {
+          const installmentDate = new Date(baseDate);
+          installmentDate.setMonth(installmentDate.getMonth() + i);
+          
+          const paymentData = {
+            providerId: formData.providerId,
+            providerName: selectedProvider?.name || 'Prestador Desconhecido',
+            amount: installmentAmount,
+            dueDate: installmentDate.toISOString().split('T')[0],
+            status: 'pending' as const,
+            type: formData.type,
+            description: `${formData.description} (Parcela ${i + 1}/${formData.installments})`,
+            installments: formData.installments,
+            currentInstallment: i + 1,
+            notes: formData.notes
+          };
+          
+          addPayment(paymentData);
+        }
+        
+        showSuccess(
+          'Pagamentos Agendados', 
+          `${formData.installments} parcelas de R$ ${installmentAmount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} agendadas com sucesso!`
+        );
+      } else {
+        // Pagamento único
+        const paymentData = {
+          providerId: formData.providerId,
+          providerName: selectedProvider?.name || 'Prestador Desconhecido',
+          amount: amount,
+          dueDate: formData.dueDate,
+          status: 'pending' as const,
+          type: formData.type,
+          description: formData.description,
+          notes: formData.notes
+        };
+        
+        addPayment(paymentData);
+        
+        showSuccess(
+          'Pagamento Agendado', 
+          `Pagamento de R$ ${amount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} agendado para ${new Date(formData.dueDate).toLocaleDateString('pt-BR')}!`
+        );
+      }
+      
+      resetForm();
+    } catch (error) {
+      showError('Erro', 'Erro ao agendar pagamento. Tente novamente.');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleCancel = () => {
+    resetForm();
+    showSuccess('Cancelado', 'Formulário limpo com sucesso');
   };
 
   return (
@@ -37,7 +135,7 @@ export const PaymentForm = () => {
       <form onSubmit={handleSubmit} className="space-y-4">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
-            <Label htmlFor="provider">Prestador de Serviço</Label>
+            <Label htmlFor="provider">Prestador de Serviço *</Label>
             <select
               id="provider"
               className="w-full p-2 border border-gray-300 rounded-md"
@@ -55,7 +153,7 @@ export const PaymentForm = () => {
           </div>
 
           <div>
-            <Label htmlFor="amount">Valor Total (R$)</Label>
+            <Label htmlFor="amount">Valor Total (R$) *</Label>
             <Input
               id="amount"
               type="number"
@@ -106,7 +204,7 @@ export const PaymentForm = () => {
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
-            <Label htmlFor="dueDate">Data de Vencimento</Label>
+            <Label htmlFor="dueDate">Data de Vencimento *</Label>
             <Input
               id="dueDate"
               type="date"
@@ -133,7 +231,7 @@ export const PaymentForm = () => {
         </div>
 
         <div>
-          <Label htmlFor="description">Descrição do Serviço</Label>
+          <Label htmlFor="description">Descrição do Serviço *</Label>
           <Textarea
             id="description"
             placeholder="Descreva o serviço prestado..."
@@ -154,10 +252,19 @@ export const PaymentForm = () => {
         </div>
 
         <div className="flex space-x-4">
-          <Button type="submit" className="bg-blue-600 hover:bg-blue-700">
-            Agendar Pagamento
+          <Button 
+            type="submit" 
+            className="bg-blue-600 hover:bg-blue-700"
+            disabled={isLoading}
+          >
+            {isLoading ? 'Agendando...' : 'Agendar Pagamento'}
           </Button>
-          <Button type="button" variant="outline">
+          <Button 
+            type="button" 
+            variant="outline"
+            onClick={handleCancel}
+            disabled={isLoading}
+          >
             Cancelar
           </Button>
         </div>
