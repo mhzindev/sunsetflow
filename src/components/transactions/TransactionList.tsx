@@ -1,3 +1,4 @@
+
 import { useState } from 'react';
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -7,14 +8,55 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Search, Filter, Download, Eye } from 'lucide-react';
 import { useAuth } from '@/components/auth/AuthContext';
 import { useFinancial } from '@/contexts/FinancialContext';
+import { FilterModal, FilterConfig } from '@/components/common/FilterModal';
+import { ExportModal } from '@/components/common/ExportModal';
+import { exportToCSV, exportToPDF, exportToExcel, ExportOptions } from '@/utils/exportUtils';
+import { useToastFeedback } from '@/hooks/useToastFeedback';
 
 export const TransactionList = () => {
   const { user } = useAuth();
   const { data } = useFinancial();
   const [searchTerm, setSearchTerm] = useState('');
   const [filterStatus, setFilterStatus] = useState('all');
+  const [isFilterModalOpen, setIsFilterModalOpen] = useState(false);
+  const [isExportModalOpen, setIsExportModalOpen] = useState(false);
+  const [activeFilters, setActiveFilters] = useState<FilterConfig>({
+    dateRange: { start: null, end: null },
+    status: [],
+    category: [],
+    amountRange: { min: null, max: null },
+    search: ''
+  });
 
-  const filteredTransactions = data.transactions.filter(transaction => {
+  const { showSuccess, showError } = useToastFeedback();
+
+  const applyFilters = (transactions: typeof data.transactions) => {
+    return transactions.filter(transaction => {
+      const searchMatch = !activeFilters.search || 
+        transaction.description.toLowerCase().includes(activeFilters.search.toLowerCase()) ||
+        transaction.userName.toLowerCase().includes(activeFilters.search.toLowerCase());
+
+      const statusMatch = !activeFilters.status?.length || 
+        activeFilters.status.includes(transaction.status);
+
+      const categoryMatch = !activeFilters.category?.length || 
+        activeFilters.category.includes(transaction.category);
+
+      const amountMatch = (!activeFilters.amountRange?.min || transaction.amount >= activeFilters.amountRange.min) &&
+        (!activeFilters.amountRange?.max || transaction.amount <= activeFilters.amountRange.max);
+
+      const dateMatch = (!activeFilters.dateRange?.start || 
+        new Date(transaction.date) >= activeFilters.dateRange.start) &&
+        (!activeFilters.dateRange?.end || 
+        new Date(transaction.date) <= activeFilters.dateRange.end);
+
+      const matchesUser = user?.role === 'owner' || transaction.userId === user?.id;
+
+      return searchMatch && statusMatch && categoryMatch && amountMatch && dateMatch && matchesUser;
+    });
+  };
+
+  const baseFilteredTransactions = data.transactions.filter(transaction => {
     const matchesSearch = transaction.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          transaction.userName.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesFilter = filterStatus === 'all' || transaction.status === filterStatus;
@@ -22,6 +64,41 @@ export const TransactionList = () => {
     
     return matchesSearch && matchesFilter && matchesUser;
   });
+
+  const filteredTransactions = applyFilters(baseFilteredTransactions);
+
+  const handleExport = (options: ExportOptions) => {
+    try {
+      const headers = ['Data', 'Descrição', 'Categoria', 'Usuário', 'Método', 'Valor', 'Status'];
+      const exportData = filteredTransactions.map(transaction => ({
+        data: new Date(transaction.date).toLocaleDateString('pt-BR'),
+        descricao: transaction.description,
+        categoria: getCategoryLabel(transaction.category),
+        usuario: transaction.userName,
+        metodo: getMethodLabel(transaction.method),
+        valor: `${transaction.type === 'income' ? '+' : '-'}${transaction.amount}`,
+        status: getStatusLabel(transaction.status)
+      }));
+
+      const filename = options.filename || `transacoes_${new Date().toISOString().split('T')[0]}`;
+
+      switch (options.format) {
+        case 'csv':
+          exportToCSV(exportData, headers, filename);
+          break;
+        case 'excel':
+          exportToExcel(exportData, headers, filename);
+          break;
+        case 'pdf':
+          exportToPDF(exportData, headers, filename, 'Relatório de Transações');
+          break;
+      }
+
+      showSuccess('Exportação concluída', `Arquivo ${filename}.${options.format} baixado com sucesso`);
+    } catch (error) {
+      showError('Erro na exportação', 'Não foi possível exportar os dados');
+    }
+  };
 
   const getCategoryLabel = (category: string) => {
     const labels = {
@@ -75,6 +152,24 @@ export const TransactionList = () => {
     .filter(t => t.type === 'expense')
     .reduce((sum, t) => sum + t.amount, 0);
 
+  const availableStatuses = [
+    { value: 'completed', label: 'Concluído' },
+    { value: 'pending', label: 'Pendente' },
+    { value: 'cancelled', label: 'Cancelado' }
+  ];
+
+  const availableCategories = [
+    { value: 'service_payment', label: 'Pagamento Serviços' },
+    { value: 'client_payment', label: 'Recebimento Cliente' },
+    { value: 'fuel', label: 'Combustível' },
+    { value: 'accommodation', label: 'Hospedagem' },
+    { value: 'meals', label: 'Alimentação' },
+    { value: 'materials', label: 'Materiais' },
+    { value: 'maintenance', label: 'Manutenção' },
+    { value: 'office_expense', label: 'Despesa Escritório' },
+    { value: 'other', label: 'Outros' }
+  ];
+
   return (
     <div className="space-y-6">
       {/* Resumo Financeiro */}
@@ -99,7 +194,6 @@ export const TransactionList = () => {
         </Card>
       </div>
 
-      {/* Filtros e Busca */}
       <Card className="p-6">
         <div className="flex flex-col md:flex-row gap-4 mb-6">
           <div className="flex-1">
@@ -126,12 +220,12 @@ export const TransactionList = () => {
               <option value="cancelled">Cancelado</option>
             </select>
             
-            <Button variant="outline" size="sm">
+            <Button variant="outline" size="sm" onClick={() => setIsFilterModalOpen(true)}>
               <Filter className="w-4 h-4 mr-2" />
-              Filtros
+              Filtros Avançados
             </Button>
             
-            <Button variant="outline" size="sm">
+            <Button variant="outline" size="sm" onClick={() => setIsExportModalOpen(true)}>
               <Download className="w-4 h-4 mr-2" />
               Exportar
             </Button>
@@ -208,6 +302,24 @@ export const TransactionList = () => {
           </div>
         )}
       </Card>
+
+      <FilterModal
+        isOpen={isFilterModalOpen}
+        onOpenChange={setIsFilterModalOpen}
+        filters={activeFilters}
+        onFiltersChange={setActiveFilters}
+        availableStatuses={availableStatuses}
+        availableCategories={availableCategories}
+        title="Filtros Avançados - Transações"
+      />
+
+      <ExportModal
+        isOpen={isExportModalOpen}
+        onOpenChange={setIsExportModalOpen}
+        onExport={handleExport}
+        title="Exportar Transações"
+        totalRecords={filteredTransactions.length}
+      />
     </div>
   );
 };

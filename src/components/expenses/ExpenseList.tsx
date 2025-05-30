@@ -1,10 +1,30 @@
 
+import { useState } from 'react';
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Search, Filter, Download, Eye, Edit } from 'lucide-react';
+import { FilterModal, FilterConfig } from '@/components/common/FilterModal';
+import { ExportModal } from '@/components/common/ExportModal';
+import { exportToCSV, exportToPDF, exportToExcel, ExportOptions } from '@/utils/exportUtils';
+import { useToastFeedback } from '@/hooks/useToastFeedback';
 
 export const ExpenseList = () => {
+  const [searchTerm, setSearchTerm] = useState('');
+  const [isFilterModalOpen, setIsFilterModalOpen] = useState(false);
+  const [isExportModalOpen, setIsExportModalOpen] = useState(false);
+  const [activeFilters, setActiveFilters] = useState<FilterConfig>({
+    dateRange: { start: null, end: null },
+    status: [],
+    category: [],
+    amountRange: { min: null, max: null },
+    search: ''
+  });
+
+  const { showSuccess, showError } = useToastFeedback();
+
   const mockExpenses = [
     {
       id: '1',
@@ -40,6 +60,72 @@ export const ExpenseList = () => {
       status: 'reimbursed'
     }
   ];
+
+  const applyFilters = (expenses: typeof mockExpenses) => {
+    return expenses.filter(expense => {
+      const searchMatch = !activeFilters.search || 
+        expense.employee.toLowerCase().includes(activeFilters.search.toLowerCase()) ||
+        expense.description.toLowerCase().includes(activeFilters.search.toLowerCase()) ||
+        expense.mission.toLowerCase().includes(activeFilters.search.toLowerCase());
+
+      const statusMatch = !activeFilters.status?.length || 
+        activeFilters.status.includes(expense.status);
+
+      const categoryMatch = !activeFilters.category?.length || 
+        activeFilters.category.includes(expense.category);
+
+      const amountMatch = (!activeFilters.amountRange?.min || expense.amount >= activeFilters.amountRange.min) &&
+        (!activeFilters.amountRange?.max || expense.amount <= activeFilters.amountRange.max);
+
+      const dateMatch = (!activeFilters.dateRange?.start || 
+        new Date(expense.date) >= activeFilters.dateRange.start) &&
+        (!activeFilters.dateRange?.end || 
+        new Date(expense.date) <= activeFilters.dateRange.end);
+
+      return searchMatch && statusMatch && categoryMatch && amountMatch && dateMatch;
+    });
+  };
+
+  const filteredExpenses = applyFilters(mockExpenses.filter(expense => 
+    !searchTerm || 
+    expense.employee.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    expense.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    expense.mission.toLowerCase().includes(searchTerm.toLowerCase())
+  ));
+
+  const handleExport = (options: ExportOptions) => {
+    try {
+      const headers = ['Missão', 'Funcionário', 'Categoria', 'Descrição', 'Valor', 'Data', 'Tipo', 'Status'];
+      const exportData = filteredExpenses.map(expense => ({
+        missao: expense.mission,
+        funcionario: expense.employee,
+        categoria: getCategoryLabel(expense.category),
+        descricao: expense.description,
+        valor: expense.amount,
+        data: new Date(expense.date).toLocaleDateString('pt-BR'),
+        tipo: expense.isAdvanced ? 'Adiantamento' : 'Reembolso',
+        status: getStatusLabel(expense.status)
+      }));
+
+      const filename = options.filename || `despesas_${new Date().toISOString().split('T')[0]}`;
+
+      switch (options.format) {
+        case 'csv':
+          exportToCSV(exportData, headers, filename);
+          break;
+        case 'excel':
+          exportToExcel(exportData, headers, filename);
+          break;
+        case 'pdf':
+          exportToPDF(exportData, headers, filename, 'Relatório de Despesas');
+          break;
+      }
+
+      showSuccess('Exportação concluída', `Arquivo ${filename}.${options.format} baixado com sucesso`);
+    } catch (error) {
+      showError('Erro na exportação', 'Não foi possível exportar os dados');
+    }
+  };
 
   const getCategoryColor = (category: string) => {
     const colors = {
@@ -83,13 +169,52 @@ export const ExpenseList = () => {
     return labels[status as keyof typeof labels] || 'Pendente';
   };
 
+  const availableStatuses = [
+    { value: 'pending', label: 'Pendente' },
+    { value: 'approved', label: 'Aprovado' },
+    { value: 'reimbursed', label: 'Reembolsado' }
+  ];
+
+  const availableCategories = [
+    { value: 'fuel', label: 'Combustível' },
+    { value: 'accommodation', label: 'Hospedagem' },
+    { value: 'meals', label: 'Alimentação' },
+    { value: 'transportation', label: 'Transporte' },
+    { value: 'materials', label: 'Materiais' },
+    { value: 'other', label: 'Outros' }
+  ];
+
   return (
     <Card className="p-6">
-      <div className="flex items-center justify-between mb-4">
-        <h4 className="text-lg font-semibold text-slate-800">Todas as Despesas</h4>
-        <div className="flex space-x-2">
-          <Button variant="outline" size="sm">Filtrar</Button>
-          <Button variant="outline" size="sm">Exportar</Button>
+      <div className="flex flex-col md:flex-row items-start md:items-center justify-between mb-6 gap-4">
+        <div>
+          <h4 className="text-lg font-semibold text-slate-800">Todas as Despesas</h4>
+          <p className="text-sm text-gray-600 mt-1">
+            {filteredExpenses.length} despesa(s) encontrada(s)
+          </p>
+        </div>
+        
+        <div className="flex flex-col md:flex-row gap-2 w-full md:w-auto">
+          <div className="relative flex-1 md:w-64">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+            <Input
+              placeholder="Buscar despesas..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="pl-10"
+            />
+          </div>
+          
+          <div className="flex gap-2">
+            <Button variant="outline" size="sm" onClick={() => setIsFilterModalOpen(true)}>
+              <Filter className="w-4 h-4 mr-2" />
+              Filtros
+            </Button>
+            <Button variant="outline" size="sm" onClick={() => setIsExportModalOpen(true)}>
+              <Download className="w-4 h-4 mr-2" />
+              Exportar
+            </Button>
+          </div>
         </div>
       </div>
 
@@ -108,7 +233,7 @@ export const ExpenseList = () => {
           </TableRow>
         </TableHeader>
         <TableBody>
-          {mockExpenses.map((expense) => (
+          {filteredExpenses.map((expense) => (
             <TableRow key={expense.id}>
               <TableCell className="font-medium">{expense.mission}</TableCell>
               <TableCell>{expense.employee}</TableCell>
@@ -134,14 +259,49 @@ export const ExpenseList = () => {
               </TableCell>
               <TableCell>
                 <div className="flex space-x-1">
-                  <Button variant="outline" size="sm">Ver</Button>
-                  <Button variant="outline" size="sm">Editar</Button>
+                  <Button variant="outline" size="sm">
+                    <Eye className="w-4 h-4" />
+                  </Button>
+                  <Button variant="outline" size="sm">
+                    <Edit className="w-4 h-4" />
+                  </Button>
                 </div>
               </TableCell>
             </TableRow>
           ))}
         </TableBody>
       </Table>
+
+      {filteredExpenses.length === 0 && (
+        <div className="text-center py-8 text-gray-500">
+          {mockExpenses.length === 0 ? (
+            <div>
+              <p>Nenhuma despesa registrada ainda</p>
+              <p className="text-sm mt-1">Comece registrando sua primeira despesa</p>
+            </div>
+          ) : (
+            <p>Nenhuma despesa encontrada com os filtros aplicados</p>
+          )}
+        </div>
+      )}
+
+      <FilterModal
+        isOpen={isFilterModalOpen}
+        onOpenChange={setIsFilterModalOpen}
+        filters={activeFilters}
+        onFiltersChange={setActiveFilters}
+        availableStatuses={availableStatuses}
+        availableCategories={availableCategories}
+        title="Filtros Avançados - Despesas"
+      />
+
+      <ExportModal
+        isOpen={isExportModalOpen}
+        onOpenChange={setIsExportModalOpen}
+        onExport={handleExport}
+        title="Exportar Despesas"
+        totalRecords={filteredExpenses.length}
+      />
     </Card>
   );
 };

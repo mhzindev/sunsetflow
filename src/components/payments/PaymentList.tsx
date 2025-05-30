@@ -6,10 +6,25 @@ import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Search, Filter, Download, Eye, DollarSign, Clock, AlertTriangle } from 'lucide-react';
 import { Payment, PaymentStatus } from '@/types/payment';
+import { FilterModal, FilterConfig } from '@/components/common/FilterModal';
+import { ExportModal } from '@/components/common/ExportModal';
+import { exportToCSV, exportToPDF, exportToExcel, ExportOptions } from '@/utils/exportUtils';
+import { useToastFeedback } from '@/hooks/useToastFeedback';
 
 export const PaymentList = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [filterStatus, setFilterStatus] = useState<PaymentStatus | 'all'>('all');
+  const [isFilterModalOpen, setIsFilterModalOpen] = useState(false);
+  const [isExportModalOpen, setIsExportModalOpen] = useState(false);
+  const [activeFilters, setActiveFilters] = useState<FilterConfig>({
+    dateRange: { start: null, end: null },
+    status: [],
+    amountRange: { min: null, max: null },
+    provider: [],
+    search: ''
+  });
+
+  const { showSuccess, showError } = useToastFeedback();
 
   // Mock data - em um sistema real, viria de uma API
   const mockPayments: Payment[] = [
@@ -74,13 +89,68 @@ export const PaymentList = () => {
     }
   ];
 
-  const filteredPayments = mockPayments.filter(payment => {
-    const matchesSearch = payment.providerName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         payment.description.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesFilter = filterStatus === 'all' || payment.status === filterStatus;
-    
-    return matchesSearch && matchesFilter;
-  });
+  const applyFilters = (payments: Payment[]): Payment[] => {
+    return payments.filter(payment => {
+      // Busca por texto
+      const searchMatch = !activeFilters.search || 
+        payment.providerName.toLowerCase().includes(activeFilters.search.toLowerCase()) ||
+        payment.description.toLowerCase().includes(activeFilters.search.toLowerCase());
+
+      // Filtro por status
+      const statusMatch = !activeFilters.status?.length || 
+        activeFilters.status.includes(payment.status);
+
+      // Filtro por prestador
+      const providerMatch = !activeFilters.provider?.length || 
+        activeFilters.provider.includes(payment.providerId);
+
+      // Filtro por valor
+      const amountMatch = (!activeFilters.amountRange?.min || payment.amount >= activeFilters.amountRange.min) &&
+        (!activeFilters.amountRange?.max || payment.amount <= activeFilters.amountRange.max);
+
+      // Filtro por data
+      const dateMatch = (!activeFilters.dateRange?.start || 
+        new Date(payment.dueDate) >= activeFilters.dateRange.start) &&
+        (!activeFilters.dateRange?.end || 
+        new Date(payment.dueDate) <= activeFilters.dateRange.end);
+
+      return searchMatch && statusMatch && providerMatch && amountMatch && dateMatch;
+    });
+  };
+
+  const filteredPayments = applyFilters(mockPayments);
+
+  const handleExport = (options: ExportOptions) => {
+    try {
+      const headers = ['Prestador', 'Descrição', 'Tipo', 'Valor', 'Vencimento', 'Status'];
+      const exportData = filteredPayments.map(payment => ({
+        prestador: payment.providerName,
+        descricao: payment.description,
+        tipo: getTypeLabel(payment.type),
+        valor: payment.amount,
+        vencimento: new Date(payment.dueDate).toLocaleDateString('pt-BR'),
+        status: getStatusLabel(payment.status)
+      }));
+
+      const filename = options.filename || `pagamentos_${new Date().toISOString().split('T')[0]}`;
+
+      switch (options.format) {
+        case 'csv':
+          exportToCSV(exportData, headers, filename);
+          break;
+        case 'excel':
+          exportToExcel(exportData, headers, filename);
+          break;
+        case 'pdf':
+          exportToPDF(exportData, headers, filename, 'Relatório de Pagamentos');
+          break;
+      }
+
+      showSuccess('Exportação concluída', `Arquivo ${filename}.${options.format} baixado com sucesso`);
+    } catch (error) {
+      showError('Erro na exportação', 'Não foi possível exportar os dados');
+    }
+  };
 
   const getStatusColor = (status: PaymentStatus) => {
     switch (status) {
@@ -142,6 +212,20 @@ export const PaymentList = () => {
   const totalCompleted = filteredPayments
     .filter(p => p.status === 'completed')
     .reduce((sum, p) => sum + p.amount, 0);
+
+  const availableStatuses = [
+    { value: 'pending', label: 'Pendente' },
+    { value: 'partial', label: 'Parcial' },
+    { value: 'overdue', label: 'Em Atraso' },
+    { value: 'completed', label: 'Concluído' },
+    { value: 'cancelled', label: 'Cancelado' }
+  ];
+
+  const availableProviders = Array.from(new Set(mockPayments.map(p => p.providerId)))
+    .map(id => {
+      const payment = mockPayments.find(p => p.providerId === id);
+      return { value: id, label: payment?.providerName || '' };
+    });
 
   return (
     <div className="space-y-6">
@@ -213,12 +297,12 @@ export const PaymentList = () => {
               <option value="cancelled">Cancelado</option>
             </select>
             
-            <Button variant="outline" size="sm">
+            <Button variant="outline" size="sm" onClick={() => setIsFilterModalOpen(true)}>
               <Filter className="w-4 h-4 mr-2" />
-              Filtros
+              Filtros Avançados
             </Button>
             
-            <Button variant="outline" size="sm">
+            <Button variant="outline" size="sm" onClick={() => setIsExportModalOpen(true)}>
               <Download className="w-4 h-4 mr-2" />
               Exportar
             </Button>
@@ -319,6 +403,24 @@ export const PaymentList = () => {
           </div>
         )}
       </Card>
+
+      <FilterModal
+        isOpen={isFilterModalOpen}
+        onOpenChange={setIsFilterModalOpen}
+        filters={activeFilters}
+        onFiltersChange={setActiveFilters}
+        availableStatuses={availableStatuses}
+        availableProviders={availableProviders}
+        title="Filtros Avançados - Pagamentos"
+      />
+
+      <ExportModal
+        isOpen={isExportModalOpen}
+        onOpenChange={setIsExportModalOpen}
+        onExport={handleExport}
+        title="Exportar Pagamentos"
+        totalRecords={filteredPayments.length}
+      />
     </div>
   );
 };
