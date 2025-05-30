@@ -113,7 +113,6 @@ export const AlertsList = ({ onEditAlert }: AlertsListProps) => {
                 <Switch
                   checked={alert.isActive}
                   onCheckedChange={(checked) => updateAlert(alert.id, { isActive: checked })}
-                  size="sm"
                 />
                 
                 <Button
