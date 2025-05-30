@@ -20,6 +20,10 @@ export class PDFReportGenerator {
     this.doc = new jsPDF();
   }
 
+  private formatCurrency(amount: number): string {
+    return `R$ ${amount.toFixed(2).replace('.', ',').replace(/\B(?=(\d{3})+(?!\d))/g, '.')}`;
+  }
+
   private addHeader(title: string, period: string) {
     // Logo/empresa
     this.doc.setFontSize(20);
@@ -36,7 +40,7 @@ export class PDFReportGenerator {
     this.doc.text(`Período: ${period}`, this.margin, this.currentY);
     
     this.currentY += 5;
-    this.doc.text(`Gerado em: ${new Date().toLocaleDateString('pt-BR')}`, this.margin, this.currentY);
+    this.doc.text(`Gerado em: ${new Date().toLocaleDateString()}`, this.margin, this.currentY);
     
     this.currentY += 15;
     this.addLine();
@@ -111,9 +115,9 @@ export class PDFReportGenerator {
     const netProfit = totalIncome - totalExpenses;
 
     this.addSummarySection({
-      'Total de Receitas': `R$ ${totalIncome.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`,
-      'Total de Despesas': `R$ ${totalExpenses.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`,
-      'Lucro Líquido': `R$ ${netProfit.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`,
+      'Total de Receitas': this.formatCurrency(totalIncome),
+      'Total de Despesas': this.formatCurrency(totalExpenses),
+      'Lucro Líquido': this.formatCurrency(netProfit),
       'Margem de Lucro': `${totalIncome > 0 ? ((netProfit / totalIncome) * 100).toFixed(2) : '0'}%`,
       'Total de Transações': `${transactions.length}`
     });
@@ -137,8 +141,8 @@ export class PDFReportGenerator {
       this.addTableRow([
         category,
         data.count.toString(),
-        `R$ ${data.total.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`,
-        `R$ ${(data.total / data.count).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`
+        this.formatCurrency(data.total),
+        this.formatCurrency(data.total / data.count)
       ]);
     });
 
@@ -163,8 +167,8 @@ export class PDFReportGenerator {
       this.addTableRow([
         category,
         data.count.toString(),
-        `R$ ${data.total.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`,
-        `R$ ${(data.total / data.count).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`
+        this.formatCurrency(data.total),
+        this.formatCurrency(data.total / data.count)
       ]);
     });
 
@@ -175,7 +179,7 @@ export class PDFReportGenerator {
     this.addHeader('Relatório de Fluxo de Caixa', period);
 
     const dailyFlow = transactions.reduce((acc, t) => {
-      const date = new Date(t.date).toLocaleDateString('pt-BR');
+      const date = new Date(t.date).toLocaleDateString();
       if (!acc[date]) acc[date] = { income: 0, expenses: 0 };
       
       if (t.status === 'completed') {
@@ -185,15 +189,17 @@ export class PDFReportGenerator {
       return acc;
     }, {} as any);
 
-    const totalIncome = Object.values(dailyFlow).reduce((sum: number, day: any) => sum + day.income, 0);
-    const totalExpenses = Object.values(dailyFlow).reduce((sum: number, day: any) => sum + day.expenses, 0);
+    const totalIncome = Object.values(dailyFlow).reduce((sum: number, day: any) => sum + (day.income || 0), 0);
+    const totalExpenses = Object.values(dailyFlow).reduce((sum: number, day: any) => sum + (day.expenses || 0), 0);
+    const maxDailyIncome = Math.max(...Object.values(dailyFlow).map((d: any) => d.income || 0));
+    const maxDailyExpenses = Math.max(...Object.values(dailyFlow).map((d: any) => d.expenses || 0));
 
     this.addSummarySection({
-      'Total de Entradas': `R$ ${totalIncome.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`,
-      'Total de Saídas': `R$ ${totalExpenses.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`,
-      'Fluxo Líquido': `R$ ${(totalIncome - totalExpenses).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`,
-      'Maior Entrada Diária': `R$ ${Math.max(...Object.values(dailyFlow).map((d: any) => d.income)).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`,
-      'Maior Saída Diária': `R$ ${Math.max(...Object.values(dailyFlow).map((d: any) => d.expenses)).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`
+      'Total de Entradas': this.formatCurrency(totalIncome),
+      'Total de Saídas': this.formatCurrency(totalExpenses),
+      'Fluxo Líquido': this.formatCurrency(totalIncome - totalExpenses),
+      'Maior Entrada Diária': this.formatCurrency(maxDailyIncome),
+      'Maior Saída Diária': this.formatCurrency(maxDailyExpenses)
     });
 
     this.addTableHeader(['Data', 'Entradas', 'Saídas', 'Saldo Diário']);
@@ -201,12 +207,12 @@ export class PDFReportGenerator {
     Object.entries(dailyFlow)
       .sort(([a], [b]) => new Date(a.split('/').reverse().join('-')).getTime() - new Date(b.split('/').reverse().join('-')).getTime())
       .forEach(([date, flow]: [string, any]) => {
-        const dailyBalance = flow.income - flow.expenses;
+        const dailyBalance = (flow.income || 0) - (flow.expenses || 0);
         this.addTableRow([
           date,
-          `R$ ${flow.income.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`,
-          `R$ ${flow.expenses.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`,
-          `R$ ${dailyBalance.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`
+          this.formatCurrency(flow.income || 0),
+          this.formatCurrency(flow.expenses || 0),
+          this.formatCurrency(dailyBalance)
         ]);
       });
 
@@ -225,9 +231,9 @@ export class PDFReportGenerator {
     const totalOverdue = overdue.reduce((sum, p) => sum + p.amount, 0);
 
     this.addSummarySection({
-      'Total Pago': `R$ ${totalPaid.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`,
-      'Total Pendente': `R$ ${totalPending.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`,
-      'Total em Atraso': `R$ ${totalOverdue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`,
+      'Total Pago': this.formatCurrency(totalPaid),
+      'Total Pendente': this.formatCurrency(totalPending),
+      'Total em Atraso': this.formatCurrency(totalOverdue),
       'Pagamentos Concluídos': completed.length.toString(),
       'Pagamentos Pendentes': pending.length.toString(),
       'Pagamentos Atrasados': overdue.length.toString()
@@ -240,11 +246,11 @@ export class PDFReportGenerator {
       .forEach(payment => {
         this.addTableRow([
           payment.providerName,
-          `R$ ${payment.amount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`,
+          this.formatCurrency(payment.amount),
           payment.status === 'completed' ? 'Pago' : 
           payment.status === 'pending' ? 'Pendente' : 
           payment.status === 'overdue' ? 'Atrasado' : payment.status,
-          new Date(payment.dueDate).toLocaleDateString('pt-BR')
+          new Date(payment.dueDate).toLocaleDateString()
         ]);
       });
 
@@ -280,14 +286,14 @@ export class PDFReportGenerator {
     }, {} as any);
 
     const totalProviders = Object.keys(providerStats).length;
-    const totalPaid = Object.values(providerStats).reduce((sum: number, stats: any) => sum + stats.totalPaid, 0);
-    const totalPending = Object.values(providerStats).reduce((sum: number, stats: any) => sum + stats.totalPending, 0);
+    const totalPaid = Object.values(providerStats).reduce((sum: number, stats: any) => sum + (stats.totalPaid || 0), 0);
+    const totalPending = Object.values(providerStats).reduce((sum: number, stats: any) => sum + (stats.totalPending || 0), 0);
 
     this.addSummarySection({
       'Total de Prestadores': totalProviders.toString(),
-      'Total Pago': `R$ ${totalPaid.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`,
-      'Total Pendente': `R$ ${totalPending.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`,
-      'Média por Prestador': `R$ ${(totalPaid / totalProviders).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`
+      'Total Pago': this.formatCurrency(totalPaid),
+      'Total Pendente': this.formatCurrency(totalPending),
+      'Média por Prestador': this.formatCurrency(totalProviders > 0 ? totalPaid / totalProviders : 0)
     });
 
     this.addTableHeader(['Prestador', 'Valor Pago', 'Valor Pendente', 'Pagamentos']);
@@ -297,8 +303,8 @@ export class PDFReportGenerator {
       .forEach(([provider, stats]: [string, any]) => {
         this.addTableRow([
           provider,
-          `R$ ${stats.totalPaid.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`,
-          `R$ ${stats.totalPending.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`,
+          this.formatCurrency(stats.totalPaid || 0),
+          this.formatCurrency(stats.totalPending || 0),
           `${stats.completedCount}/${stats.pendingCount + stats.overdueCount + stats.completedCount}`
         ]);
       });
@@ -335,10 +341,10 @@ export class PDFReportGenerator {
       .sort(([,a], [,b]) => (b as any).total - (a as any).total)[0];
 
     this.addSummarySection({
-      'Total de Despesas': `R$ ${totalExpenses.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`,
+      'Total de Despesas': this.formatCurrency(totalExpenses),
       'Total de Funcionários': Object.keys(employeeExpenses).length.toString(),
-      'Maior Gastador': topEmployee ? `${topEmployee[0]} - R$ ${(topEmployee[1] as any).total.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}` : 'N/A',
-      'Despesa Média por Funcionário': `R$ ${(totalExpenses / Object.keys(employeeExpenses).length).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`
+      'Maior Gastador': topEmployee ? `${topEmployee[0]} - ${this.formatCurrency((topEmployee[1] as any).total)}` : 'N/A',
+      'Despesa Média por Funcionário': this.formatCurrency(Object.keys(employeeExpenses).length > 0 ? totalExpenses / Object.keys(employeeExpenses).length : 0)
     });
 
     this.addTableHeader(['Funcionário', 'Total Gasto', 'Qtd Despesas', 'Média']);
@@ -348,9 +354,9 @@ export class PDFReportGenerator {
       .forEach(([employee, stats]: [string, any]) => {
         this.addTableRow([
           employee,
-          `R$ ${stats.total.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`,
-          stats.count.toString(),
-          `R$ ${(stats.total / stats.count).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`
+          this.formatCurrency(stats.total || 0),
+          (stats.count || 0).toString(),
+          this.formatCurrency(stats.count > 0 ? stats.total / stats.count : 0)
         ]);
       });
 
@@ -372,8 +378,8 @@ export class PDFReportGenerator {
     const totalCompleted = completed.reduce((sum, t) => sum + t.amount, 0);
 
     this.addSummarySection({
-      'Total Pendente': `R$ ${totalPending.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`,
-      'Total Aprovado': `R$ ${totalCompleted.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`,
+      'Total Pendente': this.formatCurrency(totalPending),
+      'Total Aprovado': this.formatCurrency(totalCompleted),
       'Reembolsos Pendentes': pending.length.toString(),
       'Reembolsos Aprovados': completed.length.toString()
     });
@@ -386,9 +392,9 @@ export class PDFReportGenerator {
         this.addTableRow([
           transaction.userName,
           transaction.category,
-          `R$ ${transaction.amount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`,
+          this.formatCurrency(transaction.amount),
           transaction.status === 'completed' ? 'Aprovado' : 'Pendente',
-          new Date(transaction.date).toLocaleDateString('pt-BR')
+          new Date(transaction.date).toLocaleDateString()
         ]);
       });
 
@@ -409,10 +415,10 @@ export class PDFReportGenerator {
     const estimatedTax = taxableIncome * 0.15; // 15% aproximado
 
     this.addSummarySection({
-      'Receita Bruta': `R$ ${totalIncome.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`,
-      'Despesas Dedutíveis': `R$ ${totalExpenses.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`,
-      'Lucro Tributável': `R$ ${taxableIncome.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`,
-      'Imposto Estimado (15%)': `R$ ${estimatedTax.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`
+      'Receita Bruta': this.formatCurrency(totalIncome),
+      'Despesas Dedutíveis': this.formatCurrency(totalExpenses),
+      'Lucro Tributável': this.formatCurrency(taxableIncome),
+      'Imposto Estimado (15%)': this.formatCurrency(estimatedTax)
     });
 
     // Detalhamento por método de pagamento
@@ -431,9 +437,9 @@ export class PDFReportGenerator {
 
       this.addTableRow([
         method.toUpperCase(),
-        `R$ ${methodIncome.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`,
-        `R$ ${methodExpenses.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`,
-        `R$ ${methodNet.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`
+        this.formatCurrency(methodIncome),
+        this.formatCurrency(methodExpenses),
+        this.formatCurrency(methodNet)
       ]);
     });
 
