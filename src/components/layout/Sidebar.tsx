@@ -7,9 +7,11 @@ import {
   Wallet, 
   Receipt, 
   FileText,
-  Settings
+  Settings,
+  CreditCard
 } from "lucide-react";
 import { PageSection } from "@/pages/Index";
+import { useAuth } from "@/components/auth/AuthContext";
 
 interface SidebarProps {
   activeSection: PageSection;
@@ -19,38 +21,72 @@ interface SidebarProps {
 }
 
 export const Sidebar = ({ activeSection, setActiveSection, isOpen }: SidebarProps) => {
-  const menuItems = [
-    {
-      id: 'dashboard' as PageSection,
-      label: 'Dashboard',
-      icon: CircleDollarSign,
-      color: 'text-blue-600'
-    },
-    {
-      id: 'transactions' as PageSection,
-      label: 'Transações',
-      icon: Receipt,
-      color: 'text-emerald-600'
-    },
-    {
-      id: 'payments' as PageSection,
-      label: 'Pagamentos',
-      icon: Wallet,
-      color: 'text-orange-600'
-    },
-    {
-      id: 'cashflow' as PageSection,
-      label: 'Fluxo de Caixa',
-      icon: TrendingUp,
-      color: 'text-purple-600'
-    },
-    {
-      id: 'reports' as PageSection,
-      label: 'Relatórios',
-      icon: FileText,
-      color: 'text-indigo-600'
+  const { user } = useAuth();
+
+  const getMenuItems = () => {
+    const baseItems = [
+      {
+        id: 'dashboard' as PageSection,
+        label: 'Dashboard',
+        icon: CircleDollarSign,
+        color: 'text-blue-600'
+      }
+    ];
+
+    if (user?.role === 'owner') {
+      return [
+        ...baseItems,
+        {
+          id: 'transactions' as PageSection,
+          label: 'Transações',
+          icon: Receipt,
+          color: 'text-emerald-600'
+        },
+        {
+          id: 'payments' as PageSection,
+          label: 'Pagamentos',
+          icon: Wallet,
+          color: 'text-orange-600'
+        },
+        {
+          id: 'expenses' as PageSection,
+          label: 'Despesas de Viagem',
+          icon: CreditCard,
+          color: 'text-red-600'
+        },
+        {
+          id: 'cashflow' as PageSection,
+          label: 'Fluxo de Caixa',
+          icon: TrendingUp,
+          color: 'text-purple-600'
+        },
+        {
+          id: 'reports' as PageSection,
+          label: 'Relatórios',
+          icon: FileText,
+          color: 'text-indigo-600'
+        }
+      ];
+    } else {
+      return [
+        ...baseItems,
+        {
+          id: 'transactions' as PageSection,
+          label: 'Minhas Despesas',
+          icon: Receipt,
+          color: 'text-emerald-600'
+        },
+        {
+          id: 'expenses' as PageSection,
+          label: 'Nova Despesa',
+          icon: CreditCard,
+          color: 'text-red-600'
+        }
+      ];
     }
-  ];
+  };
+
+  const menuItems = getMenuItems();
 
   return (
     <aside className={cn(
@@ -66,6 +102,11 @@ export const Sidebar = ({ activeSection, setActiveSection, isOpen }: SidebarProp
             <div>
               <h1 className="font-bold text-lg">Sunsettrack</h1>
               <p className="text-xs text-slate-400">Gestão Financeira</p>
+              {user && (
+                <p className="text-xs text-blue-400 mt-1">
+                  {user.name} ({user.role === 'owner' ? 'Proprietária' : 'Funcionário'})
+                </p>
+              )}
             </div>
           )}
         </div>
