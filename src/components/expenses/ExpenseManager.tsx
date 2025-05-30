@@ -7,9 +7,21 @@ import { ExpenseList } from './ExpenseList';
 import { MissionManager } from './MissionManager';
 import { ExpensesByEmployee } from './ExpensesByEmployee';
 import { ExpensesByMission } from './ExpensesByMission';
+import { useToastFeedback } from '@/hooks/useToastFeedback';
 
 export const ExpenseManager = () => {
   const [activeTab, setActiveTab] = useState('new-expense');
+  const { showSuccess } = useToastFeedback();
+
+  const handleExpenseSubmitted = () => {
+    showSuccess('Despesa Registrada', 'A despesa foi registrada com sucesso!');
+    setActiveTab('expenses');
+  };
+
+  const handleMissionCreated = () => {
+    showSuccess('Missão Criada', 'A missão foi criada com sucesso!');
+    setActiveTab('missions');
+  };
 
   return (
     <div className="space-y-6">
@@ -32,7 +44,7 @@ export const ExpenseManager = () => {
           </TabsList>
 
           <TabsContent value="new-expense" className="mt-6">
-            <ExpenseForm />
+            <ExpenseForm onExpenseSubmitted={handleExpenseSubmitted} />
           </TabsContent>
 
           <TabsContent value="expenses" className="mt-6">
@@ -48,7 +60,7 @@ export const ExpenseManager = () => {
           </TabsContent>
 
           <TabsContent value="missions" className="mt-6">
-            <MissionManager />
+            <MissionManager onMissionCreated={handleMissionCreated} />
           </TabsContent>
         </Tabs>
       </Card>

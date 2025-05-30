@@ -1,4 +1,3 @@
-
 import { useState } from 'react';
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -9,9 +8,17 @@ import { Badge } from "@/components/ui/badge";
 import { Upload, X } from 'lucide-react';
 import { useAuth } from '@/components/auth/AuthContext';
 import { TransactionCategory, PaymentMethod } from '@/types/transaction';
+import { useToastFeedback } from '@/hooks/useToastFeedback';
 
-export const TransactionForm = () => {
+interface TransactionFormProps {
+  onTransactionSubmitted?: () => void;
+}
+
+export const TransactionForm = ({ onTransactionSubmitted }: TransactionFormProps) => {
   const { user } = useAuth();
+  const { showSuccess, showError } = useToastFeedback();
+  const [isLoading, setIsLoading] = useState(false);
+  
   const [formData, setFormData] = useState({
     type: 'expense' as 'income' | 'expense',
     category: 'fuel' as TransactionCategory,
@@ -50,21 +57,84 @@ export const TransactionForm = () => {
     { value: 'cash', label: 'Dinheiro' }
   ];
 
+  const resetForm = () => {
+    setFormData({
+      type: 'expense',
+      category: 'fuel',
+      amount: '',
+      description: '',
+      date: new Date().toISOString().split('T')[0],
+      method: 'pix',
+      receipt: null
+    });
+  };
+
+  const handleCancel = () => {
+    resetForm();
+    showSuccess('Cancelado', 'Formulário limpo com sucesso');
+  };
+
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
+      if (file.size > 10 * 1024 * 1024) { // 10MB limit
+        showError('Arquivo muito grande', 'O arquivo deve ter no máximo 10MB');
+        return;
+      }
       setFormData({...formData, receipt: file});
+      showSuccess('Arquivo anexado', `${file.name} foi anexado com sucesso`);
     }
   };
 
   const removeFile = () => {
     setFormData({...formData, receipt: null});
+    showSuccess('Arquivo removido', 'Comprovante removido com sucesso');
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    console.log('Transaction submitted:', formData);
-    // Aqui seria a lógica para salvar a transação
+    
+    if (!formData.description.trim() || !formData.amount) {
+      showError('Erro de Validação', 'Por favor, preencha todos os campos obrigatórios');
+      return;
+    }
+
+    const amount = parseFloat(formData.amount);
+    if (isNaN(amount) || amount <= 0) {
+      showError('Valor Inválido', 'Por favor, insira um valor válido maior que zero');
+      return;
+    }
+
+    setIsLoading(true);
+    
+    try {
+      // Simular API call
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      
+      const transactionData = {
+        ...formData,
+        id: Date.now().toString(),
+        amount: amount,
+        status: 'completed' as const,
+        userId: user?.id || '',
+        userName: user?.name || 'Usuário'
+      };
+      
+      console.log('Transaction submitted:', transactionData);
+      
+      const typeText = formData.type === 'income' ? 'Entrada' : 'Saída';
+      showSuccess(
+        'Transação Registrada', 
+        `${typeText} de R$ ${amount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} registrada com sucesso!`
+      );
+      
+      resetForm();
+      onTransactionSubmitted?.();
+    } catch (error) {
+      showError('Erro', 'Erro ao registrar transação. Tente novamente.');
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -211,10 +281,19 @@ export const TransactionForm = () => {
         </div>
 
         <div className="flex space-x-4">
-          <Button type="submit" className="bg-blue-600 hover:bg-blue-700">
-            Registrar Transação
+          <Button 
+            type="submit" 
+            className="bg-blue-600 hover:bg-blue-700"
+            disabled={isLoading}
+          >
+            {isLoading ? 'Registrando...' : 'Registrar Transação'}
           </Button>
-          <Button type="button" variant="outline">
+          <Button 
+            type="button" 
+            variant="outline"
+            onClick={handleCancel}
+            disabled={isLoading}
+          >
             Cancelar
           </Button>
         </div>

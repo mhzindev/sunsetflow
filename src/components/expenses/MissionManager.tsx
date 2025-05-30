@@ -1,4 +1,3 @@
-
 import { useState } from 'react';
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -6,9 +5,17 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { useToastFeedback } from '@/hooks/useToastFeedback';
 
-export const MissionManager = () => {
+interface MissionManagerProps {
+  onMissionCreated?: () => void;
+}
+
+export const MissionManager = ({ onMissionCreated }: MissionManagerProps) => {
   const [showForm, setShowForm] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const { showSuccess, showError } = useToastFeedback();
+  
   const [formData, setFormData] = useState({
     title: '',
     client: '',
@@ -78,10 +85,7 @@ export const MissionManager = () => {
     return labels[status as keyof typeof labels] || 'Planejada';
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    console.log('Mission created:', formData);
-    setShowForm(false);
+  const resetForm = () => {
     setFormData({
       title: '',
       client: '',
@@ -90,6 +94,54 @@ export const MissionManager = () => {
       endDate: '',
       assignedEmployees: []
     });
+  };
+
+  const handleCancel = () => {
+    setShowForm(false);
+    resetForm();
+    showSuccess('Cancelado', 'Operação cancelada com sucesso');
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    if (!formData.title.trim() || !formData.client.trim() || !formData.location.trim() || !formData.startDate) {
+      showError('Erro de Validação', 'Por favor, preencha todos os campos obrigatórios');
+      return;
+    }
+
+    setIsLoading(true);
+    
+    try {
+      // Simular API call
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      
+      console.log('Mission created:', {
+        ...formData,
+        id: Date.now().toString(),
+        status: 'planned',
+        totalExpenses: 0
+      });
+      
+      showSuccess('Missão Criada', `A missão "${formData.title}" foi criada com sucesso!`);
+      setShowForm(false);
+      resetForm();
+      onMissionCreated?.();
+    } catch (error) {
+      showError('Erro', 'Erro ao criar missão. Tente novamente.');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleViewMission = (missionId: string, missionTitle: string) => {
+    showSuccess('Visualizar Missão', `Abrindo detalhes da missão: ${missionTitle}`);
+    console.log('View mission:', missionId);
+  };
+
+  const handleEditMission = (missionId: string, missionTitle: string) => {
+    showSuccess('Editar Missão', `Editando missão: ${missionTitle}`);
+    console.log('Edit mission:', missionId);
   };
 
   return (
@@ -109,7 +161,7 @@ export const MissionManager = () => {
           <form onSubmit={handleSubmit} className="space-y-4 mb-6 p-4 bg-slate-50 rounded-lg">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <Label htmlFor="title">Título da Missão</Label>
+                <Label htmlFor="title">Título da Missão *</Label>
                 <Input
                   id="title"
                   placeholder="Ex: Instalação - Cliente ABC"
@@ -119,7 +171,7 @@ export const MissionManager = () => {
                 />
               </div>
               <div>
-                <Label htmlFor="client">Cliente</Label>
+                <Label htmlFor="client">Cliente *</Label>
                 <Input
                   id="client"
                   placeholder="Nome do cliente"
@@ -131,7 +183,7 @@ export const MissionManager = () => {
             </div>
 
             <div>
-              <Label htmlFor="location">Local</Label>
+              <Label htmlFor="location">Local *</Label>
               <Input
                 id="location"
                 placeholder="Cidade/Estado"
@@ -143,7 +195,7 @@ export const MissionManager = () => {
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <Label htmlFor="startDate">Data de Início</Label>
+                <Label htmlFor="startDate">Data de Início *</Label>
                 <Input
                   id="startDate"
                   type="date"
@@ -164,10 +216,19 @@ export const MissionManager = () => {
             </div>
 
             <div className="flex space-x-4">
-              <Button type="submit" className="bg-blue-600 hover:bg-blue-700">
-                Criar Missão
+              <Button 
+                type="submit" 
+                className="bg-blue-600 hover:bg-blue-700"
+                disabled={isLoading}
+              >
+                {isLoading ? 'Criando...' : 'Criar Missão'}
               </Button>
-              <Button type="button" variant="outline" onClick={() => setShowForm(false)}>
+              <Button 
+                type="button" 
+                variant="outline" 
+                onClick={handleCancel}
+                disabled={isLoading}
+              >
                 Cancelar
               </Button>
             </div>
@@ -216,8 +277,20 @@ export const MissionManager = () => {
                 </TableCell>
                 <TableCell>
                   <div className="flex space-x-1">
-                    <Button variant="outline" size="sm">Ver</Button>
-                    <Button variant="outline" size="sm">Editar</Button>
+                    <Button 
+                      variant="outline" 
+                      size="sm"
+                      onClick={() => handleViewMission(mission.id, mission.title)}
+                    >
+                      Ver
+                    </Button>
+                    <Button 
+                      variant="outline" 
+                      size="sm"
+                      onClick={() => handleEditMission(mission.id, mission.title)}
+                    >
+                      Editar
+                    </Button>
                   </div>
                 </TableCell>
               </TableRow>

@@ -10,6 +10,10 @@ interface DashboardProps {
 }
 
 export const Dashboard = ({ onNavigate }: DashboardProps) => {
+  const handleViewAllTransactions = () => {
+    onNavigate?.('transactions');
+  };
+
   return (
     <div className="space-y-6">
       <FinancialSummary />
@@ -23,7 +27,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
         </div>
       </div>
 
-      <RecentTransactions />
+      <RecentTransactions onViewAll={handleViewAllTransactions} />
     </div>
   );
 };

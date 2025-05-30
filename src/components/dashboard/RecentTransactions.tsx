@@ -1,69 +1,110 @@
 
 import { Card } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { ArrowUpRight, ArrowDownRight, Eye } from "lucide-react";
 
-export const RecentTransactions = () => {
-  const transactions = [
+interface RecentTransactionsProps {
+  onViewAll?: () => void;
+}
+
+export const RecentTransactions = ({ onViewAll }: RecentTransactionsProps) => {
+  const recentTransactions = [
     {
-      id: 1,
-      description: "Pagamento Prestador - João Silva",
-      amount: -2500.00,
-      type: "Pagamento",
-      method: "PIX",
-      date: "2024-01-15",
-      status: "Concluído"
+      id: '1',
+      type: 'income' as const,
+      description: 'Recebimento - Cliente ABC',
+      amount: 2500.00,
+      date: '2024-01-30',
+      category: 'client_payment'
     },
     {
-      id: 2,
-      description: "Recebimento Cliente - Projeto Alpha",
-      amount: 8500.00,
-      type: "Recebimento",
-      method: "Transferência",
-      date: "2024-01-14",
-      status: "Concluído"
+      id: '2',
+      type: 'expense' as const,
+      description: 'Combustível - Viagem SP',
+      amount: 180.00,
+      date: '2024-01-29',
+      category: 'fuel'
     },
     {
-      id: 3,
-      description: "Compra Material - Cartão Corporativo",
-      amount: -850.00,
-      type: "Despesa",
-      method: "Cartão",
-      date: "2024-01-13",
-      status: "Processando"
+      id: '3',
+      type: 'expense' as const,
+      description: 'Hospedagem - Hotel Central',
+      amount: 320.00,
+      date: '2024-01-28',
+      category: 'accommodation'
+    },
+    {
+      id: '4',
+      type: 'income' as const,
+      description: 'Pagamento - Serviço Instalação',
+      amount: 1800.00,
+      date: '2024-01-27',
+      category: 'client_payment'
     }
   ];
 
+  const handleViewAll = () => {
+    onViewAll?.();
+  };
+
+  const getCategoryColor = (category: string) => {
+    const colors = {
+      client_payment: 'bg-green-100 text-green-800',
+      fuel: 'bg-orange-100 text-orange-800',
+      accommodation: 'bg-blue-100 text-blue-800',
+      meals: 'bg-emerald-100 text-emerald-800',
+    };
+    return colors[category as keyof typeof colors] || 'bg-gray-100 text-gray-800';
+  };
+
   return (
     <Card className="p-6">
-      <div className="flex items-center justify-between mb-6">
+      <div className="flex items-center justify-between mb-4">
         <h3 className="text-lg font-semibold text-slate-800">Transações Recentes</h3>
-        <Button variant="outline" size="sm">Ver Todas</Button>
+        <Button 
+          variant="outline" 
+          size="sm"
+          onClick={handleViewAll}
+          className="text-blue-600 hover:text-blue-700"
+        >
+          <Eye className="w-4 h-4 mr-2" />
+          Ver Todas
+        </Button>
       </div>
-
-      <div className="space-y-4">
-        {transactions.map((transaction) => (
-          <div key={transaction.id} className="flex items-center justify-between p-4 bg-slate-50 rounded-lg">
-            <div className="flex-1">
-              <p className="font-medium text-slate-800">{transaction.description}</p>
-              <div className="flex items-center space-x-4 mt-1">
-                <span className="text-sm text-slate-600">{transaction.date}</span>
-                <span className="text-sm text-slate-600">{transaction.method}</span>
-                <Badge variant={transaction.status === 'Concluído' ? 'default' : 'secondary'}>
-                  {transaction.status}
-                </Badge>
+      
+      <div className="space-y-3">
+        {recentTransactions.map((transaction) => (
+          <div key={transaction.id} className="flex items-center justify-between p-3 bg-slate-50 rounded-lg">
+            <div className="flex items-center space-x-3">
+              <div className={`w-8 h-8 rounded-full flex items-center justify-center ${
+                transaction.type === 'income' ? 'bg-green-100' : 'bg-red-100'
+              }`}>
+                {transaction.type === 'income' ? (
+                  <ArrowUpRight className="w-4 h-4 text-green-600" />
+                ) : (
+                  <ArrowDownRight className="w-4 h-4 text-red-600" />
+                )}
+              </div>
+              <div>
+                <p className="font-medium text-slate-800">{transaction.description}</p>
+                <p className="text-sm text-slate-600">
+                  {new Date(transaction.date).toLocaleDateString('pt-BR')}
+                </p>
               </div>
             </div>
             
             <div className="text-right">
-              <p className={`font-bold ${
-                transaction.amount > 0 ? 'text-emerald-600' : 'text-red-600'
+              <p className={`font-semibold ${
+                transaction.type === 'income' ? 'text-green-600' : 'text-red-600'
               }`}>
-                R$ {Math.abs(transaction.amount).toLocaleString('pt-BR', { 
-                  minimumFractionDigits: 2 
-                })}
+                {transaction.type === 'income' ? '+' : '-'}R$ {transaction.amount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
               </p>
-              <p className="text-sm text-slate-600">{transaction.type}</p>
+              <Badge variant="outline" className={getCategoryColor(transaction.category)}>
+                {transaction.category === 'client_payment' ? 'Cliente' : 
+                 transaction.category === 'fuel' ? 'Combustível' :
+                 transaction.category === 'accommodation' ? 'Hospedagem' : 'Outros'}
+              </Badge>
             </div>
           </div>
         ))}
