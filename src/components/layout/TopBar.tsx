@@ -12,6 +12,7 @@ const sectionTitles = {
   dashboard: 'Dashboard',
   transactions: 'Transações',
   payments: 'Pagamentos',
+  expenses: 'Despesas de Viagem',
   cashflow: 'Fluxo de Caixa',
   reports: 'Relatórios'
 };

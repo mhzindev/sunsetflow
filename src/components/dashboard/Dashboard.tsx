@@ -5,7 +5,11 @@ import { RecentTransactions } from "./RecentTransactions";
 import { CashFlowChart } from "./CashFlowChart";
 import { QuickActions } from "./QuickActions";
 
-export const Dashboard = () => {
+interface DashboardProps {
+  onNavigate?: (section: string) => void;
+}
+
+export const Dashboard = ({ onNavigate }: DashboardProps) => {
   return (
     <div className="space-y-6">
       <FinancialSummary />
@@ -15,7 +19,7 @@ export const Dashboard = () => {
           <CashFlowChart />
         </div>
         <div>
-          <QuickActions />
+          <QuickActions onNavigate={onNavigate || (() => {})} />
         </div>
       </div>
 

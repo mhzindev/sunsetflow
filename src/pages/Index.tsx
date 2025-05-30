@@ -16,10 +16,14 @@ const Index = () => {
   const [activeSection, setActiveSection] = useState<PageSection>('dashboard');
   const [sidebarOpen, setSidebarOpen] = useState(true);
 
+  const handleNavigate = (section: string) => {
+    setActiveSection(section as PageSection);
+  };
+
   const renderContent = () => {
     switch (activeSection) {
       case 'dashboard':
-        return <Dashboard />;
+        return <Dashboard onNavigate={handleNavigate} />;
       case 'transactions':
         return <TransactionManager />;
       case 'payments':
@@ -31,7 +35,7 @@ const Index = () => {
       case 'reports':
         return <Reports />;
       default:
-        return <Dashboard />;
+        return <Dashboard onNavigate={handleNavigate} />;
     }
   };
 

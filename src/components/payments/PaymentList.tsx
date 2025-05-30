@@ -1,12 +1,19 @@
 
+import { useState } from 'react';
 import { Card } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { AlertTriangle, Clock, CheckCircle } from 'lucide-react';
+import { Search, Filter, Download, Eye, DollarSign, Clock, AlertTriangle } from 'lucide-react';
+import { Payment, PaymentStatus } from '@/types/payment';
 
 export const PaymentList = () => {
-  const mockPayments = [
+  const [searchTerm, setSearchTerm] = useState('');
+  const [filterStatus, setFilterStatus] = useState<PaymentStatus | 'all'>('all');
+
+  // Mock data - em um sistema real, viria de uma API
+  const mockPayments: Payment[] = [
     {
       id: '1',
       providerId: '1',
@@ -15,9 +22,8 @@ export const PaymentList = () => {
       dueDate: '2024-02-01',
       status: 'pending',
       type: 'full',
-      description: 'Serviços de instalação Janeiro/2024',
-      installments: 1,
-      currentInstallment: 1
+      description: 'Serviços de instalação - Janeiro 2024',
+      notes: 'Pagamento referente às 5 instalações realizadas'
     },
     {
       id: '2',
@@ -25,200 +31,294 @@ export const PaymentList = () => {
       providerName: 'Maria Santos - Técnica',
       amount: 1800.00,
       dueDate: '2024-01-28',
+      paymentDate: '2024-01-30',
       status: 'overdue',
-      type: 'installment',
-      description: 'Serviços de manutenção',
-      installments: 3,
-      currentInstallment: 2
+      type: 'full',
+      description: 'Serviços de manutenção - Janeiro 2024',
+      notes: 'Manutenção preventiva em 8 veículos'
     },
     {
       id: '3',
       providerId: '3',
       providerName: 'Tech Solutions Ltd',
-      amount: 500.00,
-      dueDate: '2024-01-20',
-      paymentDate: '2024-01-20',
-      status: 'completed',
-      type: 'advance',
-      description: 'Adiantamento para projeto especial',
-      installments: 1,
-      currentInstallment: 1
+      amount: 4500.00,
+      dueDate: '2024-02-05',
+      status: 'pending',
+      type: 'installment',
+      description: 'Desenvolvimento de módulo personalizado',
+      installments: 3,
+      currentInstallment: 1,
+      notes: 'Primeira parcela de 3'
     },
     {
       id: '4',
+      providerId: '4',
+      providerName: 'Carlos Oliveira - Freelancer',
+      amount: 800.00,
+      dueDate: '2024-01-25',
+      paymentDate: '2024-01-25',
+      status: 'completed',
+      type: 'advance',
+      description: 'Adiantamento para compra de materiais',
+      notes: 'Materiais para instalação em Campinas'
+    },
+    {
+      id: '5',
       providerId: '1',
       providerName: 'João Silva - Técnico',
       amount: 1200.00,
-      dueDate: '2024-02-05',
-      status: 'partial',
-      type: 'installment',
-      description: 'Pagamento parcial de serviços',
-      installments: 2,
-      currentInstallment: 1
+      dueDate: '2024-02-10',
+      status: 'pending',
+      type: 'partial',
+      description: 'Pagamento parcial - Projeto especial',
+      notes: 'Pagamento de 50% do projeto'
     }
   ];
 
-  const getStatusIcon = (status: string) => {
+  const filteredPayments = mockPayments.filter(payment => {
+    const matchesSearch = payment.providerName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         payment.description.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesFilter = filterStatus === 'all' || payment.status === filterStatus;
+    
+    return matchesSearch && matchesFilter;
+  });
+
+  const getStatusColor = (status: PaymentStatus) => {
     switch (status) {
-      case 'pending':
-        return <Clock className="w-4 h-4 text-yellow-600" />;
-      case 'overdue':
-        return <AlertTriangle className="w-4 h-4 text-red-600" />;
-      case 'completed':
-        return <CheckCircle className="w-4 h-4 text-green-600" />;
-      case 'partial':
-        return <Clock className="w-4 h-4 text-blue-600" />;
-      default:
-        return null;
+      case 'completed': return 'bg-green-100 text-green-800';
+      case 'pending': return 'bg-blue-100 text-blue-800';
+      case 'partial': return 'bg-yellow-100 text-yellow-800';
+      case 'overdue': return 'bg-red-100 text-red-800';
+      case 'cancelled': return 'bg-gray-100 text-gray-800';
+      default: return 'bg-gray-100 text-gray-800';
     }
   };
 
-  const getStatusColor = (status: string) => {
-    const colors = {
-      pending: 'bg-yellow-100 text-yellow-800',
-      overdue: 'bg-red-100 text-red-800',
-      completed: 'bg-green-100 text-green-800',
-      partial: 'bg-blue-100 text-blue-800',
-      cancelled: 'bg-gray-100 text-gray-800'
-    };
-    return colors[status as keyof typeof colors] || colors.pending;
-  };
-
-  const getStatusLabel = (status: string) => {
+  const getStatusLabel = (status: PaymentStatus) => {
     const labels = {
       pending: 'Pendente',
-      overdue: 'Em Atraso',
-      completed: 'Concluído',
       partial: 'Parcial',
+      completed: 'Concluído',
+      overdue: 'Em Atraso',
       cancelled: 'Cancelado'
     };
-    return labels[status as keyof typeof labels] || 'Pendente';
+    return labels[status];
   };
 
   const getTypeLabel = (type: string) => {
     const labels = {
       full: 'Integral',
       installment: 'Parcelado',
-      advance: 'Adiantamento'
+      advance: 'Adiantamento',
+      partial: 'Parcial'
     };
-    return labels[type as keyof typeof labels] || 'Integral';
+    return labels[type as keyof typeof labels] || type;
   };
 
-  const isDue = (dueDate: string) => {
+  const getStatusIcon = (status: PaymentStatus) => {
+    switch (status) {
+      case 'completed': return <DollarSign className="w-4 h-4 text-green-600" />;
+      case 'pending': return <Clock className="w-4 h-4 text-blue-600" />;
+      case 'overdue': return <AlertTriangle className="w-4 h-4 text-red-600" />;
+      default: return <Clock className="w-4 h-4 text-gray-600" />;
+    }
+  };
+
+  const getDaysUntilDue = (dueDate: string) => {
     const today = new Date();
     const due = new Date(dueDate);
-    return due <= today;
+    const diffTime = due.getTime() - today.getTime();
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    return diffDays;
   };
+
+  const totalPending = filteredPayments
+    .filter(p => p.status === 'pending' || p.status === 'partial')
+    .reduce((sum, p) => sum + p.amount, 0);
+  
+  const totalOverdue = filteredPayments
+    .filter(p => p.status === 'overdue')
+    .reduce((sum, p) => sum + p.amount, 0);
+
+  const totalCompleted = filteredPayments
+    .filter(p => p.status === 'completed')
+    .reduce((sum, p) => sum + p.amount, 0);
 
   return (
     <div className="space-y-6">
-      {/* Resumo */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <Card className="p-4">
+      {/* Resumo de Pagamentos */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <Card className="p-4 border-blue-200">
           <div className="flex items-center space-x-2">
-            <Clock className="w-5 h-5 text-yellow-600" />
+            <Clock className="w-5 h-5 text-blue-600" />
             <div>
-              <p className="text-sm text-gray-600">Pendentes</p>
-              <p className="text-lg font-semibold">R$ 3.700,00</p>
+              <h4 className="font-semibold text-blue-700">Pendentes</h4>
+              <p className="text-2xl font-bold text-blue-600">
+                R$ {totalPending.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+              </p>
             </div>
           </div>
         </Card>
-        <Card className="p-4">
+        
+        <Card className="p-4 border-red-200">
           <div className="flex items-center space-x-2">
             <AlertTriangle className="w-5 h-5 text-red-600" />
             <div>
-              <p className="text-sm text-gray-600">Em Atraso</p>
-              <p className="text-lg font-semibold">R$ 1.800,00</p>
+              <h4 className="font-semibold text-red-700">Em Atraso</h4>
+              <p className="text-2xl font-bold text-red-600">
+                R$ {totalOverdue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+              </p>
             </div>
           </div>
         </Card>
-        <Card className="p-4">
+        
+        <Card className="p-4 border-green-200">
           <div className="flex items-center space-x-2">
-            <CheckCircle className="w-5 h-5 text-green-600" />
+            <DollarSign className="w-5 h-5 text-green-600" />
             <div>
-              <p className="text-sm text-gray-600">Pagos (30 dias)</p>
-              <p className="text-lg font-semibold">R$ 12.500,00</p>
-            </div>
-          </div>
-        </Card>
-        <Card className="p-4">
-          <div className="flex items-center space-x-2">
-            <div className="w-5 h-5 bg-blue-600 rounded-full"></div>
-            <div>
-              <p className="text-sm text-gray-600">Parciais</p>
-              <p className="text-lg font-semibold">R$ 1.200,00</p>
+              <h4 className="font-semibold text-green-700">Pagos (30 dias)</h4>
+              <p className="text-2xl font-bold text-green-600">
+                R$ {totalCompleted.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+              </p>
             </div>
           </div>
         </Card>
       </div>
 
-      {/* Lista de Pagamentos */}
+      {/* Filtros e Busca */}
       <Card className="p-6">
-        <div className="flex items-center justify-between mb-4">
-          <h4 className="text-lg font-semibold text-slate-800">Lista de Pagamentos</h4>
-          <div className="flex space-x-2">
-            <Button variant="outline" size="sm">Filtrar</Button>
-            <Button variant="outline" size="sm">Exportar</Button>
+        <div className="flex flex-col md:flex-row gap-4 mb-6">
+          <div className="flex-1">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+              <Input
+                placeholder="Buscar por prestador ou descrição..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="pl-10"
+              />
+            </div>
+          </div>
+          
+          <div className="flex gap-2">
+            <select
+              value={filterStatus}
+              onChange={(e) => setFilterStatus(e.target.value as PaymentStatus | 'all')}
+              className="px-3 py-2 border border-gray-300 rounded-md"
+            >
+              <option value="all">Todos os Status</option>
+              <option value="pending">Pendente</option>
+              <option value="partial">Parcial</option>
+              <option value="overdue">Em Atraso</option>
+              <option value="completed">Concluído</option>
+              <option value="cancelled">Cancelado</option>
+            </select>
+            
+            <Button variant="outline" size="sm">
+              <Filter className="w-4 h-4 mr-2" />
+              Filtros
+            </Button>
+            
+            <Button variant="outline" size="sm">
+              <Download className="w-4 h-4 mr-2" />
+              Exportar
+            </Button>
           </div>
         </div>
 
+        {/* Tabela de Pagamentos */}
         <Table>
           <TableHeader>
             <TableRow>
               <TableHead>Prestador</TableHead>
               <TableHead>Descrição</TableHead>
+              <TableHead>Tipo</TableHead>
               <TableHead>Valor</TableHead>
               <TableHead>Vencimento</TableHead>
-              <TableHead>Tipo</TableHead>
               <TableHead>Status</TableHead>
-              <TableHead>Parcelas</TableHead>
+              <TableHead>Urgência</TableHead>
               <TableHead>Ações</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
-            {mockPayments.map((payment) => (
-              <TableRow key={payment.id} className={isDue(payment.dueDate) && payment.status === 'pending' ? 'bg-red-50' : ''}>
-                <TableCell className="font-medium">{payment.providerName}</TableCell>
-                <TableCell className="max-w-xs truncate">{payment.description}</TableCell>
-                <TableCell className="font-semibold">
-                  R$ {payment.amount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                </TableCell>
-                <TableCell>
-                  <div className="flex items-center space-x-2">
-                    {getStatusIcon(payment.status)}
-                    <span className={isDue(payment.dueDate) && payment.status === 'pending' ? 'text-red-600 font-medium' : ''}>
-                      {new Date(payment.dueDate).toLocaleDateString('pt-BR')}
-                    </span>
-                  </div>
-                </TableCell>
-                <TableCell>
-                  <Badge variant="outline">{getTypeLabel(payment.type)}</Badge>
-                </TableCell>
-                <TableCell>
-                  <Badge className={getStatusColor(payment.status)}>
-                    {getStatusLabel(payment.status)}
-                  </Badge>
-                </TableCell>
-                <TableCell>
-                  {payment.installments > 1 ? 
-                    `${payment.currentInstallment}/${payment.installments}` : 
-                    'À vista'
-                  }
-                </TableCell>
-                <TableCell>
-                  <div className="flex space-x-1">
-                    <Button variant="outline" size="sm">Ver</Button>
-                    {payment.status === 'pending' && (
-                      <Button size="sm" className="bg-green-600 hover:bg-green-700">
-                        Pagar
-                      </Button>
+            {filteredPayments.map((payment) => {
+              const daysUntilDue = getDaysUntilDue(payment.dueDate);
+              const isUrgent = daysUntilDue <= 3 && payment.status !== 'completed';
+              
+              return (
+                <TableRow key={payment.id} className={isUrgent ? 'bg-red-50' : ''}>
+                  <TableCell className="font-medium">
+                    {payment.providerName}
+                  </TableCell>
+                  <TableCell>
+                    <div>
+                      <p className="font-medium">{payment.description}</p>
+                      {payment.installments && (
+                        <p className="text-sm text-gray-500">
+                          {payment.currentInstallment}/{payment.installments} parcelas
+                        </p>
+                      )}
+                    </div>
+                  </TableCell>
+                  <TableCell>
+                    <Badge variant="outline">
+                      {getTypeLabel(payment.type)}
+                    </Badge>
+                  </TableCell>
+                  <TableCell className="font-semibold">
+                    R$ {payment.amount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                  </TableCell>
+                  <TableCell>
+                    {new Date(payment.dueDate).toLocaleDateString('pt-BR')}
+                  </TableCell>
+                  <TableCell>
+                    <div className="flex items-center space-x-2">
+                      {getStatusIcon(payment.status)}
+                      <Badge className={getStatusColor(payment.status)}>
+                        {getStatusLabel(payment.status)}
+                      </Badge>
+                    </div>
+                  </TableCell>
+                  <TableCell>
+                    {payment.status !== 'completed' && (
+                      <Badge 
+                        variant={daysUntilDue < 0 ? 'destructive' : daysUntilDue <= 3 ? 'secondary' : 'outline'}
+                      >
+                        {daysUntilDue < 0 
+                          ? `${Math.abs(daysUntilDue)} dias atraso`
+                          : daysUntilDue === 0 
+                            ? 'Vence hoje'
+                            : `${daysUntilDue} dias`
+                        }
+                      </Badge>
                     )}
-                  </div>
-                </TableCell>
-              </TableRow>
-            ))}
+                  </TableCell>
+                  <TableCell>
+                    <div className="flex gap-1">
+                      <Button variant="outline" size="sm">
+                        <Eye className="w-4 h-4" />
+                      </Button>
+                      {payment.status !== 'completed' && (
+                        <Button 
+                          size="sm" 
+                          className={isUrgent ? "bg-red-600 hover:bg-red-700" : "bg-blue-600 hover:bg-blue-700"}
+                        >
+                          Pagar
+                        </Button>
+                      )}
+                    </div>
+                  </TableCell>
+                </TableRow>
+              );
+            })}
           </TableBody>
         </Table>
+        
+        {filteredPayments.length === 0 && (
+          <div className="text-center py-8 text-gray-500">
+            Nenhum pagamento encontrado
+          </div>
+        )}
       </Card>
     </div>
   );
