@@ -191,8 +191,8 @@ export class PDFReportGenerator {
 
     const totalIncome = Object.values(dailyFlow).reduce((sum: number, day: any) => sum + (day.income || 0), 0);
     const totalExpenses = Object.values(dailyFlow).reduce((sum: number, day: any) => sum + (day.expenses || 0), 0);
-    const maxDailyIncome = Math.max(...Object.values(dailyFlow).map((d: any) => d.income || 0));
-    const maxDailyExpenses = Math.max(...Object.values(dailyFlow).map((d: any) => d.expenses || 0));
+    const maxDailyIncome = Math.max(...Object.values(dailyFlow).map((d: any) => (d.income || 0) as number));
+    const maxDailyExpenses = Math.max(...Object.values(dailyFlow).map((d: any) => (d.expenses || 0) as number));
 
     this.addSummarySection({
       'Total de Entradas': this.formatCurrency(totalIncome),
