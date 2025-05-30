@@ -8,71 +8,95 @@ import { Eye, FileText, Download } from 'lucide-react';
 import { useState } from 'react';
 import { useAuth } from '@/components/auth/AuthContext';
 
+interface EmployeeTransaction {
+  id: string;
+  type: 'expense';
+  category: string;
+  description: string;
+  amount: number;
+  date: string;
+  method: string;
+  status: string;
+  receipt: boolean;
+}
+
+interface OwnerTransaction {
+  id: string;
+  type: 'income' | 'expense';
+  category: string;
+  description: string;
+  amount: number;
+  date: string;
+  method: string;
+  status: string;
+  userName: string;
+}
+
 export const TransactionList = () => {
   const { user } = useAuth();
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
 
-  const mockTransactions = user?.role === 'employee' 
-    ? [
-        {
-          id: '1',
-          type: 'expense',
-          category: 'fuel',
-          description: 'Combustível viagem São Paulo',
-          amount: 280.50,
-          date: '2024-01-15',
-          method: 'credit_card',
-          status: 'completed',
-          receipt: true
-        },
-        {
-          id: '2',
-          type: 'expense',
-          category: 'meals',
-          description: 'Almoço durante instalação',
-          amount: 45.00,
-          date: '2024-01-14',
-          method: 'cash',
-          status: 'pending',
-          receipt: true
-        }
-      ]
-    : [
-        {
-          id: '1',
-          type: 'income',
-          category: 'client_payment',
-          description: 'Recebimento Cliente - Projeto Alpha',
-          amount: 8500.00,
-          date: '2024-01-15',
-          method: 'transfer',
-          status: 'completed',
-          userName: 'Ana Silva'
-        },
-        {
-          id: '2',
-          type: 'expense',
-          category: 'service_payment',
-          description: 'Pagamento Prestador - João Silva',
-          amount: 2500.00,
-          date: '2024-01-14',
-          method: 'pix',
-          status: 'completed',
-          userName: 'Ana Silva'
-        },
-        {
-          id: '3',
-          type: 'expense',
-          category: 'fuel',
-          description: 'Combustível viagem São Paulo',
-          amount: 280.50,
-          date: '2024-01-13',
-          method: 'credit_card',
-          status: 'completed',
-          userName: 'Carlos Santos'
-        }
-      ];
+  const mockEmployeeTransactions: EmployeeTransaction[] = [
+    {
+      id: '1',
+      type: 'expense',
+      category: 'fuel',
+      description: 'Combustível viagem São Paulo',
+      amount: 280.50,
+      date: '2024-01-15',
+      method: 'credit_card',
+      status: 'completed',
+      receipt: true
+    },
+    {
+      id: '2',
+      type: 'expense',
+      category: 'meals',
+      description: 'Almoço durante instalação',
+      amount: 45.00,
+      date: '2024-01-14',
+      method: 'cash',
+      status: 'pending',
+      receipt: true
+    }
+  ];
+
+  const mockOwnerTransactions: OwnerTransaction[] = [
+    {
+      id: '1',
+      type: 'income',
+      category: 'client_payment',
+      description: 'Recebimento Cliente - Projeto Alpha',
+      amount: 8500.00,
+      date: '2024-01-15',
+      method: 'transfer',
+      status: 'completed',
+      userName: 'Ana Silva'
+    },
+    {
+      id: '2',
+      type: 'expense',
+      category: 'service_payment',
+      description: 'Pagamento Prestador - João Silva',
+      amount: 2500.00,
+      date: '2024-01-14',
+      method: 'pix',
+      status: 'completed',
+      userName: 'Ana Silva'
+    },
+    {
+      id: '3',
+      type: 'expense',
+      category: 'fuel',
+      description: 'Combustível viagem São Paulo',
+      amount: 280.50,
+      date: '2024-01-13',
+      method: 'credit_card',
+      status: 'completed',
+      userName: 'Carlos Santos'
+    }
+  ];
 
   const getCategoryLabel = (category: string) => {
     const labels = {
@@ -124,7 +148,9 @@ export const TransactionList = () => {
     return labels[method as keyof typeof labels] || method;
   };
 
-  const filteredTransactions = mockTransactions.filter(transaction => {
+  const transactions = user?.role === 'employee' ? mockEmployeeTransactions : mockOwnerTransactions;
+
+  const filteredTransactions = transactions.filter(transaction => {
     const matchesSearch = transaction.description.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesStatus = statusFilter === 'all' || transaction.status === statusFilter;
     return matchesSearch && matchesStatus;
@@ -198,7 +224,9 @@ export const TransactionList = () => {
               <TableCell>{new Date(transaction.date).toLocaleDateString('pt-BR')}</TableCell>
               <TableCell>{getMethodLabel(transaction.method)}</TableCell>
               {user?.role === 'owner' && (
-                <TableCell>{transaction.userName || 'N/A'}</TableCell>
+                <TableCell>
+                  {'userName' in transaction ? transaction.userName : 'N/A'}
+                </TableCell>
               )}
               <TableCell>
                 <Badge className={getStatusColor(transaction.status)}>
@@ -211,7 +239,7 @@ export const TransactionList = () => {
                   <Button variant="outline" size="sm">
                     <Eye className="w-4 h-4" />
                   </Button>
-                  {transaction.receipt && (
+                  {'receipt' in transaction && transaction.receipt && (
                     <Button variant="outline" size="sm">
                       <FileText className="w-4 h-4" />
                     </Button>
