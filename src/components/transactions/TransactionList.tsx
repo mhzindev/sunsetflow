@@ -1,17 +1,19 @@
-
 import { useState } from 'react';
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Search, Filter, Download, Eye } from 'lucide-react';
+import { Search, Filter, Download, Eye, Edit } from 'lucide-react';
 import { useAuth } from '@/components/auth/AuthContext';
 import { useFinancial } from '@/contexts/FinancialContext';
 import { FilterModal, FilterConfig } from '@/components/common/FilterModal';
 import { ExportModal } from '@/components/common/ExportModal';
+import { TransactionViewModal } from './TransactionViewModal';
+import { TransactionEditModal } from './TransactionEditModal';
 import { exportToCSV, exportToPDF, exportToExcel, ExportOptions } from '@/utils/exportUtils';
 import { useToastFeedback } from '@/hooks/useToastFeedback';
+import { Transaction } from '@/types/transaction';
 
 export const TransactionList = () => {
   const { user } = useAuth();
@@ -20,6 +22,9 @@ export const TransactionList = () => {
   const [filterStatus, setFilterStatus] = useState('all');
   const [isFilterModalOpen, setIsFilterModalOpen] = useState(false);
   const [isExportModalOpen, setIsExportModalOpen] = useState(false);
+  const [isViewModalOpen, setIsViewModalOpen] = useState(false);
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [selectedTransaction, setSelectedTransaction] = useState<Transaction | null>(null);
   const [activeFilters, setActiveFilters] = useState<FilterConfig>({
     dateRange: { start: null, end: null },
     status: [],
@@ -170,6 +175,30 @@ export const TransactionList = () => {
     { value: 'other', label: 'Outros' }
   ];
 
+  const handleViewTransaction = (transaction: Transaction) => {
+    setSelectedTransaction(transaction);
+    setIsViewModalOpen(true);
+  };
+
+  const handleEditTransaction = (transaction: Transaction) => {
+    setSelectedTransaction(transaction);
+    setIsEditModalOpen(true);
+  };
+
+  const handleEditFromView = (transaction: Transaction) => {
+    setIsViewModalOpen(false);
+    setSelectedTransaction(transaction);
+    setIsEditModalOpen(true);
+  };
+
+  const handleSaveTransaction = (updatedTransaction: Transaction) => {
+    // Here you would typically update the transaction in your data store
+    console.log('Transaction updated:', updatedTransaction);
+    // For now, we'll just close the modal and show success message
+    setIsEditModalOpen(false);
+    setSelectedTransaction(null);
+  };
+
   return (
     <div className="space-y-6">
       {/* Resumo Financeiro */}
@@ -274,9 +303,24 @@ export const TransactionList = () => {
                 </TableCell>
                 <TableCell>
                   <div className="flex gap-1">
-                    <Button variant="outline" size="sm">
+                    <Button 
+                      variant="outline" 
+                      size="sm"
+                      onClick={() => handleViewTransaction(transaction)}
+                      title="Ver detalhes"
+                    >
                       <Eye className="w-4 h-4" />
                     </Button>
+                    {(user?.role === 'owner' || transaction.userId === user?.id) && transaction.status !== 'completed' && (
+                      <Button 
+                        variant="outline" 
+                        size="sm"
+                        onClick={() => handleEditTransaction(transaction)}
+                        title="Editar transação"
+                      >
+                        <Edit className="w-4 h-4" />
+                      </Button>
+                    )}
                     {transaction.receipt && (
                       <Button variant="outline" size="sm" title="Ver Comprovante">
                         📎
@@ -303,6 +347,7 @@ export const TransactionList = () => {
         )}
       </Card>
 
+      {/* Modals */}
       <FilterModal
         isOpen={isFilterModalOpen}
         onOpenChange={setIsFilterModalOpen}
@@ -319,6 +364,26 @@ export const TransactionList = () => {
         onExport={handleExport}
         title="Exportar Transações"
         totalRecords={filteredTransactions.length}
+      />
+
+      <TransactionViewModal
+        isOpen={isViewModalOpen}
+        onClose={() => {
+          setIsViewModalOpen(false);
+          setSelectedTransaction(null);
+        }}
+        transaction={selectedTransaction}
+        onEdit={handleEditFromView}
+      />
+
+      <TransactionEditModal
+        isOpen={isEditModalOpen}
+        onClose={() => {
+          setIsEditModalOpen(false);
+          setSelectedTransaction(null);
+        }}
+        transaction={selectedTransaction}
+        onSave={handleSaveTransaction}
       />
     </div>
   );
