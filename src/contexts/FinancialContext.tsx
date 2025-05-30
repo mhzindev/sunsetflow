@@ -59,7 +59,7 @@ export const FinancialProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       .filter(t => t.type === 'expense' && t.status === 'completed')
       .reduce((sum, t) => sum + t.amount, 0);
 
-    // Calcular saldo total: saldo inicial + todas as entradas - todas as saídas
+    // Calcular saldo total: saldo inicial + todas as entradas - todas as saídas completadas
     const totalBalance = transactions
       .filter(t => t.status === 'completed')
       .reduce((sum, t) => {
@@ -97,20 +97,23 @@ export const FinancialProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     setPayments(prev => [newPayment, ...prev]);
     console.log('Payment added to financial system:', newPayment);
 
-    // Quando um pagamento é agendado, automaticamente criar uma transação de saída correspondente
-    const paymentTransaction = {
-      type: 'expense' as const,
-      category: 'service_payment' as const,
-      amount: paymentData.amount,
-      description: `Pagamento agendado: ${paymentData.description}`,
-      date: paymentData.dueDate,
-      method: 'transfer' as const,
-      status: 'pending' as const,
-      userId: '1', // Sistema
-      userName: 'Sistema - Pagamento Agendado'
-    };
+    // Se o pagamento é agendado (status pending), criar uma transação pendente
+    // Se o pagamento é concluído (status completed), não criar transação pois já foi criada manualmente
+    if (paymentData.status === 'pending') {
+      const paymentTransaction = {
+        type: 'expense' as const,
+        category: 'service_payment' as const,
+        amount: paymentData.amount,
+        description: `Pagamento agendado: ${paymentData.description}`,
+        date: paymentData.dueDate,
+        method: 'transfer' as const,
+        status: 'pending' as const,
+        userId: '1',
+        userName: 'Sistema - Pagamento Agendado'
+      };
 
-    addTransaction(paymentTransaction);
+      addTransaction(paymentTransaction);
+    }
   };
 
   const updatePaymentStatus = (paymentId: string, status: Payment['status']) => {
