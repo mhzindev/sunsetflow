@@ -135,9 +135,9 @@ export class PDFReportGenerator {
       acc[t.category].count++;
       acc[t.category].total += t.amount;
       return acc;
-    }, {} as any);
+    }, {} as Record<string, { count: number; total: number }>);
 
-    Object.entries(incomeByCategory).forEach(([category, data]: [string, any]) => {
+    Object.entries(incomeByCategory).forEach(([category, data]) => {
       this.addTableRow([
         category,
         data.count.toString(),
@@ -161,9 +161,9 @@ export class PDFReportGenerator {
       acc[t.category].count++;
       acc[t.category].total += t.amount;
       return acc;
-    }, {} as any);
+    }, {} as Record<string, { count: number; total: number }>);
 
-    Object.entries(expensesByCategory).forEach(([category, data]: [string, any]) => {
+    Object.entries(expensesByCategory).forEach(([category, data]) => {
       this.addTableRow([
         category,
         data.count.toString(),
@@ -187,12 +187,13 @@ export class PDFReportGenerator {
         else acc[date].expenses += t.amount;
       }
       return acc;
-    }, {} as any);
+    }, {} as Record<string, { income: number; expenses: number }>);
 
-    const totalIncome = Object.values(dailyFlow).reduce((sum: number, day: any) => sum + (day.income || 0), 0);
-    const totalExpenses = Object.values(dailyFlow).reduce((sum: number, day: any) => sum + (day.expenses || 0), 0);
-    const maxDailyIncome = Math.max(...Object.values(dailyFlow).map((d: any) => (d.income || 0) as number));
-    const maxDailyExpenses = Math.max(...Object.values(dailyFlow).map((d: any) => (d.expenses || 0) as number));
+    const dailyFlowValues = Object.values(dailyFlow);
+    const totalIncome = dailyFlowValues.reduce((sum, day) => sum + day.income, 0);
+    const totalExpenses = dailyFlowValues.reduce((sum, day) => sum + day.expenses, 0);
+    const maxDailyIncome = dailyFlowValues.length > 0 ? Math.max(...dailyFlowValues.map(d => d.income)) : 0;
+    const maxDailyExpenses = dailyFlowValues.length > 0 ? Math.max(...dailyFlowValues.map(d => d.expenses)) : 0;
 
     this.addSummarySection({
       'Total de Entradas': this.formatCurrency(totalIncome),
@@ -206,12 +207,12 @@ export class PDFReportGenerator {
     
     Object.entries(dailyFlow)
       .sort(([a], [b]) => new Date(a.split('/').reverse().join('-')).getTime() - new Date(b.split('/').reverse().join('-')).getTime())
-      .forEach(([date, flow]: [string, any]) => {
-        const dailyBalance = (flow.income || 0) - (flow.expenses || 0);
+      .forEach(([date, flow]) => {
+        const dailyBalance = flow.income - flow.expenses;
         this.addTableRow([
           date,
-          this.formatCurrency(flow.income || 0),
-          this.formatCurrency(flow.expenses || 0),
+          this.formatCurrency(flow.income),
+          this.formatCurrency(flow.expenses),
           this.formatCurrency(dailyBalance)
         ]);
       });
@@ -283,11 +284,18 @@ export class PDFReportGenerator {
       }
 
       return acc;
-    }, {} as any);
+    }, {} as Record<string, {
+      totalPaid: number;
+      totalPending: number;
+      completedCount: number;
+      pendingCount: number;
+      overdueCount: number;
+    }>);
 
     const totalProviders = Object.keys(providerStats).length;
-    const totalPaid = Object.values(providerStats).reduce((sum: number, stats: any) => sum + (stats.totalPaid || 0), 0);
-    const totalPending = Object.values(providerStats).reduce((sum: number, stats: any) => sum + (stats.totalPending || 0), 0);
+    const providerStatsValues = Object.values(providerStats);
+    const totalPaid = providerStatsValues.reduce((sum, stats) => sum + stats.totalPaid, 0);
+    const totalPending = providerStatsValues.reduce((sum, stats) => sum + stats.totalPending, 0);
 
     this.addSummarySection({
       'Total de Prestadores': totalProviders.toString(),
@@ -299,12 +307,12 @@ export class PDFReportGenerator {
     this.addTableHeader(['Prestador', 'Valor Pago', 'Valor Pendente', 'Pagamentos']);
     
     Object.entries(providerStats)
-      .sort(([,a], [,b]) => (b as any).totalPaid - (a as any).totalPaid)
-      .forEach(([provider, stats]: [string, any]) => {
+      .sort(([,a], [,b]) => b.totalPaid - a.totalPaid)
+      .forEach(([provider, stats]) => {
         this.addTableRow([
           provider,
-          this.formatCurrency(stats.totalPaid || 0),
-          this.formatCurrency(stats.totalPending || 0),
+          this.formatCurrency(stats.totalPaid),
+          this.formatCurrency(stats.totalPending),
           `${stats.completedCount}/${stats.pendingCount + stats.overdueCount + stats.completedCount}`
         ]);
       });
@@ -334,28 +342,34 @@ export class PDFReportGenerator {
       acc[t.userName].byCategory[t.category] += t.amount;
 
       return acc;
-    }, {} as any);
+    }, {} as Record<string, {
+      total: number;
+      byCategory: Record<string, number>;
+      count: number;
+    }>);
 
     const totalExpenses = expenses.reduce((sum, t) => sum + t.amount, 0);
-    const topEmployee = Object.entries(employeeExpenses)
-      .sort(([,a], [,b]) => (b as any).total - (a as any).total)[0];
+    const employeeExpensesEntries = Object.entries(employeeExpenses);
+    const topEmployee = employeeExpensesEntries.length > 0 
+      ? employeeExpensesEntries.sort(([,a], [,b]) => b.total - a.total)[0]
+      : null;
 
     this.addSummarySection({
       'Total de Despesas': this.formatCurrency(totalExpenses),
       'Total de Funcionários': Object.keys(employeeExpenses).length.toString(),
-      'Maior Gastador': topEmployee ? `${topEmployee[0]} - ${this.formatCurrency((topEmployee[1] as any).total)}` : 'N/A',
+      'Maior Gastador': topEmployee ? `${topEmployee[0]} - ${this.formatCurrency(topEmployee[1].total)}` : 'N/A',
       'Despesa Média por Funcionário': this.formatCurrency(Object.keys(employeeExpenses).length > 0 ? totalExpenses / Object.keys(employeeExpenses).length : 0)
     });
 
     this.addTableHeader(['Funcionário', 'Total Gasto', 'Qtd Despesas', 'Média']);
     
     Object.entries(employeeExpenses)
-      .sort(([,a], [,b]) => (b as any).total - (a as any).total)
-      .forEach(([employee, stats]: [string, any]) => {
+      .sort(([,a], [,b]) => b.total - a.total)
+      .forEach(([employee, stats]) => {
         this.addTableRow([
           employee,
-          this.formatCurrency(stats.total || 0),
-          (stats.count || 0).toString(),
+          this.formatCurrency(stats.total),
+          stats.count.toString(),
           this.formatCurrency(stats.count > 0 ? stats.total / stats.count : 0)
         ]);
       });
