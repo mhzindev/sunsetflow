@@ -6,14 +6,23 @@ import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { UserPlus, Mail, Phone, DollarSign } from 'lucide-react';
 import { PaymentModal } from './PaymentModal';
+import { ProviderViewModal } from './ProviderViewModal';
+import { ProviderEditModal } from './ProviderEditModal';
+import { NewProviderModal } from './NewProviderModal';
 import { useFinancial } from '@/contexts/FinancialContext';
+import { useToastFeedback } from '@/hooks/useToastFeedback';
 
 export const ServiceProviders = () => {
   const { data } = useFinancial();
+  const { showSuccess } = useToastFeedback();
   const [selectedProvider, setSelectedProvider] = useState<any>(null);
   const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
+  const [isViewModalOpen, setIsViewModalOpen] = useState(false);
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [isNewProviderModalOpen, setIsNewProviderModalOpen] = useState(false);
 
-  const mockProviders = [
+  // Mock data - em uma aplicação real, isso viria de uma API
+  const [providers, setProviders] = useState([
     {
       id: '1',
       name: 'João Silva',
@@ -58,7 +67,7 @@ export const ServiceProviders = () => {
       totalPaid: 3500.00,
       lastPayment: '2023-12-20'
     }
-  ];
+  ]);
 
   // Calcular saldos pendentes baseado nos pagamentos
   const getProviderBalance = (providerId: string) => {
@@ -79,13 +88,58 @@ export const ServiceProviders = () => {
     return labels[method as keyof typeof labels] || method;
   };
 
+  const handleViewClick = (provider: any) => {
+    setSelectedProvider(provider);
+    setIsViewModalOpen(true);
+  };
+
+  const handleEditClick = (provider: any) => {
+    setSelectedProvider(provider);
+    setIsEditModalOpen(true);
+  };
+
   const handlePaymentClick = (provider: any) => {
     setSelectedProvider(provider);
     setIsPaymentModalOpen(true);
   };
 
-  const handleCloseModal = () => {
+  const handleNewProvider = () => {
+    setIsNewProviderModalOpen(true);
+  };
+
+  const handleSaveProvider = (updatedProvider: any) => {
+    setProviders(prev => prev.map(p => 
+      p.id === updatedProvider.id ? updatedProvider : p
+    ));
+    showSuccess('Sucesso', 'Prestador atualizado com sucesso!');
+  };
+
+  const handleAddProvider = (newProvider: any) => {
+    setProviders(prev => [newProvider, ...prev]);
+    showSuccess('Sucesso', 'Novo prestador adicionado com sucesso!');
+  };
+
+  const handleEditFromView = (provider: any) => {
+    setIsViewModalOpen(false);
+    setTimeout(() => {
+      setSelectedProvider(provider);
+      setIsEditModalOpen(true);
+    }, 100);
+  };
+
+  const handlePayFromView = (provider: any) => {
+    setIsViewModalOpen(false);
+    setTimeout(() => {
+      setSelectedProvider(provider);
+      setIsPaymentModalOpen(true);
+    }, 100);
+  };
+
+  const handleCloseModals = () => {
     setIsPaymentModalOpen(false);
+    setIsViewModalOpen(false);
+    setIsEditModalOpen(false);
+    setIsNewProviderModalOpen(false);
     setSelectedProvider(null);
   };
 
@@ -94,7 +148,10 @@ export const ServiceProviders = () => {
       <Card className="p-6">
         <div className="flex items-center justify-between mb-4">
           <h4 className="text-lg font-semibold text-slate-800">Prestadores de Serviço</h4>
-          <Button className="bg-blue-600 hover:bg-blue-700">
+          <Button 
+            className="bg-blue-600 hover:bg-blue-700"
+            onClick={handleNewProvider}
+          >
             <UserPlus className="w-4 h-4 mr-2" />
             Novo Prestador
           </Button>
@@ -115,7 +172,7 @@ export const ServiceProviders = () => {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {mockProviders.map((provider) => {
+            {providers.map((provider) => {
               const pendingBalance = getProviderBalance(provider.id);
               
               return (
@@ -160,8 +217,20 @@ export const ServiceProviders = () => {
                   </TableCell>
                   <TableCell>
                     <div className="flex space-x-1">
-                      <Button variant="outline" size="sm">Ver</Button>
-                      <Button variant="outline" size="sm">Editar</Button>
+                      <Button 
+                        variant="outline" 
+                        size="sm"
+                        onClick={() => handleViewClick(provider)}
+                      >
+                        Ver
+                      </Button>
+                      <Button 
+                        variant="outline" 
+                        size="sm"
+                        onClick={() => handleEditClick(provider)}
+                      >
+                        Editar
+                      </Button>
                       <Button 
                         size="sm" 
                         className="bg-green-600 hover:bg-green-700"
@@ -183,13 +252,13 @@ export const ServiceProviders = () => {
         <Card className="p-4">
           <h5 className="font-semibold text-slate-800 mb-2">Prestadores Ativos</h5>
           <p className="text-2xl font-bold text-blue-600">
-            {mockProviders.filter(p => p.active).length}
+            {providers.filter(p => p.active).length}
           </p>
         </Card>
         <Card className="p-4">
           <h5 className="font-semibold text-slate-800 mb-2">Total Pago (30 dias)</h5>
           <p className="text-2xl font-bold text-green-600">
-            R$ {mockProviders.reduce((sum, p) => sum + p.totalPaid, 0).toLocaleString('pt-BR')}
+            R$ {providers.reduce((sum, p) => sum + p.totalPaid, 0).toLocaleString('pt-BR')}
           </p>
         </Card>
         <Card className="p-4">
@@ -201,19 +270,38 @@ export const ServiceProviders = () => {
         <Card className="p-4">
           <h5 className="font-semibold text-slate-800 mb-2">Média por Prestador</h5>
           <p className="text-2xl font-bold text-purple-600">
-            R$ {(mockProviders.reduce((sum, p) => sum + p.totalPaid, 0) / mockProviders.length).toLocaleString('pt-BR')}
+            R$ {(providers.reduce((sum, p) => sum + p.totalPaid, 0) / providers.length).toLocaleString('pt-BR')}
           </p>
         </Card>
       </div>
 
-      {/* Modal de Pagamento */}
-      {selectedProvider && (
-        <PaymentModal
-          isOpen={isPaymentModalOpen}
-          onClose={handleCloseModal}
-          provider={selectedProvider}
-        />
-      )}
+      {/* Modals */}
+      <ProviderViewModal
+        isOpen={isViewModalOpen}
+        onClose={handleCloseModals}
+        provider={selectedProvider}
+        onEdit={handleEditFromView}
+        onPay={handlePayFromView}
+      />
+
+      <ProviderEditModal
+        isOpen={isEditModalOpen}
+        onClose={handleCloseModals}
+        provider={selectedProvider}
+        onSave={handleSaveProvider}
+      />
+
+      <NewProviderModal
+        isOpen={isNewProviderModalOpen}
+        onClose={handleCloseModals}
+        onSave={handleAddProvider}
+      />
+
+      <PaymentModal
+        isOpen={isPaymentModalOpen}
+        onClose={handleCloseModals}
+        provider={selectedProvider}
+      />
     </div>
   );
 };
