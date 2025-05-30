@@ -1,4 +1,3 @@
-
 import { useState } from 'react';
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -8,6 +7,10 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { useReportGenerator } from "@/hooks/useReportGenerator";
 import { useFinancial } from "@/contexts/FinancialContext";
+import { useAlerts, AlertConfig } from "@/hooks/useAlerts";
+import { AlertConfigModal } from "@/components/alerts/AlertConfigModal";
+import { AlertsList } from "@/components/alerts/AlertsList";
+import { ActiveAlertsList } from "@/components/alerts/ActiveAlertsList";
 import { 
   Download, 
   FileText, 
@@ -17,7 +20,8 @@ import {
   Calendar,
   AlertCircle,
   CheckCircle,
-  Clock
+  Clock,
+  Plus
 } from 'lucide-react';
 
 export const Reports = () => {
@@ -27,9 +31,13 @@ export const Reports = () => {
     end: '2024-01-31'
   });
   const [isGenerating, setIsGenerating] = useState<string | null>(null);
+  const [alertModalOpen, setAlertModalOpen] = useState(false);
+  const [selectedAlertType, setSelectedAlertType] = useState<AlertConfig['type']>('payment');
+  const [editingAlert, setEditingAlert] = useState<AlertConfig | undefined>();
 
   const { generateReport } = useReportGenerator();
   const { data } = useFinancial();
+  const { activeAlerts, createAlert, updateAlert } = useAlerts();
 
   // Calcular dados reais do sistema
   const financialSummary = {
@@ -63,32 +71,53 @@ export const Reports = () => {
 
   const employeeExpensesArray = Object.values(employeeExpenses).slice(0, 4);
 
-  const alerts = [
-    {
-      type: 'warning',
-      title: 'Pagamentos em Atraso',
-      description: `${paymentsSummary.latePayments} pagamentos estão atrasados totalizando R$ ${paymentsSummary.totalOverdue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`,
-      priority: 'high'
-    },
-    {
-      type: 'info',
-      title: 'Meta de Receita',
-      description: `Receita atual: R$ ${financialSummary.totalRevenue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`,
-      priority: 'medium'
-    },
-    {
-      type: 'success',
-      title: 'Controle de Despesas',
-      description: `Total de despesas: R$ ${financialSummary.totalExpenses.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`,
-      priority: 'low'
-    }
-  ];
-
   const handleGenerateReport = async (type: string) => {
     setIsGenerating(type);
     await generateReport(type, dateRange);
     setIsGenerating(null);
   };
+
+  const handleCreateAlert = (type: AlertConfig['type']) => {
+    setSelectedAlertType(type);
+    setEditingAlert(undefined);
+    setAlertModalOpen(true);
+  };
+
+  const handleEditAlert = (alert: AlertConfig) => {
+    setEditingAlert(alert);
+    setSelectedAlertType(alert.type);
+    setAlertModalOpen(true);
+  };
+
+  const handleSaveAlert = (config: Omit<AlertConfig, 'id' | 'createdAt'>) => {
+    if (editingAlert) {
+      updateAlert(editingAlert.id, config);
+    } else {
+      createAlert(config);
+    }
+  };
+
+  // Alertas dinâmicos baseados nos dados atuais
+  const dynamicAlerts = [
+    {
+      type: 'warning' as const,
+      title: 'Pagamentos em Atraso',
+      description: `${paymentsSummary.latePayments} pagamentos estão atrasados totalizando R$ ${paymentsSummary.totalOverdue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`,
+      priority: 'high' as const
+    },
+    {
+      type: 'info' as const,
+      title: 'Meta de Receita',
+      description: `Receita atual: R$ ${financialSummary.totalRevenue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`,
+      priority: 'medium' as const
+    },
+    {
+      type: 'success' as const,
+      title: 'Controle de Despesas',
+      description: `Total de despesas: R$ ${financialSummary.totalExpenses.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`,
+      priority: 'low' as const
+    }
+  ];
 
   return (
     <div className="space-y-6">
@@ -371,58 +400,129 @@ export const Reports = () => {
           </TabsContent>
 
           <TabsContent value="alerts" className="mt-6">
-            <div className="space-y-4">
-              <h4 className="text-lg font-semibold text-slate-800">Alertas Automáticos</h4>
-              
-              {alerts.map((alert, index) => (
-                <Card key={index} className={`p-4 border-l-4 ${
-                  alert.type === 'warning' ? 'border-l-yellow-500 bg-yellow-50' :
-                  alert.type === 'success' ? 'border-l-green-500 bg-green-50' :
-                  'border-l-blue-500 bg-blue-50'
-                }`}>
-                  <div className="flex items-start space-x-3">
-                    {alert.type === 'warning' && <AlertCircle className="w-5 h-5 text-yellow-600 mt-0.5" />}
-                    {alert.type === 'success' && <CheckCircle className="w-5 h-5 text-green-600 mt-0.5" />}
-                    {alert.type === 'info' && <TrendingUp className="w-5 h-5 text-blue-600 mt-0.5" />}
-                    
-                    <div className="flex-1">
-                      <h5 className="font-semibold text-slate-800">{alert.title}</h5>
-                      <p className="text-slate-600 text-sm">{alert.description}</p>
-                    </div>
-                    
-                    <Badge variant={alert.priority === 'high' ? 'destructive' : 'secondary'}>
-                      {alert.priority === 'high' ? 'Alta' : alert.priority === 'medium' ? 'Média' : 'Baixa'}
-                    </Badge>
-                  </div>
-                </Card>
-              ))}
+            <div className="space-y-6">
+              {/* Alertas Ativos */}
+              <div>
+                <div className="flex items-center justify-between mb-4">
+                  <h4 className="text-lg font-semibold text-slate-800">
+                    Alertas Ativos {activeAlerts.filter(a => !a.acknowledged).length > 0 && (
+                      <Badge variant="destructive" className="ml-2">
+                        {activeAlerts.filter(a => !a.acknowledged).length}
+                      </Badge>
+                    )}
+                  </h4>
+                </div>
+                <ActiveAlertsList />
+              </div>
 
               {/* Configuração de Alertas */}
-              <Card className="p-6 mt-6">
-                <h5 className="font-semibold text-slate-800 mb-4">Configurar Novos Alertas</h5>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <Button variant="outline">
-                    <AlertCircle className="w-4 h-4 mr-2" />
-                    Alerta de Pagamento
-                  </Button>
-                  <Button variant="outline">
-                    <TrendingUp className="w-4 h-4 mr-2" />
-                    Alerta de Meta
-                  </Button>
-                  <Button variant="outline">
-                    <DollarSign className="w-4 h-4 mr-2" />
-                    Alerta de Fluxo de Caixa
-                  </Button>
-                  <Button variant="outline">
-                    <Users className="w-4 h-4 mr-2" />
-                    Alerta de Despesas
+              <div>
+                <div className="flex items-center justify-between mb-4">
+                  <h4 className="text-lg font-semibold text-slate-800">Configurar Novos Alertas</h4>
+                  <Button onClick={() => handleCreateAlert('payment')} size="sm">
+                    <Plus className="w-4 h-4 mr-2" />
+                    Novo Alerta
                   </Button>
                 </div>
-              </Card>
+                
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+                  <Button 
+                    variant="outline" 
+                    className="h-16 justify-start"
+                    onClick={() => handleCreateAlert('payment')}
+                  >
+                    <AlertCircle className="w-5 h-5 mr-3 text-red-600" />
+                    <div className="text-left">
+                      <p className="font-semibold">Alerta de Pagamento</p>
+                      <p className="text-xs text-gray-500">Pagamentos em atraso e vencimentos</p>
+                    </div>
+                  </Button>
+                  
+                  <Button 
+                    variant="outline" 
+                    className="h-16 justify-start"
+                    onClick={() => handleCreateAlert('goal')}
+                  >
+                    <TrendingUp className="w-5 h-5 mr-3 text-blue-600" />
+                    <div className="text-left">
+                      <p className="font-semibold">Alerta de Meta</p>
+                      <p className="text-xs text-gray-500">Metas de receita e desempenho</p>
+                    </div>
+                  </Button>
+                  
+                  <Button 
+                    variant="outline" 
+                    className="h-16 justify-start"
+                    onClick={() => handleCreateAlert('cashflow')}
+                  >
+                    <DollarSign className="w-5 h-5 mr-3 text-green-600" />
+                    <div className="text-left">
+                      <p className="font-semibold">Alerta de Fluxo de Caixa</p>
+                      <p className="text-xs text-gray-500">Saldo mínimo e fluxo negativo</p>
+                    </div>
+                  </Button>
+                  
+                  <Button 
+                    variant="outline" 
+                    className="h-16 justify-start"
+                    onClick={() => handleCreateAlert('expense')}
+                  >
+                    <Users className="w-5 h-5 mr-3 text-orange-600" />
+                    <div className="text-left">
+                      <p className="font-semibold">Alerta de Despesas</p>
+                      <p className="text-xs text-gray-500">Limites de gastos e orçamentos</p>
+                    </div>
+                  </Button>
+                </div>
+              </div>
+
+              {/* Lista de Alertas Configurados */}
+              <div>
+                <h4 className="text-lg font-semibold text-slate-800 mb-4">Alertas Configurados</h4>
+                <AlertsList onEditAlert={handleEditAlert} />
+              </div>
+
+              {/* Resumo dos Dados Atuais */}
+              <div>
+                <h4 className="text-lg font-semibold text-slate-800 mb-4">Situação Atual</h4>
+                <div className="space-y-3">
+                  {dynamicAlerts.map((alert, index) => (
+                    <Card key={index} className={`p-4 border-l-4 ${
+                      alert.type === 'warning' ? 'border-l-yellow-500 bg-yellow-50' :
+                      alert.type === 'success' ? 'border-l-green-500 bg-green-50' :
+                      'border-l-blue-500 bg-blue-50'
+                    }`}>
+                      <div className="flex items-start space-x-3">
+                        {alert.type === 'warning' && <AlertCircle className="w-5 h-5 text-yellow-600 mt-0.5" />}
+                        {alert.type === 'success' && <CheckCircle className="w-5 h-5 text-green-600 mt-0.5" />}
+                        {alert.type === 'info' && <TrendingUp className="w-5 h-5 text-blue-600 mt-0.5" />}
+                        
+                        <div className="flex-1">
+                          <h5 className="font-semibold text-slate-800">{alert.title}</h5>
+                          <p className="text-slate-600 text-sm">{alert.description}</p>
+                        </div>
+                        
+                        <Badge variant={alert.priority === 'high' ? 'destructive' : 'secondary'}>
+                          {alert.priority === 'high' ? 'Alta' : alert.priority === 'medium' ? 'Média' : 'Baixa'}
+                        </Badge>
+                      </div>
+                    </Card>
+                  ))}
+                </div>
+              </div>
             </div>
           </TabsContent>
         </Tabs>
       </Card>
+
+      {/* Modal de Configuração de Alerta */}
+      <AlertConfigModal
+        isOpen={alertModalOpen}
+        onClose={() => setAlertModalOpen(false)}
+        onSave={handleSaveAlert}
+        initialType={selectedAlertType}
+        editingAlert={editingAlert}
+      />
     </div>
   );
 };
