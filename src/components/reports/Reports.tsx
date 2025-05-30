@@ -6,6 +6,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
+import { useReportGenerator } from "@/hooks/useReportGenerator";
+import { useFinancial } from "@/contexts/FinancialContext";
 import { 
   Download, 
   FileText, 
@@ -24,57 +26,68 @@ export const Reports = () => {
     start: '2024-01-01',
     end: '2024-01-31'
   });
+  const [isGenerating, setIsGenerating] = useState<string | null>(null);
 
-  // Mock data para relatórios
+  const { generateReport } = useReportGenerator();
+  const { data } = useFinancial();
+
+  // Calcular dados reais do sistema
   const financialSummary = {
-    totalRevenue: 45820.00,
-    totalExpenses: 23150.00,
-    netProfit: 22670.00,
-    profitMargin: 49.5,
-    transactions: 127,
-    averageTicket: 360.79
+    totalRevenue: data.monthlyIncome,
+    totalExpenses: data.monthlyExpenses,
+    netProfit: data.monthlyIncome - data.monthlyExpenses,
+    profitMargin: data.monthlyIncome > 0 ? ((data.monthlyIncome - data.monthlyExpenses) / data.monthlyIncome * 100) : 0,
+    transactions: data.transactions.length,
+    averageTicket: data.transactions.length > 0 ? data.monthlyIncome / data.transactions.filter(t => t.type === 'income').length : 0
   };
 
   const paymentsSummary = {
-    totalPaid: 18500.00,
-    totalPending: 8200.00,
-    totalOverdue: 2800.00,
-    onTimePayments: 89,
-    latePayments: 12,
-    cancelledPayments: 3
+    totalPaid: data.payments.filter(p => p.status === 'completed').reduce((sum, p) => sum + p.amount, 0),
+    totalPending: data.payments.filter(p => p.status === 'pending').reduce((sum, p) => sum + p.amount, 0),
+    totalOverdue: data.payments.filter(p => p.status === 'overdue').reduce((sum, p) => sum + p.amount, 0),
+    onTimePayments: data.payments.filter(p => p.status === 'completed').length,
+    latePayments: data.payments.filter(p => p.status === 'overdue').length,
+    cancelledPayments: data.payments.filter(p => p.status === 'cancelled').length
   };
 
-  const employeeExpenses = [
-    { name: 'João Santos', total: 2450.00, trips: 8, category: 'Técnico' },
-    { name: 'Maria Oliveira', total: 1890.00, trips: 6, category: 'Técnica' },
-    { name: 'Carlos Silva', total: 1650.00, trips: 5, category: 'Técnico' },
-    { name: 'Ana Costa', total: 980.00, trips: 3, category: 'Suporte' }
-  ];
+  const employeeExpenses = data.transactions
+    .filter(t => t.type === 'expense' && t.status === 'completed')
+    .reduce((acc, t) => {
+      if (!acc[t.userName]) {
+        acc[t.userName] = { name: t.userName, total: 0, trips: 0, category: 'Técnico' };
+      }
+      acc[t.userName].total += t.amount;
+      acc[t.userName].trips += 1;
+      return acc;
+    }, {} as any);
+
+  const employeeExpensesArray = Object.values(employeeExpenses).slice(0, 4);
 
   const alerts = [
     {
       type: 'warning',
       title: 'Pagamentos em Atraso',
-      description: '3 pagamentos estão atrasados totalizando R$ 2.800,00',
+      description: `${paymentsSummary.latePayments} pagamentos estão atrasados totalizando R$ ${paymentsSummary.totalOverdue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`,
       priority: 'high'
     },
     {
       type: 'info',
       title: 'Meta de Receita',
-      description: 'Faltam R$ 4.180,00 para atingir a meta mensal',
+      description: `Receita atual: R$ ${financialSummary.totalRevenue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`,
       priority: 'medium'
     },
     {
       type: 'success',
-      title: 'Despesas Controladas',
-      description: 'Despesas 15% abaixo do orçamento planejado',
+      title: 'Controle de Despesas',
+      description: `Total de despesas: R$ ${financialSummary.totalExpenses.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`,
       priority: 'low'
     }
   ];
 
-  const generateReport = (type: string) => {
-    console.log(`Generating ${type} report for period: ${dateRange.start} to ${dateRange.end}`);
-    // Aqui seria a lógica para gerar e baixar o relatório
+  const handleGenerateReport = async (type: string) => {
+    setIsGenerating(type);
+    await generateReport(type, dateRange);
+    setIsGenerating(null);
   };
 
   return (
@@ -109,7 +122,7 @@ export const Reports = () => {
           <div className="flex items-end">
             <Button variant="outline">
               <Calendar className="w-4 h-4 mr-2" />
-              Aplicar Filtro
+              Período Selecionado
             </Button>
           </div>
         </div>
@@ -160,7 +173,7 @@ export const Reports = () => {
                       <p className="text-2xl font-bold text-blue-600">
                         R$ {financialSummary.netProfit.toLocaleString('pt-BR')}
                       </p>
-                      <p className="text-sm text-gray-500">Margem: {financialSummary.profitMargin}%</p>
+                      <p className="text-sm text-gray-500">Margem: {financialSummary.profitMargin.toFixed(1)}%</p>
                     </div>
                   </div>
                 </Card>
@@ -168,26 +181,46 @@ export const Reports = () => {
 
               {/* Botões de Relatório */}
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <Button onClick={() => generateReport('financial')} className="h-16">
+                <Button 
+                  onClick={() => handleGenerateReport('financial')} 
+                  className="h-16"
+                  disabled={isGenerating === 'financial'}
+                >
                   <FileText className="w-5 h-5 mr-2" />
                   <div className="text-left">
-                    <p className="font-semibold">Relatório Financeiro</p>
+                    <p className="font-semibold">
+                      {isGenerating === 'financial' ? 'Gerando...' : 'Relatório Financeiro'}
+                    </p>
                     <p className="text-xs opacity-80">DRE e Balanço</p>
                   </div>
                 </Button>
                 
-                <Button onClick={() => generateReport('cashflow')} variant="outline" className="h-16">
+                <Button 
+                  onClick={() => handleGenerateReport('cashflow')} 
+                  variant="outline" 
+                  className="h-16"
+                  disabled={isGenerating === 'cashflow'}
+                >
                   <TrendingUp className="w-5 h-5 mr-2" />
                   <div className="text-left">
-                    <p className="font-semibold">Fluxo de Caixa</p>
+                    <p className="font-semibold">
+                      {isGenerating === 'cashflow' ? 'Gerando...' : 'Fluxo de Caixa'}
+                    </p>
                     <p className="text-xs opacity-80">Entradas e Saídas</p>
                   </div>
                 </Button>
                 
-                <Button onClick={() => generateReport('taxes')} variant="outline" className="h-16">
+                <Button 
+                  onClick={() => handleGenerateReport('taxes')} 
+                  variant="outline" 
+                  className="h-16"
+                  disabled={isGenerating === 'taxes'}
+                >
                   <Download className="w-5 h-5 mr-2" />
                   <div className="text-left">
-                    <p className="font-semibold">Relatório Fiscal</p>
+                    <p className="font-semibold">
+                      {isGenerating === 'taxes' ? 'Gerando...' : 'Relatório Fiscal'}
+                    </p>
                     <p className="text-xs opacity-80">Para Contabilidade</p>
                   </div>
                 </Button>
@@ -241,18 +274,31 @@ export const Reports = () => {
 
               {/* Botões de Relatório de Pagamentos */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <Button onClick={() => generateReport('payments')} className="h-16">
+                <Button 
+                  onClick={() => handleGenerateReport('payments')} 
+                  className="h-16"
+                  disabled={isGenerating === 'payments'}
+                >
                   <FileText className="w-5 h-5 mr-2" />
                   <div className="text-left">
-                    <p className="font-semibold">Relatório de Pagamentos</p>
+                    <p className="font-semibold">
+                      {isGenerating === 'payments' ? 'Gerando...' : 'Relatório de Pagamentos'}
+                    </p>
                     <p className="text-xs opacity-80">Histórico completo</p>
                   </div>
                 </Button>
                 
-                <Button onClick={() => generateReport('providers')} variant="outline" className="h-16">
+                <Button 
+                  onClick={() => handleGenerateReport('providers')} 
+                  variant="outline" 
+                  className="h-16"
+                  disabled={isGenerating === 'providers'}
+                >
                   <Users className="w-5 h-5 mr-2" />
                   <div className="text-left">
-                    <p className="font-semibold">Relatório por Prestador</p>
+                    <p className="font-semibold">
+                      {isGenerating === 'providers' ? 'Gerando...' : 'Relatório por Prestador'}
+                    </p>
                     <p className="text-xs opacity-80">Análise individual</p>
                   </div>
                 </Button>
@@ -266,7 +312,7 @@ export const Reports = () => {
               <Card className="p-6">
                 <h4 className="text-lg font-semibold text-slate-800 mb-4">Despesas por Funcionário</h4>
                 <div className="space-y-3">
-                  {employeeExpenses.map((employee, index) => (
+                  {employeeExpensesArray.map((employee: any, index) => (
                     <div key={index} className="flex items-center justify-between p-3 bg-slate-50 rounded-lg">
                       <div className="flex items-center space-x-3">
                         <div className="w-10 h-10 bg-blue-600 rounded-full flex items-center justify-center text-white font-semibold">
@@ -274,7 +320,7 @@ export const Reports = () => {
                         </div>
                         <div>
                           <p className="font-medium text-slate-800">{employee.name}</p>
-                          <p className="text-sm text-slate-600">{employee.category} • {employee.trips} viagens</p>
+                          <p className="text-sm text-slate-600">{employee.category} • {employee.trips} transações</p>
                         </div>
                       </div>
                       <div className="text-right">
@@ -292,18 +338,31 @@ export const Reports = () => {
 
               {/* Botões de Relatório de Despesas */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <Button onClick={() => generateReport('travel-expenses')} className="h-16">
+                <Button 
+                  onClick={() => handleGenerateReport('travel-expenses')} 
+                  className="h-16"
+                  disabled={isGenerating === 'travel-expenses'}
+                >
                   <FileText className="w-5 h-5 mr-2" />
                   <div className="text-left">
-                    <p className="font-semibold">Relatório de Despesas</p>
+                    <p className="font-semibold">
+                      {isGenerating === 'travel-expenses' ? 'Gerando...' : 'Relatório de Despesas'}
+                    </p>
                     <p className="text-xs opacity-80">Por funcionário e missão</p>
                   </div>
                 </Button>
                 
-                <Button onClick={() => generateReport('reimbursements')} variant="outline" className="h-16">
+                <Button 
+                  onClick={() => handleGenerateReport('reimbursements')} 
+                  variant="outline" 
+                  className="h-16"
+                  disabled={isGenerating === 'reimbursements'}
+                >
                   <DollarSign className="w-5 h-5 mr-2" />
                   <div className="text-left">
-                    <p className="font-semibold">Relatório de Reembolsos</p>
+                    <p className="font-semibold">
+                      {isGenerating === 'reimbursements' ? 'Gerando...' : 'Relatório de Reembolsos'}
+                    </p>
                     <p className="text-xs opacity-80">Pendentes e aprovados</p>
                   </div>
                 </Button>
