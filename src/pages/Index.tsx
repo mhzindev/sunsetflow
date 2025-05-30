@@ -9,6 +9,7 @@ import { CashFlow } from "@/components/cashflow/CashFlow";
 import { Reports } from "@/components/reports/Reports";
 import { ExpenseManager } from "@/components/expenses/ExpenseManager";
 import { AuthProvider } from "@/components/auth/AuthContext";
+import { FinancialProvider } from "@/contexts/FinancialContext";
 
 export type PageSection = 'dashboard' | 'transactions' | 'payments' | 'expenses' | 'cashflow' | 'reports';
 
@@ -41,26 +42,28 @@ const Index = () => {
 
   return (
     <AuthProvider>
-      <div className="min-h-screen bg-slate-50 flex">
-        <Sidebar 
-          activeSection={activeSection} 
-          setActiveSection={setActiveSection}
-          isOpen={sidebarOpen}
-          setIsOpen={setSidebarOpen}
-        />
-        
-        <div className={`flex-1 flex flex-col transition-all duration-300 ${sidebarOpen ? 'ml-64' : 'ml-16'}`}>
-          <TopBar 
-            activeSection={activeSection}
-            sidebarOpen={sidebarOpen}
-            setSidebarOpen={setSidebarOpen}
+      <FinancialProvider>
+        <div className="min-h-screen bg-slate-50 flex">
+          <Sidebar 
+            activeSection={activeSection} 
+            setActiveSection={setActiveSection}
+            isOpen={sidebarOpen}
+            setIsOpen={setSidebarOpen}
           />
           
-          <main className="flex-1 p-6">
-            {renderContent()}
-          </main>
+          <div className={`flex-1 flex flex-col transition-all duration-300 ${sidebarOpen ? 'ml-64' : 'ml-16'}`}>
+            <TopBar 
+              activeSection={activeSection}
+              sidebarOpen={sidebarOpen}
+              setSidebarOpen={setSidebarOpen}
+            />
+            
+            <main className="flex-1 p-6">
+              {renderContent()}
+            </main>
+          </div>
         </div>
-      </div>
+      </FinancialProvider>
     </AuthProvider>
   );
 };

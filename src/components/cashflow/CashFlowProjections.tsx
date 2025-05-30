@@ -2,36 +2,28 @@
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { TrendingUp, TrendingDown, AlertTriangle } from 'lucide-react';
+import { useFinancial } from '@/contexts/FinancialContext';
 
 export const CashFlowProjections = () => {
-  const projections = [
-    {
-      period: 'Próximos 7 dias',
-      expectedIncome: 12500.00,
-      expectedExpenses: 8300.00,
-      netFlow: 4200.00,
-      status: 'positive'
-    },
-    {
-      period: 'Próximos 30 dias',
-      expectedIncome: 45000.00,
-      expectedExpenses: 38500.00,
-      netFlow: 6500.00,
-      status: 'positive'
-    },
+  const { getCashFlowProjections, data } = useFinancial();
+  const projections = getCashFlowProjections();
+
+  // Extender as projeções com dados calculados
+  const extendedProjections = [
+    ...projections,
     {
       period: 'Próximos 60 dias',
-      expectedIncome: 89000.00,
+      expectedIncome: data.pendingPayments * 1.3,
       expectedExpenses: 78000.00,
-      netFlow: 11000.00,
-      status: 'positive'
+      netFlow: (data.pendingPayments * 1.3) - 78000.00,
+      status: (data.pendingPayments * 1.3) - 78000.00 > 0 ? 'positive' : 'negative'
     },
     {
       period: 'Próximos 90 dias',
-      expectedIncome: 125000.00,
+      expectedIncome: data.pendingPayments * 1.8,
       expectedExpenses: 118000.00,
-      netFlow: 7000.00,
-      status: 'warning'
+      netFlow: (data.pendingPayments * 1.8) - 118000.00,
+      status: (data.pendingPayments * 1.8) - 118000.00 > 5000 ? 'positive' : 'warning'
     }
   ];
 
@@ -94,7 +86,7 @@ export const CashFlowProjections = () => {
     <div className="space-y-6">
       {/* Projeções por Período */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        {projections.map((projection, index) => (
+        {extendedProjections.map((projection, index) => (
           <Card key={index} className={`p-4 border-2 ${getStatusColor(projection.status)}`}>
             <div className="flex items-center justify-between mb-3">
               <h5 className="font-medium text-slate-800">{projection.period}</h5>
@@ -130,6 +122,29 @@ export const CashFlowProjections = () => {
           </Card>
         ))}
       </div>
+
+      {/* Resumo Atual do Sistema */}
+      <Card className="p-6 bg-blue-50 border-blue-200">
+        <h4 className="text-lg font-semibold text-blue-800 mb-4">Situação Atual do Sistema</h4>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="text-center">
+            <p className="text-sm text-blue-600">Transações Registradas</p>
+            <p className="text-2xl font-bold text-blue-800">{data.transactions.length}</p>
+          </div>
+          <div className="text-center">
+            <p className="text-sm text-blue-600">Saldo Total</p>
+            <p className="text-2xl font-bold text-blue-800">
+              R$ {data.totalBalance.toLocaleString('pt-BR')}
+            </p>
+          </div>
+          <div className="text-center">
+            <p className="text-sm text-blue-600">Pagamentos Pendentes</p>
+            <p className="text-2xl font-bold text-blue-800">
+              R$ {data.pendingPayments.toLocaleString('pt-BR')}
+            </p>
+          </div>
+        </div>
+      </Card>
 
       {/* Recebimentos Previstos */}
       <Card className="p-6">

@@ -1,36 +1,59 @@
+
 import { Card } from "@/components/ui/card";
 import { TrendingUp, TrendingDown, Wallet, CreditCard } from "lucide-react";
+import { useFinancial } from "@/contexts/FinancialContext";
 
 export const FinancialSummary = () => {
+  const { data } = useFinancial();
+
+  const formatCurrency = (value: number) => {
+    return new Intl.NumberFormat('pt-BR', {
+      style: 'currency',
+      currency: 'BRL'
+    }).format(value);
+  };
+
+  const getPercentageChange = (current: number, previous: number) => {
+    if (previous === 0) return '+0,0%';
+    const change = ((current - previous) / previous) * 100;
+    const sign = change >= 0 ? '+' : '';
+    return `${sign}${change.toFixed(1)}%`;
+  };
+
+  // Calcular mudanças (simulado com base nos dados atuais)
+  const previousMonthIncome = data.monthlyIncome * 0.92; // Simula mês anterior
+  const previousMonthExpenses = data.monthlyExpenses * 1.03; // Simula mês anterior
+  const previousBalance = data.totalBalance * 0.89; // Simula saldo anterior
+
   const summaryCards = [
     {
       title: "Saldo Total",
-      value: "R$ 45.720,00",
-      change: "+12,5%",
-      changeType: "positive",
+      value: formatCurrency(data.totalBalance),
+      change: getPercentageChange(data.totalBalance, previousBalance),
+      changeType: data.totalBalance > previousBalance ? "positive" : "negative",
       icon: Wallet,
       color: "bg-blue-600"
     },
     {
       title: "Receitas (30 dias)",
-      value: "R$ 89.430,00",
-      change: "+8,2%",
-      changeType: "positive",
+      value: formatCurrency(data.monthlyIncome),
+      change: getPercentageChange(data.monthlyIncome, previousMonthIncome),
+      changeType: data.monthlyIncome > previousMonthIncome ? "positive" : "negative",
       icon: TrendingUp,
       color: "bg-emerald-600"
     },
     {
       title: "Despesas (30 dias)",
-      value: "R$ 43.710,00",
-      change: "-3,1%",
-      changeType: "negative",
+      value: formatCurrency(data.monthlyExpenses),
+      change: getPercentageChange(data.monthlyExpenses, previousMonthExpenses),
+      changeType: data.monthlyExpenses < previousMonthExpenses ? "positive" : "negative",
       icon: TrendingDown,
       color: "bg-red-600"
     },
     {
-      title: "Cartões de Crédito",
-      value: "R$ 18.250,00",
-      change: "4 cartões",
+      title: "Pagamentos Pendentes",
+      value: formatCurrency(data.pendingPayments),
+      change: `${data.payments.filter(p => p.status === 'pending').length} pendentes`,
       changeType: "neutral",
       icon: CreditCard,
       color: "bg-purple-600"

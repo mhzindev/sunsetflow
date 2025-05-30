@@ -9,6 +9,7 @@ import { Upload, X } from 'lucide-react';
 import { useAuth } from '@/components/auth/AuthContext';
 import { TransactionCategory, PaymentMethod } from '@/types/transaction';
 import { useToastFeedback } from '@/hooks/useToastFeedback';
+import { useFinancial } from '@/contexts/FinancialContext';
 
 interface TransactionFormProps {
   onTransactionSubmitted?: () => void;
@@ -16,6 +17,7 @@ interface TransactionFormProps {
 
 export const TransactionForm = ({ onTransactionSubmitted }: TransactionFormProps) => {
   const { user } = useAuth();
+  const { addTransaction } = useFinancial();
   const { showSuccess, showError } = useToastFeedback();
   const [isLoading, setIsLoading] = useState(false);
   
@@ -112,15 +114,20 @@ export const TransactionForm = ({ onTransactionSubmitted }: TransactionFormProps
       await new Promise(resolve => setTimeout(resolve, 1000));
       
       const transactionData = {
-        ...formData,
-        id: Date.now().toString(),
+        type: formData.type,
+        category: formData.category,
         amount: amount,
+        description: formData.description,
+        date: formData.date,
+        method: formData.method,
         status: 'completed' as const,
         userId: user?.id || '',
-        userName: user?.name || 'Usuário'
+        userName: user?.name || 'Usuário',
+        receipt: formData.receipt?.name
       };
       
-      console.log('Transaction submitted:', transactionData);
+      // Adicionar ao contexto financeiro
+      addTransaction(transactionData);
       
       const typeText = formData.type === 'income' ? 'Entrada' : 'Saída';
       showSuccess(

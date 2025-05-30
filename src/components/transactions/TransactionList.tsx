@@ -1,4 +1,3 @@
-
 import { useState } from 'react';
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -7,81 +6,15 @@ import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Search, Filter, Download, Eye } from 'lucide-react';
 import { useAuth } from '@/components/auth/AuthContext';
+import { useFinancial } from '@/contexts/FinancialContext';
 
 export const TransactionList = () => {
   const { user } = useAuth();
+  const { data } = useFinancial();
   const [searchTerm, setSearchTerm] = useState('');
   const [filterStatus, setFilterStatus] = useState('all');
 
-  // Mock data - em um sistema real, viria de uma API
-  const mockTransactions = [
-    {
-      id: '1',
-      type: 'income' as const,
-      category: 'client_payment' as const,
-      amount: 8500.00,
-      description: 'Recebimento - Instalação Sistema Completo',
-      date: '2024-01-15',
-      method: 'pix' as const,
-      status: 'completed' as const,
-      userId: '1',
-      userName: 'Ana Silva',
-      receipt: 'comprovante_001.pdf'
-    },
-    {
-      id: '2',
-      type: 'expense' as const,
-      category: 'fuel' as const,
-      amount: 150.00,
-      description: 'Combustível - Viagem Campinas',
-      date: '2024-01-14',
-      method: 'debit_card' as const,
-      status: 'completed' as const,
-      userId: '2',
-      userName: 'João Santos',
-      receipt: 'recibo_posto.jpg'
-    },
-    {
-      id: '3',
-      type: 'expense' as const,
-      category: 'service_payment' as const,
-      amount: 2500.00,
-      description: 'Pagamento Técnico - João Silva',
-      date: '2024-01-13',
-      method: 'transfer' as const,
-      status: 'pending' as const,
-      userId: '1',
-      userName: 'Ana Silva'
-    },
-    {
-      id: '4',
-      type: 'expense' as const,
-      category: 'accommodation' as const,
-      amount: 280.00,
-      description: 'Hotel - Missão São Paulo',
-      date: '2024-01-12',
-      method: 'credit_card' as const,
-      status: 'completed' as const,
-      userId: '3',
-      userName: 'Maria Oliveira',
-      receipt: 'nota_hotel.pdf'
-    },
-    {
-      id: '5',
-      type: 'expense' as const,
-      category: 'materials' as const,
-      amount: 450.00,
-      description: 'Materiais Elétricos - Instalação',
-      date: '2024-01-11',
-      method: 'credit_card' as const,
-      status: 'completed' as const,
-      userId: '1',
-      userName: 'Ana Silva',
-      receipt: 'nf_materiais.pdf'
-    }
-  ];
-
-  const filteredTransactions = mockTransactions.filter(transaction => {
+  const filteredTransactions = data.transactions.filter(transaction => {
     const matchesSearch = transaction.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          transaction.userName.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesFilter = filterStatus === 'all' || transaction.status === filterStatus;
@@ -264,7 +197,14 @@ export const TransactionList = () => {
         
         {filteredTransactions.length === 0 && (
           <div className="text-center py-8 text-gray-500">
-            Nenhuma transação encontrada
+            {data.transactions.length === 0 ? (
+              <div>
+                <p>Nenhuma transação registrada ainda</p>
+                <p className="text-sm mt-1">Comece registrando sua primeira transação</p>
+              </div>
+            ) : (
+              <p>Nenhuma transação encontrada com os filtros aplicados</p>
+            )}
           </div>
         )}
       </Card>
