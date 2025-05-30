@@ -2,6 +2,13 @@
 import jsPDF from 'jspdf';
 import 'jspdf-autotable';
 
+// Extend jsPDF type to include autoTable method
+declare module 'jspdf' {
+  interface jsPDF {
+    autoTable: (options: any) => jsPDF;
+  }
+}
+
 export interface ExportOptions {
   format: 'csv' | 'excel' | 'pdf';
   dateRange?: {
@@ -53,12 +60,16 @@ export const exportToPDF = (data: any[], headers: string[], filename: string, ti
     })
   );
 
-  (pdf as any).autoTable({
+  pdf.autoTable({
     head: [headers],
     body: tableData,
     startY: 40,
-    styles: { fontSize: 8 },
-    headStyles: { fillColor: [66, 139, 202] }
+    styles: {
+      fontSize: 8
+    },
+    headStyles: {
+      fillColor: [66, 139, 202]
+    }
   });
 
   pdf.save(`${filename}.pdf`);
