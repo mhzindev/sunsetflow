@@ -78,11 +78,13 @@ export const PaymentEditModal = ({ isOpen, onClose, payment, onSave }: PaymentEd
 
       // Se o status mudou, usar updatePaymentStatus para garantir integração
       if (formData.status !== payment?.status) {
-        await updatePaymentStatus(payment!.id, formData.status);
+        const paymentDate = formData.status === 'completed' ? new Date().toISOString().split('T')[0] : payment?.paymentDate;
+        updatePaymentStatus(payment!.id, formData.status, paymentDate);
+        updates.paymentDate = paymentDate;
       }
 
       // Atualizar outros campos
-      await updatePayment(payment!.id, updates);
+      updatePayment(payment!.id, updates);
 
       const updatedPayment: Payment = {
         ...payment!,
