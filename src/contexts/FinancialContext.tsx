@@ -1,4 +1,3 @@
-
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/components/auth/AuthContext';
@@ -147,13 +146,17 @@ export const FinancialProvider = ({ children }: { children: React.ReactNode }) =
       }));
 
       const expenses: Expense[] = (expensesData || []).map(e => {
-        let accommodationDetails;
-        if (e.accommodation_details && typeof e.accommodation_details === 'object') {
-          accommodationDetails = e.accommodation_details as {
-            actualCost: number;
-            reimbursementAmount: number;
-            netAmount: number;
-          };
+        let accommodationDetails: { actualCost: number; reimbursementAmount: number; netAmount: number; } | undefined;
+        
+        if (e.accommodation_details && typeof e.accommodation_details === 'object' && e.accommodation_details !== null) {
+          const details = e.accommodation_details as any;
+          if (details.actualCost !== undefined && details.reimbursementAmount !== undefined && details.netAmount !== undefined) {
+            accommodationDetails = {
+              actualCost: Number(details.actualCost),
+              reimbursementAmount: Number(details.reimbursementAmount),
+              netAmount: Number(details.netAmount)
+            };
+          }
         }
 
         return {
@@ -165,8 +168,8 @@ export const FinancialProvider = ({ children }: { children: React.ReactNode }) =
           description: e.description,
           amount: Number(e.amount),
           date: e.date,
-          isAdvanced: e.is_advanced,
-          status: e.status,
+          isAdvanced: e.is_advanced || false,
+          status: e.status || 'pending',
           accommodationDetails
         };
       });
