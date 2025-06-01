@@ -15,6 +15,7 @@ import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
+import { TransactionCategory, PaymentMethod, TransactionStatus } from "@/types/transaction";
 
 interface TransactionFormProps {
   onClose: () => void;
@@ -85,12 +86,12 @@ export const TransactionForm: React.FC<TransactionFormProps> = ({ onClose }) => 
     try {
       await addTransaction({
         type: formData.type,
-        category: formData.category,
+        category: formData.category as TransactionCategory,
         amount: parseFloat(formData.amount),
         description: formData.description,
         date: format(date, 'yyyy-MM-dd'),
-        method: formData.method,
-        status: formData.status,
+        method: formData.method as PaymentMethod,
+        status: formData.status as TransactionStatus,
         receipt: formData.receipt || undefined,
         tags: formData.tags.length > 0 ? formData.tags : undefined
       });
