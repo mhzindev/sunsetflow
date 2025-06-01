@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
@@ -100,6 +99,42 @@ export const useSupabaseData = () => {
     }
   };
 
+  // Função para buscar contas bancárias
+  const fetchBankAccounts = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('bank_accounts')
+        .select('*')
+        .eq('user_id', user?.id)
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+      return data || [];
+    } catch (err) {
+      console.error('Erro ao buscar contas bancárias:', err);
+      setError('Erro ao buscar contas bancárias');
+      return [];
+    }
+  };
+
+  // Função para buscar cartões de crédito
+  const fetchCreditCards = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('credit_cards')
+        .select('*')
+        .eq('user_id', user?.id)
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+      return data || [];
+    } catch (err) {
+      console.error('Erro ao buscar cartões de crédito:', err);
+      setError('Erro ao buscar cartões de crédito');
+      return [];
+    }
+  };
+
   // Função para inserir transação
   const insertTransaction = async (transaction: {
     type: 'income' | 'expense';
@@ -112,6 +147,8 @@ export const useSupabaseData = () => {
     mission_id?: string;
     receipt?: string;
     tags?: string[];
+    account_id?: string;
+    account_type?: 'bank_account' | 'credit_card';
   }) => {
     try {
       if (!user) throw new Error('Usuário não autenticado');
@@ -200,6 +237,8 @@ export const useSupabaseData = () => {
     current_installment?: number;
     tags?: string[];
     notes?: string;
+    account_id?: string;
+    account_type?: 'bank_account' | 'credit_card';
   }) => {
     try {
       const { data, error } = await supabase
@@ -242,6 +281,8 @@ export const useSupabaseData = () => {
     fetchPayments,
     fetchMissions,
     fetchServiceProviders,
+    fetchBankAccounts,
+    fetchCreditCards,
     insertTransaction,
     insertExpense,
     updateExpenseStatus,

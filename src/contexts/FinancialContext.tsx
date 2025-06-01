@@ -1,39 +1,23 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
-import { useSupabaseData } from '@/hooks/useSupabaseData';
-import { useAuth } from '@/contexts/AuthContext';
-import { Transaction, TransactionCategory } from '@/types/transaction';
-import { Payment, PaymentMethod } from '@/types/payment';
 
-interface Expense {
-  id: string;
-  missionId?: string;
-  employeeId: string;
-  employeeName: string;
-  category: string;
-  description: string;
-  amount: number;
-  date: string;
-  isAdvanced: boolean;
-  status: 'pending' | 'approved' | 'reimbursed';
-  receipt?: string;
-  accommodationDetails?: any;
-  missions?: { title: string; location: string };
-}
+import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import { useSupabaseData } from '@/hooks/useSupabaseData';
+import { useAccounts } from '@/hooks/useAccounts';
+import { Transaction, Expense, Payment } from '@/types';
 
 interface FinancialData {
   transactions: Transaction[];
   expenses: Expense[];
   payments: Payment[];
-  totalIncome: number;
-  totalExpenses: number;
-  balance: number;
-  pendingPayments: number;
-  // Propriedades adicionais necessárias pelos componentes
   totalBalance: number;
   monthlyIncome: number;
   monthlyExpenses: number;
+  pendingPayments: number;
   pendingExpenses: number;
   approvedExpenses: number;
+  bankBalance: number;
+  creditAvailable: number;
+  creditUsed: number;
+  totalResources: number; // Saldo em conta + limite disponível
 }
 
 interface FinancialContextType {
@@ -41,47 +25,108 @@ interface FinancialContextType {
   loading: boolean;
   error: string | null;
   refreshData: () => Promise<void>;
-  addTransaction: (transaction: Omit<Transaction, 'id' | 'userName' | 'userId'>) => Promise<void>;
-  addExpense: (expense: Omit<Expense, 'id' | 'employeeId' | 'employeeName' | 'status'>) => Promise<void>;
-  updateExpenseStatus: (expenseId: string, status: 'pending' | 'approved' | 'reimbursed') => Promise<void>;
-  getRecentTransactions: (limit?: number) => Transaction[];
-  getExpensesByCategory: () => Record<string, number>;
-  getCashFlowData: () => { month: string; income: number; expenses: number }[];
-  // Métodos adicionais necessários pelos componentes
-  getCashFlowProjections: () => any[];
-  addPayment: (payment: Omit<Payment, 'id'>) => Promise<void>;
-  updatePayment: (paymentId: string, updates: Partial<Payment>) => Promise<void>;
-  updatePaymentStatus: (paymentId: string, status: string, paymentDate?: string) => Promise<void>;
-  processPayment: (paymentId: string) => Promise<void>;
-  processExpenseApproval: (expenseId: string, approved: boolean) => Promise<void>;
-  processExpenseReimbursement: (expenseId: string) => Promise<void>;
 }
 
 const FinancialContext = createContext<FinancialContextType | undefined>(undefined);
 
-export const FinancialProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const { user } = useAuth();
+export const useFinancial = () => {
+  const context = useContext(FinancialContext);
+  if (context === undefined) {
+    throw new Error('useFinancial must be used within a FinancialProvider');
+  }
+  return context;
+};
+
+interface FinancialProviderProps {
+  children: ReactNode;
+}
+
+export const FinancialProvider = ({ children }: FinancialProviderProps) => {
   const supabaseData = useSupabaseData();
+  const { getAccountSummary, loading: accountsLoading } = useAccounts();
   const [data, setData] = useState<FinancialData>({
     transactions: [],
     expenses: [],
     payments: [],
-    totalIncome: 0,
-    totalExpenses: 0,
-    balance: 0,
-    pendingPayments: 0,
     totalBalance: 0,
     monthlyIncome: 0,
     monthlyExpenses: 0,
+    pendingPayments: 0,
     pendingExpenses: 0,
-    approvedExpenses: 0
+    approvedExpenses: 0,
+    bankBalance: 0,
+    creditAvailable: 0,
+    creditUsed: 0,
+    totalResources: 0
   });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const refreshData = async () => {
-    if (!user) return;
+  const calculateFinancialData = (
+    transactions: any[], 
+    expenses: any[], 
+    payments: any[], 
+    accountSummary: any
+  ): FinancialData => {
+    const now = new Date();
+    const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
 
+    // Filtrar transações dos últimos 30 dias
+    const recentTransactions = transactions.filter(t => 
+      new Date(t.date) >= thirtyDaysAgo
+    );
+
+    // Calcular receitas e despesas do mês
+    const monthlyIncome = recentTransactions
+      .filter(t => t.type === 'income' && t.status === 'completed')
+      .reduce((sum, t) => sum + t.amount, 0);
+
+    const monthlyExpenses = recentTransactions
+      .filter(t => t.type === 'expense' && t.status === 'completed')
+      .reduce((sum, t) => sum + t.amount, 0);
+
+    // Calcular pagamentos e despesas pendentes
+    const pendingPayments = payments
+      .filter(p => p.status === 'pending')
+      .reduce((sum, p) => sum + p.amount, 0);
+
+    const pendingExpenses = expenses
+      .filter(e => e.status === 'pending')
+      .reduce((sum, e) => sum + e.amount, 0);
+
+    const approvedExpenses = expenses
+      .filter(e => e.status === 'approved')
+      .reduce((sum, e) => sum + e.amount, 0);
+
+    // Dados das contas
+    const bankBalance = accountSummary.totalBankBalance || 0;
+    const creditAvailable = accountSummary.totalCreditAvailable || 0;
+    const creditUsed = accountSummary.totalCreditUsed || 0;
+    
+    // Total de recursos disponíveis (dinheiro em conta + limite disponível)
+    const totalResources = bankBalance + creditAvailable;
+    
+    // Saldo total real (considerando que cartão de crédito é dívida)
+    const totalBalance = bankBalance - creditUsed;
+
+    return {
+      transactions,
+      expenses,
+      payments,
+      totalBalance,
+      monthlyIncome,
+      monthlyExpenses,
+      pendingPayments,
+      pendingExpenses,
+      approvedExpenses,
+      bankBalance,
+      creditAvailable,
+      creditUsed,
+      totalResources
+    };
+  };
+
+  const refreshData = async () => {
     try {
       setLoading(true);
       setError(null);
@@ -92,109 +137,16 @@ export const FinancialProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         supabaseData.fetchPayments()
       ]);
 
-      // Mapear dados para o formato esperado
-      const mappedTransactions: Transaction[] = transactions.map(t => ({
-        id: t.id,
-        type: t.type as 'income' | 'expense',
-        category: t.category as TransactionCategory,
-        amount: Number(t.amount),
-        description: t.description,
-        date: t.date,
-        method: t.method as PaymentMethod,
-        status: t.status as 'pending' | 'completed' | 'cancelled',
-        userId: t.user_id,
-        userName: t.user_name,
-        receipt: t.receipt,
-        tags: t.tags,
-        missionId: t.mission_id
-      }));
+      const accountSummary = getAccountSummary();
 
-      const mappedExpenses: Expense[] = expenses.map(e => ({
-        id: e.id,
-        missionId: e.mission_id,
-        employeeId: e.employee_id,
-        employeeName: e.employee_name,
-        category: e.category,
-        description: e.description,
-        amount: Number(e.amount),
-        date: e.date,
-        isAdvanced: e.is_advanced || false,
-        status: e.status as 'pending' | 'approved' | 'reimbursed',
-        receipt: e.receipt,
-        accommodationDetails: e.accommodation_details,
-        missions: e.missions
-      }));
-
-      const mappedPayments: Payment[] = payments.map(p => ({
-        id: p.id,
-        providerId: p.provider_id || '',
-        providerName: p.provider_name,
-        amount: Number(p.amount),
-        dueDate: p.due_date,
-        paymentDate: p.payment_date,
-        status: p.status as any,
-        type: p.type as any,
-        description: p.description,
-        installments: p.installments,
-        currentInstallment: p.current_installment,
-        tags: p.tags,
-        notes: p.notes
-      }));
-
-      // Calcular totais
-      const totalIncome = mappedTransactions
-        .filter(t => t.type === 'income' && t.status === 'completed')
-        .reduce((sum, t) => sum + t.amount, 0);
-
-      const totalExpenses = mappedTransactions
-        .filter(t => t.type === 'expense' && t.status === 'completed')
-        .reduce((sum, t) => sum + t.amount, 0);
-
-      const pendingPayments = mappedPayments
-        .filter(p => p.status === 'pending' || p.status === 'overdue')
-        .reduce((sum, p) => sum + p.amount, 0);
-
-      // Calcular dados mensais (últimos 30 dias)
-      const thirtyDaysAgo = new Date();
-      thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-
-      const monthlyTransactions = mappedTransactions.filter(t => 
-        new Date(t.date) >= thirtyDaysAgo && t.status === 'completed'
+      const financialData = calculateFinancialData(
+        transactions, 
+        expenses, 
+        payments, 
+        accountSummary
       );
 
-      const monthlyIncome = monthlyTransactions
-        .filter(t => t.type === 'income')
-        .reduce((sum, t) => sum + t.amount, 0);
-
-      const monthlyExpenses = monthlyTransactions
-        .filter(t => t.type === 'expense')
-        .reduce((sum, t) => sum + t.amount, 0);
-
-      // Calcular despesas pendentes e aprovadas
-      const pendingExpenses = mappedExpenses
-        .filter(e => e.status === 'pending')
-        .reduce((sum, e) => sum + e.amount, 0);
-
-      const approvedExpenses = mappedExpenses
-        .filter(e => e.status === 'approved')
-        .reduce((sum, e) => sum + e.amount, 0);
-
-      const totalBalance = totalIncome - totalExpenses;
-
-      setData({
-        transactions: mappedTransactions,
-        expenses: mappedExpenses,
-        payments: mappedPayments,
-        totalIncome,
-        totalExpenses,
-        balance: totalBalance,
-        pendingPayments,
-        totalBalance,
-        monthlyIncome,
-        monthlyExpenses,
-        pendingExpenses,
-        approvedExpenses
-      });
+      setData(financialData);
     } catch (err) {
       console.error('Erro ao carregar dados financeiros:', err);
       setError('Erro ao carregar dados financeiros');
@@ -203,188 +155,20 @@ export const FinancialProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     }
   };
 
-  const addTransaction = async (transaction: Omit<Transaction, 'id' | 'userName' | 'userId'>) => {
-    const result = await supabaseData.insertTransaction({
-      type: transaction.type,
-      category: transaction.category,
-      amount: transaction.amount,
-      description: transaction.description,
-      date: transaction.date,
-      method: transaction.method,
-      status: transaction.status,
-      mission_id: transaction.missionId,
-      receipt: transaction.receipt,
-      tags: transaction.tags
-    });
-
-    if (result.error) {
-      throw new Error(result.error);
-    }
-
-    await refreshData();
-  };
-
-  const addExpense = async (expense: Omit<Expense, 'id' | 'employeeId' | 'employeeName' | 'status'>) => {
-    const result = await supabaseData.insertExpense({
-      mission_id: expense.missionId,
-      category: expense.category,
-      description: expense.description,
-      amount: expense.amount,
-      date: expense.date,
-      is_advanced: expense.isAdvanced,
-      receipt: expense.receipt,
-      accommodation_details: expense.accommodationDetails
-    });
-
-    if (result.error) {
-      throw new Error(result.error);
-    }
-
-    await refreshData();
-  };
-
-  const updateExpenseStatus = async (expenseId: string, status: 'pending' | 'approved' | 'reimbursed') => {
-    const result = await supabaseData.updateExpenseStatus(expenseId, status);
-
-    if (result.error) {
-      throw new Error(result.error);
-    }
-
-    await refreshData();
-  };
-
-  // Métodos adicionais necessários
-  const addPayment = async (payment: Omit<Payment, 'id'>) => {
-    console.log('Adding payment:', payment);
-    // Simular por enquanto - implementar com Supabase depois
-    await refreshData();
-  };
-
-  const updatePayment = async (paymentId: string, updates: Partial<Payment>) => {
-    console.log('Updating payment:', paymentId, updates);
-    // Simular por enquanto - implementar com Supabase depois
-    await refreshData();
-  };
-
-  const updatePaymentStatus = async (paymentId: string, status: string, paymentDate?: string) => {
-    console.log('Updating payment status:', paymentId, status, paymentDate);
-    // Simular por enquanto - implementar com Supabase depois
-    await refreshData();
-  };
-
-  const processPayment = async (paymentId: string) => {
-    console.log('Processing payment:', paymentId);
-    // Simular por enquanto - implementar com Supabase depois
-    await refreshData();
-  };
-
-  const processExpenseApproval = async (expenseId: string, approved: boolean) => {
-    const status = approved ? 'approved' : 'pending';
-    await updateExpenseStatus(expenseId, status);
-  };
-
-  const processExpenseReimbursement = async (expenseId: string) => {
-    await updateExpenseStatus(expenseId, 'reimbursed');
-  };
-
-  const getRecentTransactions = (limit = 5) => {
-    return data.transactions
-      .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
-      .slice(0, limit);
-  };
-
-  const getExpensesByCategory = () => {
-    return data.expenses.reduce((acc, expense) => {
-      acc[expense.category] = (acc[expense.category] || 0) + expense.amount;
-      return acc;
-    }, {} as Record<string, number>);
-  };
-
-  const getCashFlowData = () => {
-    const last6Months = Array.from({ length: 6 }, (_, i) => {
-      const date = new Date();
-      date.setMonth(date.getMonth() - i);
-      return date.toISOString().slice(0, 7); // YYYY-MM
-    }).reverse();
-
-    return last6Months.map(month => {
-      const monthTransactions = data.transactions.filter(t => 
-        t.date.startsWith(month) && t.status === 'completed'
-      );
-
-      const income = monthTransactions
-        .filter(t => t.type === 'income')
-        .reduce((sum, t) => sum + t.amount, 0);
-
-      const expenses = monthTransactions
-        .filter(t => t.type === 'expense')
-        .reduce((sum, t) => sum + t.amount, 0);
-
-      return {
-        month: new Date(month + '-01').toLocaleDateString('pt-BR', { month: 'short' }),
-        income,
-        expenses
-      };
-    });
-  };
-
-  const getCashFlowProjections = () => {
-    // Projeções básicas baseadas nos dados atuais
-    return [
-      {
-        period: 'Próximos 7 dias',
-        expectedIncome: data.monthlyIncome * 0.25,
-        expectedExpenses: data.monthlyExpenses * 0.25,
-        netFlow: (data.monthlyIncome * 0.25) - (data.monthlyExpenses * 0.25),
-        status: 'positive'
-      },
-      {
-        period: 'Próximos 30 dias',
-        expectedIncome: data.monthlyIncome,
-        expectedExpenses: data.monthlyExpenses,
-        netFlow: data.monthlyIncome - data.monthlyExpenses,
-        status: data.monthlyIncome > data.monthlyExpenses ? 'positive' : 'negative'
-      }
-    ];
-  };
-
   useEffect(() => {
-    if (user) {
-      refreshData();
-    }
-  }, [user]);
+    refreshData();
+  }, [accountsLoading]); // Recarrega quando as contas terminam de carregar
+
+  const contextValue = {
+    data,
+    loading: loading || accountsLoading,
+    error,
+    refreshData
+  };
 
   return (
-    <FinancialContext.Provider
-      value={{
-        data,
-        loading,
-        error,
-        refreshData,
-        addTransaction,
-        addExpense,
-        updateExpenseStatus,
-        getRecentTransactions,
-        getExpensesByCategory,
-        getCashFlowData,
-        getCashFlowProjections,
-        addPayment,
-        updatePayment,
-        updatePaymentStatus,
-        processPayment,
-        processExpenseApproval,
-        processExpenseReimbursement
-      }}
-    >
+    <FinancialContext.Provider value={contextValue}>
       {children}
     </FinancialContext.Provider>
   );
-};
-
-export const useFinancial = () => {
-  const context = useContext(FinancialContext);
-  if (context === undefined) {
-    throw new Error('useFinancial deve ser usado dentro de um FinancialProvider');
-  }
-  return context;
 };

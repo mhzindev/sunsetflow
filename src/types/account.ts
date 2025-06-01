@@ -31,7 +31,7 @@ export interface CreditCard {
 export interface AccountTransaction {
   id: string;
   accountId: string;
-  accountType: 'bank' | 'credit_card';
+  accountType: 'bank_account' | 'credit_card';
   type: 'income' | 'expense' | 'transfer';
   amount: number;
   description: string;
@@ -48,4 +48,13 @@ export interface AccountSummary {
   totalCreditAvailable: number;
   accountsCount: number;
   cardsCount: number;
+}
+
+// Interface para seleção de conta nos formulários
+export interface AccountOption {
+  id: string;
+  name: string;
+  type: 'bank_account' | 'credit_card';
+  displayName: string; // Nome formatado para exibição
+  available?: number; // Saldo disponível ou limite disponível
 }

@@ -9,6 +9,48 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
+      bank_accounts: {
+        Row: {
+          account_number: string
+          account_type: string
+          agency: string
+          balance: number
+          bank: string
+          created_at: string
+          id: string
+          is_active: boolean
+          name: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          account_number: string
+          account_type: string
+          agency: string
+          balance?: number
+          bank: string
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          name: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          account_number?: string
+          account_type?: string
+          agency?: string
+          balance?: number
+          bank?: string
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          name?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       companies: {
         Row: {
           address: string | null
@@ -55,6 +97,57 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      credit_cards: {
+        Row: {
+          available_limit: number
+          bank: string
+          brand: string
+          card_number: string
+          closing_date: number
+          created_at: string
+          credit_limit: number
+          due_date: number
+          id: string
+          is_active: boolean
+          name: string
+          updated_at: string
+          used_limit: number
+          user_id: string
+        }
+        Insert: {
+          available_limit?: number
+          bank: string
+          brand: string
+          card_number: string
+          closing_date: number
+          created_at?: string
+          credit_limit?: number
+          due_date: number
+          id?: string
+          is_active?: boolean
+          name: string
+          updated_at?: string
+          used_limit?: number
+          user_id: string
+        }
+        Update: {
+          available_limit?: number
+          bank?: string
+          brand?: string
+          card_number?: string
+          closing_date?: number
+          created_at?: string
+          credit_limit?: number
+          due_date?: number
+          id?: string
+          is_active?: boolean
+          name?: string
+          updated_at?: string
+          used_limit?: number
+          user_id?: string
+        }
+        Relationships: []
       }
       employee_access_codes: {
         Row: {
@@ -221,6 +314,8 @@ export type Database = {
       }
       payments: {
         Row: {
+          account_id: string | null
+          account_type: string | null
           amount: number
           created_at: string | null
           current_installment: number | null
@@ -238,6 +333,8 @@ export type Database = {
           updated_at: string | null
         }
         Insert: {
+          account_id?: string | null
+          account_type?: string | null
           amount: number
           created_at?: string | null
           current_installment?: number | null
@@ -255,6 +352,8 @@ export type Database = {
           updated_at?: string | null
         }
         Update: {
+          account_id?: string | null
+          account_type?: string | null
           amount?: number
           created_at?: string | null
           current_installment?: number | null
@@ -360,6 +459,8 @@ export type Database = {
       }
       transactions: {
         Row: {
+          account_id: string | null
+          account_type: string | null
           amount: number
           category: Database["public"]["Enums"]["transaction_category"]
           created_at: string | null
@@ -377,6 +478,8 @@ export type Database = {
           user_name: string
         }
         Insert: {
+          account_id?: string | null
+          account_type?: string | null
           amount: number
           category: Database["public"]["Enums"]["transaction_category"]
           created_at?: string | null
@@ -394,6 +497,8 @@ export type Database = {
           user_name: string
         }
         Update: {
+          account_id?: string | null
+          account_type?: string | null
           amount?: number
           category?: Database["public"]["Enums"]["transaction_category"]
           created_at?: string | null

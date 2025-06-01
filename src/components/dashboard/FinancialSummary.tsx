@@ -1,6 +1,6 @@
 
 import { Card } from "@/components/ui/card";
-import { TrendingUp, TrendingDown, Wallet, CreditCard, Receipt, AlertTriangle } from "lucide-react";
+import { TrendingUp, TrendingDown, Wallet, CreditCard, Receipt, AlertTriangle, Building2, Banknote } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { useFinancial } from "@/contexts/FinancialContext";
 
@@ -28,13 +28,40 @@ export const FinancialSummary = () => {
 
   const summaryCards = [
     {
-      title: "Saldo Total",
+      title: "Saldo em Contas",
+      value: formatCurrency(data.bankBalance),
+      change: `${data.bankBalance > 0 ? 'Positivo' : 'Negativo'}`,
+      changeType: data.bankBalance > 0 ? "positive" : "negative",
+      icon: Building2,
+      color: "bg-blue-600",
+      tooltip: "Valor total disponível em todas as contas bancárias ativas. Este saldo é atualizado automaticamente com as transações e reflete o dinheiro real disponível."
+    },
+    {
+      title: "Limite Disponível",
+      value: formatCurrency(data.creditAvailable),
+      change: `Usado: ${formatCurrency(data.creditUsed)}`,
+      changeType: "neutral",
+      icon: CreditCard,
+      color: "bg-purple-600",
+      tooltip: "Limite disponível em todos os cartões de crédito ativos. Representa o valor que pode ser utilizado para compras e pagamentos."
+    },
+    {
+      title: "Recursos Totais",
+      value: formatCurrency(data.totalResources),
+      change: `Dinheiro + Limite`,
+      changeType: "positive",
+      icon: Wallet,
+      color: "bg-emerald-600",
+      tooltip: "Soma do saldo em contas bancárias com o limite disponível nos cartões. Representa o total de recursos financeiros que a empresa pode utilizar."
+    },
+    {
+      title: "Saldo Líquido",
       value: formatCurrency(data.totalBalance),
       change: getPercentageChange(data.totalBalance, previousBalance),
       changeType: data.totalBalance > previousBalance ? "positive" : "negative",
-      icon: Wallet,
-      color: "bg-blue-600",
-      tooltip: "Representa o valor total disponível em caixa da empresa. Este valor é atualizado automaticamente com todas as transações, pagamentos e despesas do sistema. É o indicador principal da saúde financeira imediata da empresa."
+      icon: Banknote,
+      color: data.totalBalance >= 0 ? "bg-green-600" : "bg-red-600",
+      tooltip: "Saldo real da empresa considerando dinheiro em conta menos dívidas de cartão de crédito. É o patrimônio líquido disponível."
     },
     {
       title: "Receitas (30 dias)",
@@ -43,7 +70,7 @@ export const FinancialSummary = () => {
       changeType: data.monthlyIncome > previousMonthIncome ? "positive" : "negative",
       icon: TrendingUp,
       color: "bg-emerald-600",
-      tooltip: "Mostra todas as receitas recebidas nos últimos 30 dias, incluindo recebimentos via PIX, transferências e outras formas de pagamento. Essencial para acompanhar o desempenho de vendas e entrada de caixa."
+      tooltip: "Todas as receitas recebidas nos últimos 30 dias, incluindo recebimentos via PIX, transferências e outras formas de pagamento."
     },
     {
       title: "Despesas (30 dias)",
@@ -52,7 +79,7 @@ export const FinancialSummary = () => {
       changeType: data.monthlyExpenses < previousMonthExpenses ? "positive" : "negative",
       icon: TrendingDown,
       color: "bg-red-600",
-      tooltip: "Apresenta o total de despesas dos últimos 30 dias, incluindo pagamentos a prestadores de serviços e despesas operacionais. Monitore este valor para controlar custos e manter a margem de lucro."
+      tooltip: "Total de despesas dos últimos 30 dias, incluindo pagamentos a prestadores de serviços e despesas operacionais."
     },
     {
       title: "Pagamentos Pendentes",
@@ -60,17 +87,8 @@ export const FinancialSummary = () => {
       change: `${data.payments.filter(p => p.status === 'pending').length} pendentes`,
       changeType: "neutral",
       icon: CreditCard,
-      color: "bg-purple-600",
-      tooltip: "Exibe o valor total de pagamentos que ainda precisam ser efetuados a prestadores de serviços. Gerencie esta seção para evitar atrasos e manter bons relacionamentos com fornecedores."
-    },
-    {
-      title: "Despesas Pendentes",
-      value: formatCurrency(data.pendingExpenses),
-      change: `${data.expenses.filter(e => e.status === 'pending').length} aguardando`,
-      changeType: data.pendingExpenses > 0 ? "warning" : "positive",
-      icon: Receipt,
       color: "bg-orange-600",
-      tooltip: "Mostra despesas de viagem e operacionais submetidas pelos funcionários que ainda não foram aprovadas. Essas despesas foram pagas antecipadamente pela empresa e aguardam análise para classificação contábil."
+      tooltip: "Valor total de pagamentos que ainda precisam ser efetuados a prestadores de serviços."
     },
     {
       title: "Despesas Aprovadas",
@@ -79,13 +97,13 @@ export const FinancialSummary = () => {
       changeType: data.approvedExpenses > 0 ? "warning" : "positive",
       icon: AlertTriangle,
       color: "bg-yellow-600",
-      tooltip: "Indica despesas já aprovadas que necessitam reembolso aos funcionários. Estas despesas foram pagas do próprio bolso pelos colaboradores e já foram validadas para pagamento."
+      tooltip: "Despesas aprovadas que necessitam reembolso aos funcionários. Foram pagas do próprio bolso pelos colaboradores."
     }
   ];
 
   return (
     <TooltipProvider>
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         {summaryCards.map((card, index) => {
           const Icon = card.icon;
           return (

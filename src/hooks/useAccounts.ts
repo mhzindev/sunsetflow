@@ -2,8 +2,11 @@
 import { useState, useEffect } from 'react';
 import { useSupabaseData } from './useSupabaseData';
 import { BankAccount, CreditCard, AccountTransaction, AccountSummary } from '@/types/account';
+import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/contexts/AuthContext';
 
 export const useAccounts = () => {
+  const { user } = useAuth();
   const supabaseData = useSupabaseData();
   const [bankAccounts, setBankAccounts] = useState<BankAccount[]>([]);
   const [creditCards, setCreditCards] = useState<CreditCard[]>([]);
@@ -11,77 +14,60 @@ export const useAccounts = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // Simulação de dados - Em produção, conectar com Supabase
-  const mockBankAccounts: BankAccount[] = [
-    {
-      id: '1',
-      name: 'Conta Corrente Empresa',
-      bank: 'Banco do Brasil',
-      accountType: 'checking',
-      accountNumber: '12345-6',
-      agency: '1234-5',
-      balance: 25000.00,
-      isActive: true,
-      createdAt: '2024-01-01',
-      updatedAt: '2024-02-01'
-    },
-    {
-      id: '2',
-      name: 'Conta Poupança',
-      bank: 'Caixa Econômica',
-      accountType: 'savings',
-      accountNumber: '98765-4',
-      agency: '9876-5',
-      balance: 15000.00,
-      isActive: true,
-      createdAt: '2024-01-15',
-      updatedAt: '2024-02-01'
-    }
-  ];
+  const fetchBankAccounts = async () => {
+    try {
+      if (!user) return [];
 
-  const mockCreditCards: CreditCard[] = [
-    {
-      id: '1',
-      name: 'Cartão Empresarial',
-      bank: 'Banco do Brasil',
-      cardNumber: '1234',
-      brand: 'visa',
-      limit: 50000.00,
-      availableLimit: 35000.00,
-      usedLimit: 15000.00,
-      dueDate: 15,
-      closingDate: 10,
-      isActive: true,
-      createdAt: '2024-01-01',
-      updatedAt: '2024-02-01'
-    },
-    {
-      id: '2',
-      name: 'Cartão Viagem',
-      bank: 'Itaú',
-      cardNumber: '5678',
-      brand: 'mastercard',
-      limit: 30000.00,
-      availableLimit: 25000.00,
-      usedLimit: 5000.00,
-      dueDate: 20,
-      closingDate: 15,
-      isActive: true,
-      createdAt: '2024-01-10',
-      updatedAt: '2024-02-01'
+      const { data, error } = await supabase
+        .from('bank_accounts')
+        .select('*')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+      return data || [];
+    } catch (err) {
+      console.error('Erro ao buscar contas bancárias:', err);
+      throw err;
     }
-  ];
+  };
+
+  const fetchCreditCards = async () => {
+    try {
+      if (!user) return [];
+
+      const { data, error } = await supabase
+        .from('credit_cards')
+        .select('*')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+      return data || [];
+    } catch (err) {
+      console.error('Erro ao buscar cartões de crédito:', err);
+      throw err;
+    }
+  };
 
   const fetchAccounts = async () => {
     try {
       setLoading(true);
       setError(null);
       
-      // Por enquanto usando dados mock
-      // Em produção, fazer chamadas reais para Supabase
-      setBankAccounts(mockBankAccounts);
-      setCreditCards(mockCreditCards);
-      setAccountTransactions([]);
+      if (!user) {
+        setBankAccounts([]);
+        setCreditCards([]);
+        return;
+      }
+
+      const [bankAccountsData, creditCardsData] = await Promise.all([
+        fetchBankAccounts(),
+        fetchCreditCards()
+      ]);
+      
+      setBankAccounts(bankAccountsData);
+      setCreditCards(creditCardsData);
       
     } catch (err) {
       console.error('Erro ao carregar contas:', err);
@@ -93,15 +79,27 @@ export const useAccounts = () => {
 
   const addBankAccount = async (account: Omit<BankAccount, 'id' | 'createdAt' | 'updatedAt'>) => {
     try {
-      const newAccount: BankAccount = {
-        ...account,
-        id: Date.now().toString(),
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString()
-      };
+      if (!user) throw new Error('Usuário não autenticado');
+
+      const { data, error } = await supabase
+        .from('bank_accounts')
+        .insert({
+          user_id: user.id,
+          name: account.name,
+          bank: account.bank,
+          account_type: account.accountType,
+          account_number: account.accountNumber,
+          agency: account.agency,
+          balance: account.balance,
+          is_active: account.isActive
+        })
+        .select()
+        .single();
+
+      if (error) throw error;
       
-      setBankAccounts(prev => [...prev, newAccount]);
-      return { success: true, data: newAccount };
+      await fetchAccounts(); // Refresh data
+      return { success: true, data };
     } catch (err) {
       console.error('Erro ao adicionar conta:', err);
       return { success: false, error: 'Erro ao adicionar conta' };
@@ -110,17 +108,30 @@ export const useAccounts = () => {
 
   const addCreditCard = async (card: Omit<CreditCard, 'id' | 'createdAt' | 'updatedAt' | 'availableLimit' | 'usedLimit'>) => {
     try {
-      const newCard: CreditCard = {
-        ...card,
-        id: Date.now().toString(),
-        availableLimit: card.limit,
-        usedLimit: 0,
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString()
-      };
+      if (!user) throw new Error('Usuário não autenticado');
+
+      const { data, error } = await supabase
+        .from('credit_cards')
+        .insert({
+          user_id: user.id,
+          name: card.name,
+          bank: card.bank,
+          card_number: card.cardNumber,
+          brand: card.brand,
+          credit_limit: card.limit,
+          available_limit: card.limit,
+          used_limit: 0,
+          due_date: card.dueDate,
+          closing_date: card.closingDate,
+          is_active: card.isActive
+        })
+        .select()
+        .single();
+
+      if (error) throw error;
       
-      setCreditCards(prev => [...prev, newCard]);
-      return { success: true, data: newCard };
+      await fetchAccounts(); // Refresh data
+      return { success: true, data };
     } catch (err) {
       console.error('Erro ao adicionar cartão:', err);
       return { success: false, error: 'Erro ao adicionar cartão' };
@@ -129,11 +140,22 @@ export const useAccounts = () => {
 
   const updateBankAccount = async (id: string, updates: Partial<BankAccount>) => {
     try {
-      setBankAccounts(prev => prev.map(account => 
-        account.id === id 
-          ? { ...account, ...updates, updatedAt: new Date().toISOString() }
-          : account
-      ));
+      const { error } = await supabase
+        .from('bank_accounts')
+        .update({
+          name: updates.name,
+          bank: updates.bank,
+          account_type: updates.accountType,
+          account_number: updates.accountNumber,
+          agency: updates.agency,
+          balance: updates.balance,
+          is_active: updates.isActive
+        })
+        .eq('id', id);
+
+      if (error) throw error;
+      
+      await fetchAccounts(); // Refresh data
       return { success: true };
     } catch (err) {
       console.error('Erro ao atualizar conta:', err);
@@ -143,11 +165,23 @@ export const useAccounts = () => {
 
   const updateCreditCard = async (id: string, updates: Partial<CreditCard>) => {
     try {
-      setCreditCards(prev => prev.map(card => 
-        card.id === id 
-          ? { ...card, ...updates, updatedAt: new Date().toISOString() }
-          : card
-      ));
+      const { error } = await supabase
+        .from('credit_cards')
+        .update({
+          name: updates.name,
+          bank: updates.bank,
+          card_number: updates.cardNumber,
+          brand: updates.brand,
+          credit_limit: updates.limit,
+          due_date: updates.dueDate,
+          closing_date: updates.closingDate,
+          is_active: updates.isActive
+        })
+        .eq('id', id);
+
+      if (error) throw error;
+      
+      await fetchAccounts(); // Refresh data
       return { success: true };
     } catch (err) {
       console.error('Erro ao atualizar cartão:', err);
@@ -183,8 +217,10 @@ export const useAccounts = () => {
   };
 
   useEffect(() => {
-    fetchAccounts();
-  }, []);
+    if (user) {
+      fetchAccounts();
+    }
+  }, [user]);
 
   return {
     bankAccounts,
