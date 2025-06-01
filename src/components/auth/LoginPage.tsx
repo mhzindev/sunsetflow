@@ -74,6 +74,19 @@ export const LoginPage = ({ onLoginSuccess }: LoginPageProps) => {
           role: role
         }
       });
+
+      // Primeiro, verificar se o usuário já existe
+      const { data: existingUser } = await supabase
+        .from('profiles')
+        .select('email')
+        .eq('email', email)
+        .maybeSingle();
+
+      if (existingUser) {
+        showError('Email já cadastrado', 'Este email já está em uso. Tente fazer login ou use outro email.');
+        setIsLoading(false);
+        return;
+      }
       
       const { data, error } = await supabase.auth.signUp({
         email,
@@ -100,8 +113,49 @@ export const LoginPage = ({ onLoginSuccess }: LoginPageProps) => {
         if (error.message.includes('User already registered')) {
           showError('Usuário já cadastrado', 'Este email já está cadastrado. Tente fazer login ou usar outro email.');
         } else if (error.message.includes('Database error saving new user')) {
-          showError('Erro no banco de dados', 'Houve um problema ao criar sua conta. Os logs foram registrados para análise. Tente novamente em alguns instantes.');
-          console.error('🔍 Erro de banco - verificar logs do Supabase e PostgreSQL');
+          showError('Erro no banco de dados', 'Houve um problema ao criar sua conta. Tentando solução alternativa...');
+          
+          // Tentar uma abordagem alternativa: criar o usuário sem metadados
+          console.log('🔄 Tentando cadastro alternativo sem metadados...');
+          
+          const { data: fallbackData, error: fallbackError } = await supabase.auth.signUp({
+            email,
+            password,
+            options: {
+              emailRedirectTo: `${window.location.origin}/`
+            }
+          });
+
+          if (fallbackError) {
+            console.error('❌ Erro no cadastro alternativo:', fallbackError);
+            showError('Erro persistente', 'Não foi possível criar a conta. Contate o suporte técnico.');
+          } else if (fallbackData.user) {
+            console.log('✅ Cadastro alternativo bem-sucedido:', fallbackData.user.id);
+            
+            // Tentar criar o perfil manualmente
+            try {
+              const { error: profileError } = await supabase
+                .from('profiles')
+                .insert({
+                  id: fallbackData.user.id,
+                  email: email,
+                  name: name,
+                  role: role
+                });
+
+              if (profileError) {
+                console.error('❌ Erro ao criar perfil manualmente:', profileError);
+                showError('Conta criada parcialmente', 'A conta foi criada mas há problemas com o perfil. Contate o suporte.');
+              } else {
+                console.log('✅ Perfil criado manualmente com sucesso');
+                showSuccess('Conta criada', 'Conta criada com sucesso! Verifique seu email para confirmar.');
+                setIsSignUp(false);
+              }
+            } catch (profileError) {
+              console.error('💥 Erro ao tentar criar perfil:', profileError);
+              showError('Conta criada parcialmente', 'A conta foi criada mas há problemas com o perfil. Você pode tentar fazer login.');
+            }
+          }
         } else if (error.message.includes('Password should be at least')) {
           showError('Senha muito fraca', 'A senha deve ter pelo menos 6 caracteres.');
         } else if (error.message.includes('signup_disabled')) {
@@ -165,6 +219,28 @@ export const LoginPage = ({ onLoginSuccess }: LoginPageProps) => {
       showError('Erro ao reenviar', 'Não foi possível reenviar o email de confirmação');
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const testDatabaseConnection = async () => {
+    try {
+      console.log('🔍 Testando conexão com o banco...');
+      
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('id')
+        .limit(1);
+
+      if (error) {
+        console.error('❌ Erro na conexão:', error);
+        showError('Erro de conexão', `Banco inacessível: ${error.message}`);
+      } else {
+        console.log('✅ Conexão com banco OK:', data);
+        showSuccess('Conexão OK', 'Banco de dados acessível');
+      }
+    } catch (error: any) {
+      console.error('💥 Erro ao testar conexão:', error);
+      showError('Erro de teste', 'Falha ao testar conexão');
     }
   };
 
@@ -280,12 +356,23 @@ export const LoginPage = ({ onLoginSuccess }: LoginPageProps) => {
               </button>
             </div>
           )}
+
+          <div className="text-center">
+            <button
+              type="button"
+              onClick={testDatabaseConnection}
+              className="text-gray-600 hover:text-gray-700 text-sm"
+              disabled={isLoading}
+            >
+              Testar Conexão do Banco
+            </button>
+          </div>
         </div>
 
         <div className="mt-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
           <p className="text-sm text-blue-800">
-            <strong>Status:</strong> Sistema atualizado com logs detalhados para melhor diagnóstico. 
-            Após se cadastrar, você deve confirmar seu email antes de fazer login.
+            <strong>Status:</strong> Sistema com diagnósticos avançados e fallback para criação de contas. 
+            Use o botão "Testar Conexão" para verificar a saúde do banco de dados.
           </p>
         </div>
       </Card>

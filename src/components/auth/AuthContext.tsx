@@ -26,12 +26,12 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       console.log('📋 Metadados do usuário:', authUser.user_metadata);
       
       // Aguardar um pouco para garantir que o trigger foi executado
-      await new Promise(resolve => setTimeout(resolve, 2000));
+      await new Promise(resolve => setTimeout(resolve, 1000));
       
-      // Buscar perfil do usuário com retry
+      // Buscar perfil do usuário com retry mais eficiente
       let profile = null;
       let attempts = 0;
-      const maxAttempts = 5;
+      const maxAttempts = 3;
       
       while (!profile && attempts < maxAttempts) {
         attempts++;
@@ -46,7 +46,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         if (error) {
           console.error(`❌ Erro na tentativa ${attempts}:`, error);
           if (attempts < maxAttempts) {
-            await new Promise(resolve => setTimeout(resolve, 2000));
+            await new Promise(resolve => setTimeout(resolve, 1500));
             continue;
           }
         } else {
@@ -59,8 +59,9 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         }
       }
 
+      // Se ainda não encontrou o perfil, tentar criar um
       if (!profile) {
-        console.log('🆕 Perfil não encontrado após várias tentativas, criando um novo...');
+        console.log('🆕 Perfil não encontrado, tentando criar...');
         
         const roleFromMeta = authUser.user_metadata?.role || 'employee';
         const nameFromMeta = authUser.user_metadata?.name || authUser.email?.split('@')[0] || 'Usuário';
@@ -72,6 +73,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
           role: roleFromMeta
         });
         
+        // Tentar inserir o perfil diretamente
         const { data: newProfile, error: insertError } = await supabase
           .from('profiles')
           .insert({
@@ -84,29 +86,29 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
           .single();
 
         if (insertError) {
-          console.error('❌ Erro ao criar perfil manualmente:', insertError);
+          console.error('❌ Erro ao criar perfil:', insertError);
           
-          // Última tentativa: buscar novamente caso tenha sido criado pelo trigger
-          console.log('🔄 Última tentativa de buscar perfil...');
-          const { data: existingProfile } = await supabase
-            .from('profiles')
-            .select('*')
-            .eq('id', authUser.id)
-            .maybeSingle();
-          
-          if (existingProfile) {
-            console.log('✅ Perfil encontrado na última tentativa:', existingProfile);
-            profile = existingProfile;
-          } else {
-            console.error('💥 Falha total ao encontrar/criar perfil');
-            return;
+          // Se falhou por chave duplicada, tentar buscar novamente
+          if (insertError.code === '23505') {
+            console.log('🔄 Perfil já existe, buscando novamente...');
+            const { data: existingProfile } = await supabase
+              .from('profiles')
+              .select('*')
+              .eq('id', authUser.id)
+              .maybeSingle();
+            
+            if (existingProfile) {
+              profile = existingProfile;
+              console.log('✅ Perfil encontrado após erro de duplicata:', profile);
+            }
           }
         } else {
-          console.log('✅ Perfil criado manualmente com sucesso:', newProfile);
+          console.log('✅ Perfil criado com sucesso:', newProfile);
           profile = newProfile;
         }
       }
 
+      // Se conseguiu o perfil, configurar o usuário
       if (profile) {
         console.log('🎉 Configurando usuário no estado:', profile);
         setUser({
@@ -117,9 +119,32 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
           active: true,
           createdAt: profile.created_at
         });
+      } else {
+        console.error('💥 Falha total ao encontrar/criar perfil');
+        // Em caso de falha total, criar um usuário básico temporário
+        console.log('🚨 Criando usuário temporário para permitir acesso...');
+        setUser({
+          id: authUser.id,
+          name: authUser.email?.split('@')[0] || 'Usuário',
+          email: authUser.email || '',
+          role: 'employee',
+          active: true,
+          createdAt: new Date().toISOString()
+        });
       }
     } catch (error) {
       console.error('💥 Erro inesperado ao carregar perfil:', error);
+      
+      // Fallback final: criar usuário básico
+      console.log('🚨 Criando usuário de emergência...');
+      setUser({
+        id: authUser.id,
+        name: authUser.email?.split('@')[0] || 'Usuário',
+        email: authUser.email || '',
+        role: 'employee',
+        active: true,
+        createdAt: new Date().toISOString()
+      });
     }
   };
 
@@ -127,14 +152,19 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     // Buscar usuário atual
     const getUser = async () => {
       console.log('🔄 Verificando usuário atual...');
-      const { data: { user: authUser } } = await supabase.auth.getUser();
       
-      if (authUser) {
-        console.log('👤 Usuário autenticado encontrado:', authUser.id);
-        setSupabaseUser(authUser);
-        await loadUserProfile(authUser);
-      } else {
-        console.log('👤 Nenhum usuário autenticado');
+      try {
+        const { data: { user: authUser } } = await supabase.auth.getUser();
+        
+        if (authUser) {
+          console.log('👤 Usuário autenticado encontrado:', authUser.id);
+          setSupabaseUser(authUser);
+          await loadUserProfile(authUser);
+        } else {
+          console.log('👤 Nenhum usuário autenticado');
+        }
+      } catch (error) {
+        console.error('❌ Erro ao verificar usuário:', error);
       }
       
       setIsLoading(false);
