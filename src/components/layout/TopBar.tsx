@@ -2,7 +2,8 @@
 import { Button } from "@/components/ui/button";
 import { PageSection } from "@/pages/Index";
 import { useFinancial } from "@/contexts/FinancialContext";
-import { useAuth } from "@/components/auth/AuthContext";
+import { useAuth } from "@/contexts/AuthContext";
+import { LogOut } from "lucide-react";
 
 interface TopBarProps {
   activeSection: PageSection;
@@ -22,13 +23,13 @@ const sectionTitles = {
 
 export const TopBar = ({ activeSection, sidebarOpen, setSidebarOpen }: TopBarProps) => {
   const { data } = useFinancial();
-  const { user } = useAuth();
+  const { profile, signOut } = useAuth();
 
   const getSectionTitle = () => {
-    if (activeSection === 'transactions' && user?.role === 'employee') {
+    if (activeSection === 'transactions' && profile?.role === 'employee') {
       return 'Minhas Despesas';
     }
-    if (activeSection === 'expenses' && user?.role === 'employee') {
+    if (activeSection === 'expenses' && profile?.role === 'employee') {
       return 'Nova Despesa';
     }
     return sectionTitles[activeSection];
@@ -39,6 +40,10 @@ export const TopBar = ({ activeSection, sidebarOpen, setSidebarOpen }: TopBarPro
       style: 'currency',
       currency: 'BRL'
     }).format(value);
+  };
+
+  const handleLogout = async () => {
+    await signOut();
   };
 
   return (
@@ -71,8 +76,28 @@ export const TopBar = ({ activeSection, sidebarOpen, setSidebarOpen }: TopBarPro
             </p>
           </div>
           
-          <div className="w-8 h-8 bg-slate-200 rounded-full flex items-center justify-center">
-            <span className="text-slate-600 font-medium text-sm">ST</span>
+          <div className="flex items-center space-x-2">
+            <div className="text-right">
+              <p className="text-sm font-medium text-slate-800">{profile?.name}</p>
+              <p className="text-xs text-slate-500">
+                {profile?.role === 'owner' ? 'Proprietário' : 'Funcionário'}
+              </p>
+            </div>
+            
+            <div className="w-8 h-8 bg-slate-200 rounded-full flex items-center justify-center">
+              <span className="text-slate-600 font-medium text-sm">
+                {profile?.name?.charAt(0).toUpperCase()}
+              </span>
+            </div>
+            
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={handleLogout}
+              className="text-slate-400 hover:text-slate-600"
+            >
+              <LogOut className="h-4 w-4" />
+            </Button>
           </div>
         </div>
       </div>

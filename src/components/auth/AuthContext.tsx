@@ -1,51 +1,69 @@
 
-import { createContext, useContext, useState, ReactNode } from 'react';
-import { User, AuthContext as AuthContextType } from '@/types/user';
+import { createContext, useContext, useState, ReactNode, useEffect } from 'react';
+import { supabase } from '@/integrations/supabase/client';
+import { Profile } from '@/types/database';
 
-const AuthContext = createContext<AuthContextType | undefined>(undefined);
+const AuthContext = createContext<any>(undefined);
 
-// Mock user data - in a real app, this would come from your authentication service
-const mockUsers: User[] = [
-  {
-    id: '1',
-    name: 'Ana Silva',
-    email: 'ana@sunsettrack.com',
-    role: 'owner',
-    active: true,
-    createdAt: '2024-01-01'
-  },
-  {
-    id: '2',
-    name: 'Carlos Santos',
-    email: 'carlos@sunsettrack.com',
-    role: 'employee',
-    active: true,
-    createdAt: '2024-01-01'
-  },
-  {
-    id: '3',
-    name: 'João Oliveira',
-    email: 'joao@sunsettrack.com',
-    role: 'employee',
-    active: true,
-    createdAt: '2024-01-01'
-  }
-];
+// Mock user data - será removido após implementação completa do Supabase
+const mockUsers: any[] = [];
 
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
-  const [user, setUser] = useState<User | null>(mockUsers[0]); // Default to owner for demo
+  const [user, setUser] = useState<any>(null);
+
+  useEffect(() => {
+    // Verificar se existe sessão ativa
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (session?.user) {
+        // Buscar perfil do usuário
+        supabase
+          .from('profiles')
+          .select('*')
+          .eq('id', session.user.id)
+          .single()
+          .then(({ data }) => {
+            if (data) {
+              setUser(data);
+            }
+          });
+      }
+    });
+
+    // Listener para mudanças de autenticação
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      async (event, session) => {
+        if (session?.user) {
+          const { data } = await supabase
+            .from('profiles')
+            .select('*')
+            .eq('id', session.user.id)
+            .single();
+          
+          if (data) {
+            setUser(data);
+          }
+        } else {
+          setUser(null);
+        }
+      }
+    );
+
+    return () => subscription.unsubscribe();
+  }, []);
 
   const login = async (email: string, password: string) => {
-    // Mock login - in a real app, this would validate credentials
-    const foundUser = mockUsers.find(u => u.email === email);
-    if (foundUser) {
-      setUser(foundUser);
-    } else {
-      throw new Error('Credenciais inválidas');
+    const { error } = await supabase.auth.signInWithPassword({
+      email,
+      password
+    });
+    
+    if (error) {
+      throw new Error(error.message);
     }
   };
 
-  const logout = () => {
+  const logout = async () => {
+    await supabase.auth.signOut();
     setUser(null);
   };
 

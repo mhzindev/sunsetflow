@@ -11,7 +11,7 @@ import {
   CreditCard
 } from "lucide-react";
 import { PageSection } from "@/pages/Index";
-import { useAuth } from "@/components/auth/AuthContext";
+import { useAuth } from "@/contexts/AuthContext";
 
 interface SidebarProps {
   activeSection: PageSection;
@@ -21,7 +21,7 @@ interface SidebarProps {
 }
 
 export const Sidebar = ({ activeSection, setActiveSection, isOpen }: SidebarProps) => {
-  const { user } = useAuth();
+  const { profile } = useAuth();
 
   const getMenuItems = () => {
     const baseItems = [
@@ -33,7 +33,7 @@ export const Sidebar = ({ activeSection, setActiveSection, isOpen }: SidebarProp
       }
     ];
 
-    if (user?.role === 'owner') {
+    if (profile?.role === 'owner') {
       return [
         ...baseItems,
         {
@@ -102,9 +102,9 @@ export const Sidebar = ({ activeSection, setActiveSection, isOpen }: SidebarProp
             <div>
               <h1 className="font-bold text-lg">Sunsettrack</h1>
               <p className="text-xs text-slate-400">Gestão Financeira</p>
-              {user && (
+              {profile && (
                 <p className="text-xs text-blue-400 mt-1">
-                  {user.name} ({user.role === 'owner' ? 'Proprietária' : 'Funcionário'})
+                  {profile.name} ({profile.role === 'owner' ? 'Proprietário' : 'Funcionário'})
                 </p>
               )}
             </div>
