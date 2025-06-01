@@ -18,7 +18,7 @@ interface PaymentModalProps {
     name: string;
     service: string;
     paymentMethod: PaymentMethod;
-    totalPaid: number;
+    totalPaid?: number;
   } | null;
 }
 
@@ -142,7 +142,7 @@ export const PaymentModal = ({ isOpen, onClose, provider }: PaymentModalProps) =
                 {getPaymentMethodLabel(provider.paymentMethod)}
               </Badge>
               <span className="text-sm text-gray-600">
-                Total pago: R$ {provider.totalPaid.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                Total pago: R$ {(provider.totalPaid || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
               </span>
             </div>
           </div>
