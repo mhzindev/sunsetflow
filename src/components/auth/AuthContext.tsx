@@ -22,20 +22,20 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
   const loadUserProfile = async (authUser: SupabaseUser) => {
     try {
-      console.log('Carregando perfil do usuário:', authUser.id);
-      console.log('Metadados do usuário:', authUser.user_metadata);
+      console.log('🔄 Carregando perfil do usuário:', authUser.id);
+      console.log('📋 Metadados do usuário:', authUser.user_metadata);
       
       // Aguardar um pouco para garantir que o trigger foi executado
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      await new Promise(resolve => setTimeout(resolve, 2000));
       
       // Buscar perfil do usuário com retry
       let profile = null;
       let attempts = 0;
-      const maxAttempts = 3;
+      const maxAttempts = 5;
       
       while (!profile && attempts < maxAttempts) {
         attempts++;
-        console.log(`Tentativa ${attempts} de buscar perfil...`);
+        console.log(`🔍 Tentativa ${attempts}/${maxAttempts} de buscar perfil...`);
         
         const { data, error } = await supabase
           .from('profiles')
@@ -44,23 +44,28 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
           .maybeSingle();
 
         if (error) {
-          console.error(`Erro na tentativa ${attempts}:`, error);
+          console.error(`❌ Erro na tentativa ${attempts}:`, error);
           if (attempts < maxAttempts) {
-            await new Promise(resolve => setTimeout(resolve, 1000));
+            await new Promise(resolve => setTimeout(resolve, 2000));
             continue;
           }
         } else {
           profile = data;
+          if (profile) {
+            console.log(`✅ Perfil encontrado na tentativa ${attempts}:`, profile);
+          } else {
+            console.log(`⚠️ Perfil não encontrado na tentativa ${attempts}`);
+          }
         }
       }
 
       if (!profile) {
-        console.log('Perfil não encontrado, criando um novo...');
-        // Se não encontrou o perfil após várias tentativas, criar um baseado nos metadados
+        console.log('🆕 Perfil não encontrado após várias tentativas, criando um novo...');
+        
         const roleFromMeta = authUser.user_metadata?.role || 'employee';
         const nameFromMeta = authUser.user_metadata?.name || authUser.email?.split('@')[0] || 'Usuário';
         
-        console.log('Dados para criar perfil:', {
+        console.log('📝 Dados para criar perfil:', {
           id: authUser.id,
           email: authUser.email,
           name: nameFromMeta,
@@ -73,14 +78,16 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
             id: authUser.id,
             email: authUser.email || '',
             name: nameFromMeta,
-            role: roleFromMeta
+            role: roleFromMeta as 'owner' | 'employee'
           })
           .select()
           .single();
 
         if (insertError) {
-          console.error('Erro ao criar perfil:', insertError);
-          // Tentar buscar novamente caso já tenha sido criado pelo trigger
+          console.error('❌ Erro ao criar perfil manualmente:', insertError);
+          
+          // Última tentativa: buscar novamente caso tenha sido criado pelo trigger
+          console.log('🔄 Última tentativa de buscar perfil...');
           const { data: existingProfile } = await supabase
             .from('profiles')
             .select('*')
@@ -88,17 +95,20 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
             .maybeSingle();
           
           if (existingProfile) {
+            console.log('✅ Perfil encontrado na última tentativa:', existingProfile);
             profile = existingProfile;
           } else {
+            console.error('💥 Falha total ao encontrar/criar perfil');
             return;
           }
         } else {
+          console.log('✅ Perfil criado manualmente com sucesso:', newProfile);
           profile = newProfile;
         }
       }
 
       if (profile) {
-        console.log('Perfil carregado com sucesso:', profile);
+        console.log('🎉 Configurando usuário no estado:', profile);
         setUser({
           id: profile.id,
           name: profile.name,
@@ -109,18 +119,22 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         });
       }
     } catch (error) {
-      console.error('Erro inesperado ao carregar perfil:', error);
+      console.error('💥 Erro inesperado ao carregar perfil:', error);
     }
   };
 
   useEffect(() => {
     // Buscar usuário atual
     const getUser = async () => {
+      console.log('🔄 Verificando usuário atual...');
       const { data: { user: authUser } } = await supabase.auth.getUser();
       
       if (authUser) {
+        console.log('👤 Usuário autenticado encontrado:', authUser.id);
         setSupabaseUser(authUser);
         await loadUserProfile(authUser);
+      } else {
+        console.log('👤 Nenhum usuário autenticado');
       }
       
       setIsLoading(false);
@@ -131,12 +145,13 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     // Escutar mudanças de autenticação
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
-        console.log('Auth state changed:', event, session?.user?.id);
+        console.log('🔄 Auth state mudou:', event, session?.user?.id);
         
         if (session?.user) {
           setSupabaseUser(session.user);
           await loadUserProfile(session.user);
         } else {
+          console.log('🚪 Usuário deslogado');
           setUser(null);
           setSupabaseUser(null);
         }
@@ -148,20 +163,30 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   }, []);
 
   const login = async (email: string, password: string) => {
+    console.log('🔐 Tentando fazer login:', email);
     const { error } = await supabase.auth.signInWithPassword({
       email,
       password,
     });
 
-    if (error) throw error;
+    if (error) {
+      console.error('❌ Erro no login:', error);
+      throw error;
+    }
+    console.log('✅ Login realizado com sucesso');
   };
 
   const logout = async () => {
+    console.log('🚪 Fazendo logout...');
     const { error } = await supabase.auth.signOut();
-    if (error) throw error;
+    if (error) {
+      console.error('❌ Erro no logout:', error);
+      throw error;
+    }
     
     setUser(null);
     setSupabaseUser(null);
+    console.log('✅ Logout realizado com sucesso');
   };
 
   const value = {

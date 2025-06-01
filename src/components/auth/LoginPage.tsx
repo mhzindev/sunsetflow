@@ -26,7 +26,7 @@ export const LoginPage = ({ onLoginSuccess }: LoginPageProps) => {
     setIsLoading(true);
 
     try {
-      console.log('Tentando fazer login com:', email);
+      console.log('🔐 Tentando fazer login com:', email);
       
       const { data, error } = await supabase.auth.signInWithPassword({
         email,
@@ -34,24 +34,27 @@ export const LoginPage = ({ onLoginSuccess }: LoginPageProps) => {
       });
 
       if (error) {
-        console.error('Erro no login:', error);
+        console.error('❌ Erro no login:', error);
+        
         if (error.message.includes('email_not_confirmed') || error.message.includes('Email not confirmed')) {
           showError('Email não confirmado', 'Verifique sua caixa de entrada e clique no link de confirmação enviado por email. Se não recebeu, tente cadastrar-se novamente.');
         } else if (error.message.includes('Invalid login credentials')) {
           showError('Credenciais inválidas', 'Email ou senha incorretos. Verifique os dados e tente novamente.');
+        } else if (error.message.includes('Too many requests')) {
+          showError('Muitas tentativas', 'Aguarde alguns minutos antes de tentar novamente.');
         } else {
-          showError('Erro no login', error.message);
+          showError('Erro no login', `Detalhes: ${error.message}`);
         }
         throw error;
       }
 
       if (data.user) {
-        console.log('Login bem-sucedido, usuário:', data.user.id);
+        console.log('✅ Login bem-sucedido, usuário:', data.user.id);
         showSuccess('Login realizado', 'Bem-vindo ao sistema!');
         onLoginSuccess();
       }
     } catch (error: any) {
-      console.error('Erro no login:', error);
+      console.error('💥 Erro geral no login:', error);
     } finally {
       setIsLoading(false);
     }
@@ -62,7 +65,15 @@ export const LoginPage = ({ onLoginSuccess }: LoginPageProps) => {
     setIsLoading(true);
 
     try {
-      console.log('Tentando criar conta com:', { email, name, role });
+      console.log('📝 Tentando criar conta com:', { 
+        email, 
+        name, 
+        role,
+        metadata: {
+          name: name,
+          role: role
+        }
+      });
       
       const { data, error } = await supabase.auth.signUp({
         email,
@@ -76,24 +87,39 @@ export const LoginPage = ({ onLoginSuccess }: LoginPageProps) => {
         }
       });
 
-      console.log('Resultado do signUp:', { data, error });
+      console.log('📋 Resultado completo do signUp:', { 
+        data: data, 
+        error: error,
+        user: data?.user,
+        session: data?.session 
+      });
 
       if (error) {
-        console.error('Erro detalhado no cadastro:', error);
+        console.error('❌ Erro detalhado no cadastro:', error);
         
         if (error.message.includes('User already registered')) {
-          showError('Usuário já cadastrado', 'Este email já está cadastrado. Tente fazer login ou recuperar a senha.');
+          showError('Usuário já cadastrado', 'Este email já está cadastrado. Tente fazer login ou usar outro email.');
         } else if (error.message.includes('Database error saving new user')) {
-          showError('Erro no banco de dados', 'Houve um problema ao criar sua conta. Tente novamente em alguns instantes.');
-          console.error('Erro de banco de dados - verifique os logs do Supabase');
+          showError('Erro no banco de dados', 'Houve um problema ao criar sua conta. Os logs foram registrados para análise. Tente novamente em alguns instantes.');
+          console.error('🔍 Erro de banco - verificar logs do Supabase e PostgreSQL');
+        } else if (error.message.includes('Password should be at least')) {
+          showError('Senha muito fraca', 'A senha deve ter pelo menos 6 caracteres.');
+        } else if (error.message.includes('signup_disabled')) {
+          showError('Cadastro desabilitado', 'O cadastro de novos usuários está temporariamente desabilitado.');
         } else {
-          showError('Erro no cadastro', error.message);
+          showError('Erro no cadastro', `Detalhes técnicos: ${error.message}`);
         }
         throw error;
       }
 
       if (data.user) {
-        console.log('Usuário criado com sucesso:', data.user.id);
+        console.log('✅ Usuário criado com sucesso:', {
+          id: data.user.id,
+          email: data.user.email,
+          confirmed: data.user.email_confirmed_at,
+          metadata: data.user.user_metadata
+        });
+        
         if (data.user.email_confirmed_at) {
           showSuccess('Conta criada', 'Conta criada com sucesso! Fazendo login...');
           onLoginSuccess();
@@ -103,7 +129,7 @@ export const LoginPage = ({ onLoginSuccess }: LoginPageProps) => {
         }
       }
     } catch (error: any) {
-      console.error('Erro no cadastro:', error);
+      console.error('💥 Erro geral no cadastro:', error);
     } finally {
       setIsLoading(false);
     }
@@ -117,6 +143,8 @@ export const LoginPage = ({ onLoginSuccess }: LoginPageProps) => {
 
     setIsLoading(true);
     try {
+      console.log('📧 Reenviando confirmação para:', email);
+      
       const { error } = await supabase.auth.resend({
         type: 'signup',
         email: email,
@@ -126,11 +154,14 @@ export const LoginPage = ({ onLoginSuccess }: LoginPageProps) => {
       });
 
       if (error) {
+        console.error('❌ Erro ao reenviar:', error);
         showError('Erro ao reenviar', error.message);
       } else {
+        console.log('✅ Email de confirmação reenviado');
         showSuccess('Email reenviado', 'Verifique sua caixa de entrada para o novo link de confirmação');
       }
     } catch (error: any) {
+      console.error('💥 Erro geral ao reenviar:', error);
       showError('Erro ao reenviar', 'Não foi possível reenviar o email de confirmação');
     } finally {
       setIsLoading(false);
@@ -251,10 +282,10 @@ export const LoginPage = ({ onLoginSuccess }: LoginPageProps) => {
           )}
         </div>
 
-        <div className="mt-6 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
-          <p className="text-sm text-yellow-800">
-            <strong>Importante:</strong> Após se cadastrar, você deve confirmar seu email antes de fazer login. 
-            Verifique sua caixa de entrada (e spam) para o link de confirmação.
+        <div className="mt-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+          <p className="text-sm text-blue-800">
+            <strong>Status:</strong> Sistema atualizado com logs detalhados para melhor diagnóstico. 
+            Após se cadastrar, você deve confirmar seu email antes de fazer login.
           </p>
         </div>
       </Card>
