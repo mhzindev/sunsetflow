@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -60,7 +59,7 @@ export const TransactionCategories = () => {
         return sum + numAmount;
       }, 0);
       
-      const employeeArray = Object.entries(employeeExpenses).map(([employee, amount]) => {
+      const employeeArray = Object.entries(employeeExpenses).map(([employee, amount]: [string, unknown]) => {
         const numAmount = typeof amount === 'number' ? amount : parseFloat(String(amount)) || 0;
         const percentage = totalExpenses > 0 ? Math.round((numAmount / totalExpenses) * 100) : 0;
         return {
