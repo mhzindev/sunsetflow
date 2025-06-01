@@ -17,7 +17,7 @@ export const LoginPage = ({ onLoginSuccess }: LoginPageProps) => {
   const [isLoading, setIsLoading] = useState(false);
   const [isSignUp, setIsSignUp] = useState(false);
   const [name, setName] = useState('');
-  const { showSuccess, showError } = useToastFeedback();
+  const { showSuccess, showError, showInfo } = useToastFeedback();
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -29,14 +29,23 @@ export const LoginPage = ({ onLoginSuccess }: LoginPageProps) => {
         password,
       });
 
-      if (error) throw error;
+      if (error) {
+        if (error.message.includes('email_not_confirmed') || error.message.includes('Email not confirmed')) {
+          showError('Email não confirmado', 'Verifique sua caixa de entrada e clique no link de confirmação enviado por email. Se não recebeu, tente cadastrar-se novamente.');
+        } else if (error.message.includes('Invalid login credentials')) {
+          showError('Credenciais inválidas', 'Email ou senha incorretos. Verifique os dados e tente novamente.');
+        } else {
+          showError('Erro no login', error.message);
+        }
+        throw error;
+      }
 
       if (data.user) {
         showSuccess('Login realizado', 'Bem-vindo ao sistema!');
         onLoginSuccess();
       }
     } catch (error: any) {
-      showError('Erro no login', error.message || 'Erro ao fazer login');
+      console.error('Erro no login:', error);
     } finally {
       setIsLoading(false);
     }
@@ -53,18 +62,54 @@ export const LoginPage = ({ onLoginSuccess }: LoginPageProps) => {
         options: {
           data: {
             name: name
-          }
+          },
+          emailRedirectTo: `${window.location.origin}/`
         }
       });
 
-      if (error) throw error;
+      if (error) {
+        if (error.message.includes('User already registered')) {
+          showError('Usuário já cadastrado', 'Este email já está cadastrado. Tente fazer login ou recuperar a senha.');
+        } else {
+          showError('Erro no cadastro', error.message);
+        }
+        throw error;
+      }
 
       if (data.user) {
-        showSuccess('Conta criada', 'Verifique seu email para confirmar a conta');
+        showSuccess('Conta criada', 'Verifique seu email para confirmar a conta antes de fazer login');
         setIsSignUp(false);
       }
     } catch (error: any) {
-      showError('Erro no cadastro', error.message || 'Erro ao criar conta');
+      console.error('Erro no cadastro:', error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleResendConfirmation = async () => {
+    if (!email) {
+      showError('Email necessário', 'Digite seu email para reenviar a confirmação');
+      return;
+    }
+
+    setIsLoading(true);
+    try {
+      const { error } = await supabase.auth.resend({
+        type: 'signup',
+        email: email,
+        options: {
+          emailRedirectTo: `${window.location.origin}/`
+        }
+      });
+
+      if (error) {
+        showError('Erro ao reenviar', error.message);
+      } else {
+        showSuccess('Email reenviado', 'Verifique sua caixa de entrada para o novo link de confirmação');
+      }
+    } catch (error: any) {
+      showError('Erro ao reenviar', 'Não foi possível reenviar o email de confirmação');
     } finally {
       setIsLoading(false);
     }
@@ -129,14 +174,36 @@ export const LoginPage = ({ onLoginSuccess }: LoginPageProps) => {
           </Button>
         </form>
 
-        <div className="mt-4 text-center">
-          <button
-            type="button"
-            onClick={() => setIsSignUp(!isSignUp)}
-            className="text-blue-600 hover:text-blue-700 text-sm"
-          >
-            {isSignUp ? 'Já tem uma conta? Faça login' : 'Não tem conta? Cadastre-se'}
-          </button>
+        <div className="mt-4 space-y-2">
+          <div className="text-center">
+            <button
+              type="button"
+              onClick={() => setIsSignUp(!isSignUp)}
+              className="text-blue-600 hover:text-blue-700 text-sm"
+            >
+              {isSignUp ? 'Já tem uma conta? Faça login' : 'Não tem conta? Cadastre-se'}
+            </button>
+          </div>
+          
+          {!isSignUp && (
+            <div className="text-center">
+              <button
+                type="button"
+                onClick={handleResendConfirmation}
+                className="text-gray-600 hover:text-gray-700 text-sm"
+                disabled={isLoading}
+              >
+                Reenviar email de confirmação
+              </button>
+            </div>
+          )}
+        </div>
+
+        <div className="mt-6 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+          <p className="text-sm text-yellow-800">
+            <strong>Importante:</strong> Após se cadastrar, você deve confirmar seu email antes de fazer login. 
+            Verifique sua caixa de entrada (e spam) para o link de confirmação.
+          </p>
         </div>
       </Card>
     </div>
