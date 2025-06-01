@@ -1,35 +1,25 @@
 
-export interface Employee {
-  id: string;
-  name: string;
-  role: 'owner' | 'technician' | 'manager';
-}
-
-export interface Mission {
-  id: string;
-  title: string;
-  client: string;
-  location: string;
-  startDate: string;
-  endDate?: string;
-  status: 'planned' | 'in-progress' | 'completed';
-  assignedEmployees: string[];
-}
-
-export interface TravelExpense {
+export interface Expense {
   id: string;
   missionId: string;
   employeeId: string;
-  category: 'fuel' | 'accommodation' | 'meals' | 'transportation' | 'materials' | 'other';
+  employeeName: string;
+  category: string;
   description: string;
   amount: number;
   date: string;
-  receipt?: string;
-  isAdvanced: boolean; // Se foi adiantamento da empresa
-  status: 'pending' | 'approved' | 'reimbursed';
-  submittedBy: string;
+  isAdvanced: boolean;
+  status: 'pending' | 'approved' | 'reimbursed' | 'rejected';
   submittedAt: string;
+  approvedAt?: string;
+  reimbursedAt?: string;
+  receipt?: string;
+  // Campos específicos para hospedagem
+  accommodationDetails?: {
+    actualCost: number; // Valor realmente gasto
+    reimbursementAmount: number; // Valor da nota de ressarcimento
+    netAmount: number; // Valor líquido (reimbursementAmount - actualCost)
+    outsourcingCompany?: string; // Nome da empresa terceirizada
+    invoiceNumber?: string; // Número da nota fiscal
+  };
 }
-
-export type ExpenseCategory = TravelExpense['category'];
-export type ExpenseStatus = TravelExpense['status'];

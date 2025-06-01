@@ -31,6 +31,11 @@ interface Expense {
   approvedAt?: string;
   reimbursedAt?: string;
   receipt?: string;
+  accommodationDetails?: {
+    actualCost: number;
+    reimbursementAmount: number;
+    netAmount: number;
+  };
 }
 
 interface Receivable {
@@ -321,7 +326,46 @@ export const FinancialProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     setExpenses(prev => [newExpense, ...prev]);
     console.log('Expense added to financial system:', newExpense);
 
-    if (expenseData.isAdvanced) {
+    // Para hospedagem, criar transações tanto para o gasto quanto para o ressarcimento
+    if (expenseData.category === 'accommodation' && expenseData.accommodationDetails) {
+      const { actualCost, reimbursementAmount, netAmount } = expenseData.accommodationDetails;
+      
+      // Registrar o gasto inicial da empresa (saída)
+      const expenseTransaction = {
+        type: 'expense' as const,
+        category: 'accommodation' as const,
+        amount: actualCost,
+        description: `Hospedagem adiantada: ${expenseData.description}`,
+        date: expenseData.date,
+        method: 'transfer' as const,
+        status: 'completed' as const,
+        userId: expenseData.employeeId,
+        userName: `Adiantamento Hospedagem - ${expenseData.employeeName}`,
+        isRecurring: false,
+        createdAt: new Date().toISOString()
+      };
+      addTransaction(expenseTransaction);
+
+      // Registrar o ressarcimento da empresa terceirizada (entrada)
+      const reimbursementTransaction = {
+        type: 'income' as const,
+        category: 'client_payment' as const,
+        amount: reimbursementAmount,
+        description: `Ressarcimento hospedagem: ${expenseData.description}${expenseData.accommodationDetails.outsourcingCompany ? ` - ${expenseData.accommodationDetails.outsourcingCompany}` : ''}`,
+        date: expenseData.date,
+        method: 'transfer' as const,
+        status: 'completed' as const,
+        userId: expenseData.employeeId,
+        userName: `Ressarcimento - ${expenseData.accommodationDetails.outsourcingCompany || 'Empresa Terceirizada'}`,
+        isRecurring: false,
+        createdAt: new Date().toISOString(),
+        clientName: expenseData.accommodationDetails.outsourcingCompany
+      };
+      addTransaction(reimbursementTransaction);
+
+      console.log(`Accommodation processed - Cost: ${actualCost}, Reimbursement: ${reimbursementAmount}, Net: ${netAmount}`);
+    } else if (expenseData.isAdvanced) {
+      // Lógica existente para outros adiantamentos
       const expenseTransaction = {
         type: 'expense' as const,
         category: 'other' as const,
@@ -331,7 +375,9 @@ export const FinancialProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         method: 'transfer' as const,
         status: 'completed' as const,
         userId: expenseData.employeeId,
-        userName: `Adiantamento - ${expenseData.employeeName}`
+        userName: `Adiantamento - ${expenseData.employeeName}`,
+        isRecurring: false,
+        createdAt: new Date().toISOString()
       };
       addTransaction(expenseTransaction);
     }

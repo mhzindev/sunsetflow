@@ -23,6 +23,11 @@ interface Expense {
   date: string;
   isAdvanced: boolean;
   status: string;
+  accommodationDetails?: {
+    actualCost: number;
+    reimbursementAmount: number;
+    netAmount: number;
+  };
 }
 
 export const ExpenseList = () => {
@@ -54,7 +59,8 @@ export const ExpenseList = () => {
     amount: expense.amount,
     date: expense.date,
     isAdvanced: expense.isAdvanced,
-    status: expense.status
+    status: expense.status,
+    accommodationDetails: expense.accommodationDetails // Adicionar detalhes de hospedagem
   }));
 
   const applyFilters = (expenses: Expense[]) => {
@@ -263,14 +269,36 @@ export const ExpenseList = () => {
                   {getCategoryLabel(expense.category)}
                 </Badge>
               </TableCell>
-              <TableCell>{expense.description}</TableCell>
+              <TableCell>
+                <div>
+                  <div>{expense.description}</div>
+                  {expense.accommodationDetails && (
+                    <div className="text-xs text-gray-600 mt-1">
+                      <div>Gasto: R$ {expense.accommodationDetails.actualCost.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</div>
+                      <div>Ressarcimento: R$ {expense.accommodationDetails.reimbursementAmount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</div>
+                      <div className={`font-medium ${expense.accommodationDetails.netAmount >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                        Líquido: {expense.accommodationDetails.netAmount >= 0 ? '+' : ''}R$ {expense.accommodationDetails.netAmount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </TableCell>
               <TableCell className="font-semibold">
-                R$ {expense.amount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                {expense.accommodationDetails ? (
+                  <div>
+                    <div className="text-red-600">R$ {expense.amount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</div>
+                    <div className="text-xs text-gray-500">
+                      Líquido: {expense.accommodationDetails.netAmount >= 0 ? '+' : ''}R$ {expense.accommodationDetails.netAmount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                    </div>
+                  </div>
+                ) : (
+                  `R$ ${expense.amount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`
+                )}
               </TableCell>
               <TableCell>{new Date(expense.date).toLocaleDateString('pt-BR')}</TableCell>
               <TableCell>
                 <Badge variant={expense.isAdvanced ? 'default' : 'secondary'}>
-                  {expense.isAdvanced ? 'Adiantamento' : 'Reembolso'}
+                  {expense.category === 'accommodation' ? 'Hospedagem' : (expense.isAdvanced ? 'Adiantamento' : 'Reembolso')}
                 </Badge>
               </TableCell>
               <TableCell>
