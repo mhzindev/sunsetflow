@@ -1,3 +1,4 @@
+
 import { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -7,103 +8,75 @@ import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Users, Plus, Key, Copy, Eye, EyeOff, Trash2, UserPlus } from "lucide-react";
-import { useToast } from "@/hooks/use-toast";
-import { Profile } from "@/types/database";
+import { useEmployeeManagement } from "@/hooks/useEmployeeManagement";
+import { useAuth } from "@/contexts/AuthContext";
 
 export const UserManagement = () => {
-  const { toast } = useToast();
+  const { profile } = useAuth();
+  const { 
+    employees, 
+    accessCodes, 
+    loading, 
+    createAccessCode, 
+    deactivateEmployee, 
+    copyToClipboard 
+  } = useEmployeeManagement();
+  
   const [showNewUserDialog, setShowNewUserDialog] = useState(false);
   const [showAccessCodes, setShowAccessCodes] = useState(false);
   
-  // Mock data - em produção viria de um contexto ou API
-  const [employees] = useState<Profile[]>([
-    {
-      id: '2',
-      name: 'Carlos Santos',
-      email: 'carlos@sunsettrack.com',
-      role: 'user',
-      active: true,
-      created_at: '2024-01-15',
-      phone: '(11) 98765-4321'
-    },
-    {
-      id: '3',
-      name: 'João Oliveira',
-      email: 'joao@sunsettrack.com',
-      role: 'user',
-      active: true,
-      created_at: '2024-02-01',
-      phone: '(11) 97654-3210'
-    }
-  ]);
-
-  const [accessCodes] = useState([
-    {
-      id: '1',
-      code: 'STRACK-2024-001',
-      employeeName: 'Maria Silva',
-      employeeEmail: 'maria@sunsettrack.com',
-      isUsed: false,
-      createdAt: '2024-03-01',
-      expiresAt: '2024-03-08'
-    },
-    {
-      id: '2',
-      code: 'STRACK-2024-002',
-      employeeName: 'Pedro Costa',
-      employeeEmail: 'pedro@sunsettrack.com',
-      isUsed: true,
-      createdAt: '2024-02-20',
-      usedAt: '2024-02-22'
-    }
-  ]);
-
   const [newUserForm, setNewUserForm] = useState({
     name: '',
     email: '',
     phone: ''
   });
 
-  const generateAccessCode = () => {
-    const timestamp = Date.now().toString().slice(-6);
-    return `STRACK-${new Date().getFullYear()}-${timestamp}`;
-  };
-
-  const handleCreateAccessCode = () => {
+  const handleCreateAccessCode = async () => {
     if (!newUserForm.name || !newUserForm.email) {
-      toast({
-        title: "Erro",
-        description: "Nome e e-mail são obrigatórios.",
-        variant: "destructive"
-      });
       return;
     }
 
-    const newCode = generateAccessCode();
-    
-    toast({
-      title: "Código de acesso criado",
-      description: `Código ${newCode} criado para ${newUserForm.name}`,
-    });
-    
+    await createAccessCode(newUserForm.name, newUserForm.email);
     setNewUserForm({ name: '', email: '', phone: '' });
     setShowNewUserDialog(false);
   };
 
-  const copyToClipboard = (text: string) => {
-    navigator.clipboard.writeText(text);
-    toast({
-      title: "Copiado!",
-      description: "Código copiado para a área de transferência.",
-    });
+  const handleDeactivateEmployee = async (employeeId: string, employeeName: string) => {
+    if (window.confirm(`Tem certeza que deseja desativar ${employeeName}?`)) {
+      await deactivateEmployee(employeeId);
+    }
   };
 
-  const deactivateEmployee = (employeeId: string, employeeName: string) => {
-    toast({
-      title: "Funcionário desativado",
-      description: `${employeeName} foi desativado do sistema.`,
-    });
-  };
+  if (loading) {
+    return (
+      <div className="space-y-6">
+        <Card>
+          <CardContent className="p-6">
+            <div className="text-center">Carregando dados dos usuários...</div>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  // Apenas admins podem gerenciar usuários
+  if (profile?.role !== 'admin') {
+    return (
+      <div className="space-y-6">
+        <Card>
+          <CardContent className="p-6">
+            <div className="text-center">
+              <Users className="h-12 w-12 text-slate-400 mx-auto mb-4" />
+              <h3 className="text-lg font-semibold text-slate-800 mb-2">Acesso Restrito</h3>
+              <p className="text-slate-600">
+                Apenas administradores podem gerenciar usuários.
+              </p>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -112,7 +85,7 @@ export const UserManagement = () => {
           <CardTitle className="flex items-center justify-between">
             <div className="flex items-center gap-2">
               <Users className="h-5 w-5" />
-              Funcionários Ativos
+              Funcionários Ativos ({employees.length})
             </div>
             <Dialog open={showNewUserDialog} onOpenChange={setShowNewUserDialog}>
               <DialogTrigger asChild>
@@ -155,7 +128,11 @@ export const UserManagement = () => {
                     />
                   </div>
                   <div className="flex gap-2">
-                    <Button onClick={handleCreateAccessCode} className="bg-green-600 hover:bg-green-700">
+                    <Button 
+                      onClick={handleCreateAccessCode} 
+                      className="bg-green-600 hover:bg-green-700"
+                      disabled={!newUserForm.name || !newUserForm.email}
+                    >
                       <Key className="w-4 h-4 mr-2" />
                       Gerar Código
                     </Button>
@@ -169,41 +146,56 @@ export const UserManagement = () => {
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Nome</TableHead>
-                <TableHead>E-mail</TableHead>
-                <TableHead>Telefone</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead>Ações</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {employees.map((employee) => (
-                <TableRow key={employee.id}>
-                  <TableCell className="font-medium">{employee.name}</TableCell>
-                  <TableCell>{employee.email}</TableCell>
-                  <TableCell>{employee.phone || '-'}</TableCell>
-                  <TableCell>
-                    <Badge variant={employee.active ? "default" : "secondary"}>
-                      {employee.active ? "Ativo" : "Inativo"}
-                    </Badge>
-                  </TableCell>
-                  <TableCell>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => deactivateEmployee(employee.id, employee.name)}
-                      className="text-red-600 hover:text-red-700"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </Button>
-                  </TableCell>
+          {employees.length === 0 ? (
+            <div className="text-center py-8">
+              <Users className="h-12 w-12 text-slate-400 mx-auto mb-4" />
+              <p className="text-slate-600">Nenhum funcionário encontrado.</p>
+            </div>
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Nome</TableHead>
+                  <TableHead>E-mail</TableHead>
+                  <TableHead>Telefone</TableHead>
+                  <TableHead>Função</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead>Ações</TableHead>
                 </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+              </TableHeader>
+              <TableBody>
+                {employees.map((employee) => (
+                  <TableRow key={employee.id}>
+                    <TableCell className="font-medium">{employee.name}</TableCell>
+                    <TableCell>{employee.email}</TableCell>
+                    <TableCell>{employee.phone || '-'}</TableCell>
+                    <TableCell>
+                      <Badge variant={employee.role === 'admin' ? "default" : "secondary"}>
+                        {employee.role === 'admin' ? 'Admin' : 'Usuário'}
+                      </Badge>
+                    </TableCell>
+                    <TableCell>
+                      <Badge variant={employee.active ? "default" : "secondary"}>
+                        {employee.active ? "Ativo" : "Inativo"}
+                      </Badge>
+                    </TableCell>
+                    <TableCell>
+                      {employee.role !== 'admin' && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleDeactivateEmployee(employee.id, employee.name)}
+                          className="text-red-600 hover:text-red-700"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </Button>
+                      )}
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          )}
         </CardContent>
       </Card>
 
@@ -212,7 +204,7 @@ export const UserManagement = () => {
           <CardTitle className="flex items-center justify-between">
             <div className="flex items-center gap-2">
               <Key className="h-5 w-5" />
-              Códigos de Acesso
+              Códigos de Acesso ({accessCodes.length})
             </div>
             <Button
               variant="outline"
@@ -236,43 +228,54 @@ export const UserManagement = () => {
                 </ol>
               </div>
               
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Código</TableHead>
-                    <TableHead>Funcionário</TableHead>
-                    <TableHead>E-mail</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead>Criado em</TableHead>
-                    <TableHead>Ações</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {accessCodes.map((code) => (
-                    <TableRow key={code.id}>
-                      <TableCell className="font-mono text-sm">{code.code}</TableCell>
-                      <TableCell>{code.employeeName}</TableCell>
-                      <TableCell>{code.employeeEmail}</TableCell>
-                      <TableCell>
-                        <Badge variant={code.isUsed ? "secondary" : "default"}>
-                          {code.isUsed ? "Usado" : "Pendente"}
-                        </Badge>
-                      </TableCell>
-                      <TableCell>{new Date(code.createdAt).toLocaleDateString('pt-BR')}</TableCell>
-                      <TableCell>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => copyToClipboard(code.code)}
-                          disabled={code.isUsed}
-                        >
-                          <Copy className="w-4 h-4" />
-                        </Button>
-                      </TableCell>
+              {accessCodes.length === 0 ? (
+                <div className="text-center py-8">
+                  <Key className="h-12 w-12 text-slate-400 mx-auto mb-4" />
+                  <p className="text-slate-600">Nenhum código de acesso encontrado.</p>
+                </div>
+              ) : (
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Código</TableHead>
+                      <TableHead>Funcionário</TableHead>
+                      <TableHead>E-mail</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead>Criado em</TableHead>
+                      <TableHead>Expira em</TableHead>
+                      <TableHead>Ações</TableHead>
                     </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
+                  </TableHeader>
+                  <TableBody>
+                    {accessCodes.map((code) => (
+                      <TableRow key={code.id}>
+                        <TableCell className="font-mono text-sm">{code.code}</TableCell>
+                        <TableCell>{code.employeeName}</TableCell>
+                        <TableCell>{code.employeeEmail}</TableCell>
+                        <TableCell>
+                          <Badge variant={code.isUsed ? "secondary" : "default"}>
+                            {code.isUsed ? "Usado" : "Pendente"}
+                          </Badge>
+                        </TableCell>
+                        <TableCell>{new Date(code.createdAt).toLocaleDateString('pt-BR')}</TableCell>
+                        <TableCell>
+                          {code.expiresAt ? new Date(code.expiresAt).toLocaleDateString('pt-BR') : '-'}
+                        </TableCell>
+                        <TableCell>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => copyToClipboard(code.code)}
+                            disabled={code.isUsed}
+                          >
+                            <Copy className="w-4 h-4" />
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              )}
             </div>
           </CardContent>
         )}

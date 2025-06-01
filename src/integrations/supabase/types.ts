@@ -284,6 +284,7 @@ export type Database = {
       profiles: {
         Row: {
           active: boolean
+          company_id: string | null
           created_at: string
           email: string
           id: string
@@ -293,6 +294,7 @@ export type Database = {
         }
         Insert: {
           active?: boolean
+          company_id?: string | null
           created_at?: string
           email: string
           id: string
@@ -302,6 +304,7 @@ export type Database = {
         }
         Update: {
           active?: boolean
+          company_id?: string | null
           created_at?: string
           email?: string
           id?: string
@@ -309,7 +312,15 @@ export type Database = {
           phone?: string | null
           role?: Database["public"]["Enums"]["user_role"]
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "profiles_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       service_providers: {
         Row: {
@@ -417,6 +428,10 @@ export type Database = {
       get_current_user_role: {
         Args: Record<PropertyKey, never>
         Returns: string
+      }
+      use_access_code: {
+        Args: { access_code: string }
+        Returns: Json
       }
     }
     Enums: {
