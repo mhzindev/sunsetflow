@@ -1,3 +1,4 @@
+
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
@@ -8,51 +9,88 @@ export const CashFlowProjections = () => {
   const { getCashFlowProjections, data } = useFinancial();
   const projections = getCashFlowProjections();
 
-  // Extender as projeções com dados calculados
-  const extendedProjections = [
-    ...projections,
-    {
-      period: 'Próximos 60 dias',
-      expectedIncome: data.pendingPayments * 1.3,
-      expectedExpenses: 78000.00,
-      netFlow: (data.pendingPayments * 1.3) - 78000.00,
-      status: (data.pendingPayments * 1.3) - 78000.00 > 0 ? 'positive' : 'negative'
-    },
-    {
-      period: 'Próximos 90 dias',
-      expectedIncome: data.pendingPayments * 1.8,
-      expectedExpenses: 118000.00,
-      netFlow: (data.pendingPayments * 1.8) - 118000.00,
-      status: (data.pendingPayments * 1.8) - 118000.00 > 5000 ? 'positive' : 'warning'
-    }
-  ];
+  // Cálculos baseados em dados reais do sistema
+  const calculateProjections = () => {
+    const currentDate = new Date();
+    const next7Days = new Date(currentDate.getTime() + 7 * 24 * 60 * 60 * 1000);
+    const next30Days = new Date(currentDate.getTime() + 30 * 24 * 60 * 60 * 1000);
+    const next60Days = new Date(currentDate.getTime() + 60 * 24 * 60 * 60 * 1000);
+    const next90Days = new Date(currentDate.getTime() + 90 * 24 * 60 * 60 * 1000);
 
-  const upcomingReceivables = [
-    {
-      client: 'Cliente ABC - Projeto Alpha',
-      amount: 15000.00,
-      expectedDate: '2024-02-05',
-      probability: 90
-    },
-    {
-      client: 'Cliente XYZ - Instalação Premium',
-      amount: 8500.00,
-      expectedDate: '2024-02-12',
-      probability: 85
-    },
-    {
-      client: 'Cliente DEF - Manutenção Anual',
-      amount: 6200.00,
-      expectedDate: '2024-02-18',
-      probability: 95
-    },
-    {
-      client: 'Cliente GHI - Novos Rastreadores',
-      amount: 12000.00,
-      expectedDate: '2024-02-25',
-      probability: 75
-    }
-  ];
+    // Calcular receitas e despesas previstas com base nos dados reais
+    const avgDailyIncome = data.monthlyIncome / 30;
+    const avgDailyExpenses = data.monthlyExpenses / 30;
+
+    // Pagamentos programados para os próximos períodos
+    const upcomingPayments = data.payments.filter(p => 
+      p.status === 'pending' || p.status === 'overdue'
+    );
+
+    const paymentsNext7Days = upcomingPayments.filter(p => 
+      new Date(p.dueDate) <= next7Days
+    ).reduce((sum, p) => sum + p.amount, 0);
+
+    const paymentsNext30Days = upcomingPayments.filter(p => 
+      new Date(p.dueDate) <= next30Days
+    ).reduce((sum, p) => sum + p.amount, 0);
+
+    const paymentsNext60Days = upcomingPayments.filter(p => 
+      new Date(p.dueDate) <= next60Days
+    ).reduce((sum, p) => sum + p.amount, 0);
+
+    const paymentsNext90Days = upcomingPayments.filter(p => 
+      new Date(p.dueDate) <= next90Days
+    ).reduce((sum, p) => sum + p.amount, 0);
+
+    return [
+      {
+        period: 'Próximos 7 dias',
+        expectedIncome: avgDailyIncome * 7,
+        expectedExpenses: (avgDailyExpenses * 7) + paymentsNext7Days,
+        netFlow: (avgDailyIncome * 7) - ((avgDailyExpenses * 7) + paymentsNext7Days),
+        status: (avgDailyIncome * 7) - ((avgDailyExpenses * 7) + paymentsNext7Days) > 0 ? 'positive' : 'negative'
+      },
+      {
+        period: 'Próximos 30 dias',
+        expectedIncome: data.monthlyIncome,
+        expectedExpenses: data.monthlyExpenses + paymentsNext30Days,
+        netFlow: data.monthlyIncome - (data.monthlyExpenses + paymentsNext30Days),
+        status: data.monthlyIncome - (data.monthlyExpenses + paymentsNext30Days) > 0 ? 'positive' : 'negative'
+      },
+      {
+        period: 'Próximos 60 dias',
+        expectedIncome: data.monthlyIncome * 2,
+        expectedExpenses: (data.monthlyExpenses * 2) + paymentsNext60Days,
+        netFlow: (data.monthlyIncome * 2) - ((data.monthlyExpenses * 2) + paymentsNext60Days),
+        status: (data.monthlyIncome * 2) - ((data.monthlyExpenses * 2) + paymentsNext60Days) > 0 ? 'positive' : 'warning'
+      },
+      {
+        period: 'Próximos 90 dias',
+        expectedIncome: data.monthlyIncome * 3,
+        expectedExpenses: (data.monthlyExpenses * 3) + paymentsNext90Days,
+        netFlow: (data.monthlyIncome * 3) - ((data.monthlyExpenses * 3) + paymentsNext90Days),
+        status: (data.monthlyIncome * 3) - ((data.monthlyExpenses * 3) + paymentsNext90Days) > 5000 ? 'positive' : 'warning'
+      }
+    ];
+  };
+
+  const realProjections = calculateProjections();
+
+  // Recebimentos previstos baseados em transações pendentes
+  const getUpcomingReceivables = () => {
+    const pendingIncomeTransactions = data.transactions.filter(t => 
+      t.type === 'income' && t.status === 'pending'
+    );
+
+    return pendingIncomeTransactions.map(t => ({
+      client: t.description,
+      amount: t.amount,
+      expectedDate: t.date,
+      probability: 85 // Base de confiança padrão
+    }));
+  };
+
+  const upcomingReceivables = getUpcomingReceivables();
 
   const getStatusIcon = (status: string) => {
     switch (status) {
@@ -97,7 +135,7 @@ export const CashFlowProjections = () => {
       <div className="space-y-6">
         {/* Projeções por Período */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-          {extendedProjections.map((projection, index) => (
+          {realProjections.map((projection, index) => (
             <Card key={index} className={`p-4 border-2 ${getStatusColor(projection.status)}`}>
               <div className="flex items-center justify-between mb-3">
                 <h5 className="font-medium text-slate-800">{projection.period}</h5>
@@ -157,7 +195,7 @@ export const CashFlowProjections = () => {
             </Tooltip>
           </div>
           
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
             <div className="text-center">
               <p className="text-sm text-blue-600">Transações Registradas</p>
               <p className="text-2xl font-bold text-blue-800">{data.transactions.length}</p>
@@ -174,6 +212,12 @@ export const CashFlowProjections = () => {
                 R$ {data.pendingPayments.toLocaleString('pt-BR')}
               </p>
             </div>
+            <div className="text-center">
+              <p className="text-sm text-blue-600">Despesas Aprovadas</p>
+              <p className="text-2xl font-bold text-blue-800">
+                R$ {data.approvedExpenses.toLocaleString('pt-BR')}
+              </p>
+            </div>
           </div>
         </Card>
 
@@ -186,41 +230,50 @@ export const CashFlowProjections = () => {
                 <TrendingUp className="w-5 h-5 text-slate-600 ml-2 cursor-help" />
               </TooltipTrigger>
               <TooltipContent className="max-w-xs p-3">
-                <p className="text-sm">Lista de recebimentos esperados de clientes baseada em contratos firmados e histórico de pagamentos. A confiança indica a probabilidade de recebimento na data prevista.</p>
+                <p className="text-sm">Lista de recebimentos esperados baseada em transações pendentes registradas no sistema.</p>
               </TooltipContent>
             </Tooltip>
           </div>
           
-          <div className="space-y-3">
-            {upcomingReceivables.map((receivable, index) => (
-              <div key={index} className="flex items-center justify-between p-4 bg-slate-50 rounded-lg">
-                <div>
-                  <h5 className="font-medium text-slate-800">{receivable.client}</h5>
-                  <p className="text-sm text-slate-600">
-                    Previsão: {new Date(receivable.expectedDate).toLocaleDateString('pt-BR')}
-                  </p>
+          {upcomingReceivables.length > 0 ? (
+            <div className="space-y-3">
+              {upcomingReceivables.map((receivable, index) => (
+                <div key={index} className="flex items-center justify-between p-4 bg-slate-50 rounded-lg">
+                  <div>
+                    <h5 className="font-medium text-slate-800">{receivable.client}</h5>
+                    <p className="text-sm text-slate-600">
+                      Previsão: {new Date(receivable.expectedDate).toLocaleDateString('pt-BR')}
+                    </p>
+                  </div>
+                  
+                  <div className="flex items-center space-x-3">
+                    <Badge className={getProbabilityColor(receivable.probability)}>
+                      {receivable.probability}% confiança
+                    </Badge>
+                    <span className="font-semibold text-slate-800">
+                      R$ {receivable.amount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                    </span>
+                  </div>
                 </div>
-                
-                <div className="flex items-center space-x-3">
-                  <Badge className={getProbabilityColor(receivable.probability)}>
-                    {receivable.probability}% confiança
-                  </Badge>
-                  <span className="font-semibold text-slate-800">
-                    R$ {receivable.amount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+              ))}
+              
+              <div className="mt-4 p-4 bg-blue-50 rounded-lg">
+                <div className="flex justify-between items-center">
+                  <span className="font-medium text-blue-800">Total Previsto:</span>
+                  <span className="text-xl font-bold text-blue-900">
+                    R$ {upcomingReceivables.reduce((sum, r) => sum + r.amount, 0).toLocaleString('pt-BR')}
                   </span>
                 </div>
               </div>
-            ))}
-          </div>
-          
-          <div className="mt-4 p-4 bg-blue-50 rounded-lg">
-            <div className="flex justify-between items-center">
-              <span className="font-medium text-blue-800">Total Previsto (60 dias):</span>
-              <span className="text-xl font-bold text-blue-900">
-                R$ {upcomingReceivables.reduce((sum, r) => sum + r.amount, 0).toLocaleString('pt-BR')}
-              </span>
             </div>
-          </div>
+          ) : (
+            <div className="text-center py-8">
+              <p className="text-slate-600">Nenhum recebimento pendente encontrado.</p>
+              <p className="text-sm text-slate-500 mt-2">
+                Transações de entrada com status pendente aparecerão aqui.
+              </p>
+            </div>
+          )}
         </Card>
       </div>
     </TooltipProvider>

@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Sidebar } from "@/components/layout/Sidebar";
@@ -7,13 +6,14 @@ import { Dashboard } from "@/components/dashboard/Dashboard";
 import { TransactionManager } from "@/components/transactions/TransactionManager";
 import { PaymentManager } from "@/components/payments/PaymentManager";
 import { CashFlow } from "@/components/cashflow/CashFlow";
+import { AccountsManager } from "@/components/accounts/AccountsManager";
 import { Reports } from "@/components/reports/Reports";
 import { ExpenseManager } from "@/components/expenses/ExpenseManager";
 import { Settings } from "@/components/settings/Settings";
 import { useAuth } from "@/contexts/AuthContext";
 import { FinancialProvider } from "@/contexts/FinancialContext";
 
-export type PageSection = 'dashboard' | 'transactions' | 'payments' | 'expenses' | 'cashflow' | 'reports' | 'settings';
+export type PageSection = 'dashboard' | 'transactions' | 'payments' | 'expenses' | 'cashflow' | 'accounts' | 'reports' | 'settings';
 
 const Index = () => {
   const { isAuthenticated, loading } = useAuth();
@@ -43,6 +43,8 @@ const Index = () => {
         return <ExpenseManager />;
       case 'cashflow':
         return <CashFlow />;
+      case 'accounts':
+        return <AccountsManager />;
       case 'reports':
         return <Reports />;
       case 'settings':
