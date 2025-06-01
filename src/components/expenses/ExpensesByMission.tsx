@@ -1,64 +1,110 @@
 
+import { useState, useEffect } from 'react';
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { useSupabaseData } from '@/hooks/useSupabaseData';
 
 export const ExpensesByMission = () => {
-  const missionExpenses = [
-    {
-      mission: 'Instalação - Cliente ABC',
-      location: 'São Paulo/SP',
-      period: '15-17 Jan 2024',
-      status: 'completed',
-      totalExpenses: 1180.50,
-      employees: ['Carlos Santos', 'Ana Silva'],
-      categories: [
-        { name: 'Combustível', amount: 350.00 },
-        { name: 'Hospedagem', amount: 450.00 },
-        { name: 'Alimentação', amount: 180.50 },
-        { name: 'Materiais', amount: 200.00 }
-      ]
-    },
-    {
-      mission: 'Manutenção - Cliente XYZ',
-      location: 'Rio de Janeiro/RJ',
-      period: '20-21 Jan 2024',
-      status: 'in-progress',
-      totalExpenses: 690.40,
-      employees: ['João Oliveira'],
-      categories: [
-        { name: 'Combustível', amount: 280.00 },
-        { name: 'Hospedagem', amount: 320.00 },
-        { name: 'Alimentação', amount: 90.40 }
-      ]
-    },
-    {
-      mission: 'Instalação - Cliente DEF',
-      location: 'Belo Horizonte/MG',
-      period: '25-26 Jan 2024',
-      status: 'planned',
-      totalExpenses: 0,
-      employees: ['Carlos Santos'],
-      categories: []
+  const [missionExpenses, setMissionExpenses] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const { fetchMissions, fetchExpenses } = useSupabaseData();
+
+  useEffect(() => {
+    loadMissionExpenses();
+  }, []);
+
+  const loadMissionExpenses = async () => {
+    try {
+      setLoading(true);
+      const [missions, expenses] = await Promise.all([
+        fetchMissions(),
+        fetchExpenses()
+      ]);
+      
+      // Processar cada missão e suas despesas
+      const processedMissions = missions.map((mission: any) => {
+        const missionExpenses = expenses.filter((expense: any) => expense.mission_id === mission.id);
+        
+        // Calcular totais por categoria
+        const categories = missionExpenses.reduce((acc: any, expense: any) => {
+          const category = expense.category || 'Outros';
+          if (!acc[category]) {
+            acc[category] = 0;
+          }
+          acc[category] += parseFloat(expense.amount) || 0;
+          return acc;
+        }, {});
+
+        // Converter categorias para array
+        const categoriesArray = Object.entries(categories).map(([name, amount]) => ({
+          name,
+          amount: amount as number
+        }));
+
+        // Obter funcionários únicos
+        const employees = [...new Set(missionExpenses.map((expense: any) => expense.employee_name))].filter(Boolean);
+
+        return {
+          mission: mission.title,
+          location: mission.location,
+          period: `${new Date(mission.start_date).toLocaleDateString('pt-BR')}${mission.end_date ? ` - ${new Date(mission.end_date).toLocaleDateString('pt-BR')}` : ''}`,
+          status: mission.status,
+          totalExpenses: mission.total_expenses || 0,
+          employees: employees.length > 0 ? employees : ['Nenhum funcionário atribuído'],
+          categories: categoriesArray
+        };
+      });
+
+      setMissionExpenses(processedMissions);
+    } catch (error) {
+      console.error('Erro ao carregar despesas por missão:', error);
+      setMissionExpenses([]);
+    } finally {
+      setLoading(false);
     }
-  ];
+  };
 
   const getStatusColor = (status: string) => {
     const colors = {
-      planned: 'bg-blue-100 text-blue-800',
+      planning: 'bg-blue-100 text-blue-800',
       'in-progress': 'bg-yellow-100 text-yellow-800',
       completed: 'bg-green-100 text-green-800'
     };
-    return colors[status as keyof typeof colors] || colors.planned;
+    return colors[status as keyof typeof colors] || colors.planning;
   };
 
   const getStatusLabel = (status: string) => {
     const labels = {
-      planned: 'Planejada',
+      planning: 'Planejada',
       'in-progress': 'Em Andamento',
       completed: 'Concluída'
     };
     return labels[status as keyof typeof labels] || 'Planejada';
   };
+
+  if (loading) {
+    return (
+      <Card className="p-6">
+        <div className="text-center">
+          <div className="animate-spin h-8 w-8 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <p className="text-slate-600">Carregando despesas por missão...</p>
+        </div>
+      </Card>
+    );
+  }
+
+  if (missionExpenses.length === 0) {
+    return (
+      <Card className="p-6">
+        <div className="text-center">
+          <h3 className="text-lg font-semibold text-slate-800 mb-2">Nenhuma Missão Encontrada</h3>
+          <p className="text-slate-600">
+            Não há missões cadastradas ainda. Crie uma missão para começar a controlar despesas.
+          </p>
+        </div>
+      </Card>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -86,7 +132,7 @@ export const ExpensesByMission = () => {
             <div>
               <h5 className="font-medium text-slate-700 mb-3">Funcionários Envolvidos</h5>
               <div className="space-y-2">
-                {mission.employees.map((employee, empIndex) => (
+                {mission.employees.map((employee: string, empIndex: number) => (
                   <div key={empIndex} className="p-2 bg-slate-50 rounded-lg">
                     <p className="text-sm font-medium text-slate-800">{employee}</p>
                   </div>
@@ -98,7 +144,7 @@ export const ExpensesByMission = () => {
               <h5 className="font-medium text-slate-700 mb-3">Despesas por Categoria</h5>
               {mission.categories.length > 0 ? (
                 <div className="space-y-2">
-                  {mission.categories.map((category, catIndex) => (
+                  {mission.categories.map((category: any, catIndex: number) => (
                     <div key={catIndex} className="flex items-center justify-between p-2 bg-slate-50 rounded-lg">
                       <p className="text-sm font-medium text-slate-800">{category.name}</p>
                       <p className="text-sm font-semibold text-slate-800">

@@ -1,46 +1,71 @@
 
+import { useState, useEffect } from 'react';
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { useSupabaseData } from '@/hooks/useSupabaseData';
 
 export const ExpensesByEmployee = () => {
-  const employeeExpenses = [
-    {
-      employee: 'Carlos Santos',
-      role: 'Técnico',
-      totalExpenses: 1250.80,
-      pendingReimbursement: 430.50,
-      missions: 3,
-      expenses: [
-        { mission: 'Instalação - Cliente ABC', amount: 680.50, status: 'approved' },
-        { mission: 'Manutenção - Cliente DEF', amount: 320.30, status: 'pending' },
-        { mission: 'Instalação - Cliente GHI', amount: 250.00, status: 'reimbursed' }
-      ]
-    },
-    {
-      employee: 'João Oliveira',
-      role: 'Técnico',
-      totalExpenses: 890.40,
-      pendingReimbursement: 245.00,
-      missions: 2,
-      expenses: [
-        { mission: 'Manutenção - Cliente XYZ', amount: 645.40, status: 'approved' },
-        { mission: 'Instalação - Cliente JKL', amount: 245.00, status: 'pending' }
-      ]
-    },
-    {
-      employee: 'Ana Silva',
-      role: 'Proprietária',
-      totalExpenses: 2150.90,
-      pendingReimbursement: 0,
-      missions: 4,
-      expenses: [
-        { mission: 'Supervisão - Cliente ABC', amount: 450.50, status: 'approved' },
-        { mission: 'Supervisão - Cliente XYZ', amount: 380.40, status: 'approved' },
-        { mission: 'Reunião - Cliente DEF', amount: 320.00, status: 'approved' },
-        { mission: 'Auditoria - Cliente GHI', amount: 1000.00, status: 'approved' }
-      ]
+  const [employeeExpenses, setEmployeeExpenses] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const { fetchExpenses } = useSupabaseData();
+
+  useEffect(() => {
+    loadEmployeeExpenses();
+  }, []);
+
+  const loadEmployeeExpenses = async () => {
+    try {
+      setLoading(true);
+      const expenses = await fetchExpenses();
+      
+      // Agrupar despesas por funcionário
+      const groupedExpenses = expenses.reduce((acc: any, expense: any) => {
+        const employeeName = expense.employee_name || 'Funcionário Desconhecido';
+        
+        if (!acc[employeeName]) {
+          acc[employeeName] = {
+            employee: employeeName,
+            role: expense.employee_role || 'Funcionário',
+            totalExpenses: 0,
+            pendingReimbursement: 0,
+            missions: new Set(),
+            expenses: []
+          };
+        }
+        
+        acc[employeeName].totalExpenses += parseFloat(expense.amount) || 0;
+        
+        if (expense.status === 'pending') {
+          acc[employeeName].pendingReimbursement += parseFloat(expense.amount) || 0;
+        }
+        
+        if (expense.missions?.title) {
+          acc[employeeName].missions.add(expense.missions.title);
+        }
+        
+        acc[employeeName].expenses.push({
+          mission: expense.missions?.title || 'Missão não informada',
+          amount: parseFloat(expense.amount) || 0,
+          status: expense.status
+        });
+        
+        return acc;
+      }, {});
+
+      // Converter para array e calcular total de missões
+      const employeeArray = Object.values(groupedExpenses).map((emp: any) => ({
+        ...emp,
+        missions: emp.missions.size
+      }));
+
+      setEmployeeExpenses(employeeArray);
+    } catch (error) {
+      console.error('Erro ao carregar despesas por funcionário:', error);
+      setEmployeeExpenses([]);
+    } finally {
+      setLoading(false);
     }
-  ];
+  };
 
   const getStatusColor = (status: string) => {
     const colors = {
@@ -59,6 +84,30 @@ export const ExpensesByEmployee = () => {
     };
     return labels[status as keyof typeof labels] || 'Pendente';
   };
+
+  if (loading) {
+    return (
+      <Card className="p-6">
+        <div className="text-center">
+          <div className="animate-spin h-8 w-8 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <p className="text-slate-600">Carregando despesas por funcionário...</p>
+        </div>
+      </Card>
+    );
+  }
+
+  if (employeeExpenses.length === 0) {
+    return (
+      <Card className="p-6">
+        <div className="text-center">
+          <h3 className="text-lg font-semibold text-slate-800 mb-2">Nenhuma Despesa Encontrada</h3>
+          <p className="text-slate-600">
+            Não há despesas registradas por funcionários ainda.
+          </p>
+        </div>
+      </Card>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -98,23 +147,27 @@ export const ExpensesByEmployee = () => {
 
           <div>
             <h5 className="font-medium text-slate-700 mb-3">Despesas por Missão</h5>
-            <div className="space-y-2">
-              {employee.expenses.map((expense, expenseIndex) => (
-                <div key={expenseIndex} className="flex items-center justify-between p-3 bg-slate-50 rounded-lg">
-                  <div>
-                    <p className="font-medium text-slate-800">{expense.mission}</p>
+            {employee.expenses.length > 0 ? (
+              <div className="space-y-2">
+                {employee.expenses.map((expense: any, expenseIndex: number) => (
+                  <div key={expenseIndex} className="flex items-center justify-between p-3 bg-slate-50 rounded-lg">
+                    <div>
+                      <p className="font-medium text-slate-800">{expense.mission}</p>
+                    </div>
+                    <div className="flex items-center space-x-3">
+                      <Badge className={getStatusColor(expense.status)}>
+                        {getStatusLabel(expense.status)}
+                      </Badge>
+                      <p className="font-semibold text-slate-800">
+                        R$ {expense.amount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                      </p>
+                    </div>
                   </div>
-                  <div className="flex items-center space-x-3">
-                    <Badge className={getStatusColor(expense.status)}>
-                      {getStatusLabel(expense.status)}
-                    </Badge>
-                    <p className="font-semibold text-slate-800">
-                      R$ {expense.amount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                    </p>
-                  </div>
-                </div>
-              ))}
-            </div>
+                ))}
+              </div>
+            ) : (
+              <p className="text-sm text-slate-500 italic">Nenhuma despesa registrada</p>
+            )}
           </div>
         </Card>
       ))}

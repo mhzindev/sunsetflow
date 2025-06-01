@@ -1,5 +1,4 @@
-
-import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import React, { createContext, useContext, useState, useEffect, ReactNode, useCallback } from 'react';
 import { useSupabaseData } from '@/hooks/useSupabaseData';
 import { useAccounts } from '@/hooks/useAccounts';
 import { Transaction, Expense, Payment } from '@/types/transaction';
@@ -79,7 +78,7 @@ export const FinancialProvider = ({ children }: FinancialProviderProps) => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const calculateFinancialData = (
+  const calculateFinancialData = useCallback((
     transactions: any[], 
     expenses: any[], 
     payments: any[], 
@@ -117,15 +116,11 @@ export const FinancialProvider = ({ children }: FinancialProviderProps) => {
       .filter(e => e.status === 'approved')
       .reduce((sum, e) => sum + (parseFloat(e.amount) || 0), 0);
 
-    // Dados das contas - agora vem do hook useAccounts com dados reais
+    // Dados das contas
     const bankBalance = accountSummary.totalBankBalance || 0;
     const creditAvailable = accountSummary.totalCreditAvailable || 0;
     const creditUsed = accountSummary.totalCreditUsed || 0;
-    
-    // Total de recursos disponíveis (dinheiro em conta + limite disponível)
     const totalResources = bankBalance + creditAvailable;
-    
-    // Saldo total real (considerando que cartão de crédito é dívida)
     const totalBalance = bankBalance - creditUsed;
 
     return {
@@ -186,14 +181,13 @@ export const FinancialProvider = ({ children }: FinancialProviderProps) => {
       creditUsed,
       totalResources
     };
-  };
+  }, []);
 
-  const refreshData = async () => {
+  const refreshData = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
 
-      // Primeiro atualizar as contas para ter dados atualizados
       await refreshAccounts();
 
       const [transactions, expenses, payments, missions, clients] = await Promise.all([
@@ -222,148 +216,121 @@ export const FinancialProvider = ({ children }: FinancialProviderProps) => {
     } finally {
       setLoading(false);
     }
-  };
-
-  // Função para obter transações recentes
-  const getRecentTransactions = (limit: number = 5): Transaction[] => {
-    return data.transactions
-      .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
-      .slice(0, limit);
-  };
-
-  const getCashFlowProjections = () => {
-    return [];
-  };
-
-  const addTransaction = async (transaction: any) => {
-    try {
-      const result = await supabaseData.insertTransaction(transaction);
-      if (!result.error) {
-        await refreshData();
-      }
-      return result;
-    } catch (err) {
-      console.error('Erro ao adicionar transação:', err);
-      return { data: null, error: 'Erro ao adicionar transação' };
-    }
-  };
-
-  const addPayment = async (payment: any) => {
-    try {
-      const result = await supabaseData.insertPayment(payment);
-      if (!result.error) {
-        await refreshData();
-      }
-      return result;
-    } catch (err) {
-      console.error('Erro ao adicionar pagamento:', err);
-      return { data: null, error: 'Erro ao adicionar pagamento' };
-    }
-  };
-
-  const updatePayment = async (paymentId: string, updates: any) => {
-    try {
-      const result = await supabaseData.updatePayment(paymentId, updates);
-      if (!result.error) {
-        await refreshData();
-      }
-      return result;
-    } catch (err) {
-      console.error('Erro ao atualizar pagamento:', err);
-      return { data: null, error: 'Erro ao atualizar pagamento' };
-    }
-  };
-
-  const updatePaymentStatus = async (paymentId: string, status: string) => {
-    return updatePayment(paymentId, { status });
-  };
-
-  const processPayment = async (paymentId: string) => {
-    return updatePaymentStatus(paymentId, 'completed');
-  };
-
-  const updateExpenseStatus = async (expenseId: string, status: 'pending' | 'approved' | 'reimbursed') => {
-    try {
-      const result = await supabaseData.updateExpenseStatus(expenseId, status);
-      if (!result.error) {
-        await refreshData();
-      }
-      return result;
-    } catch (err) {
-      console.error('Erro ao atualizar status da despesa:', err);
-      return { data: null, error: 'Erro ao atualizar status da despesa' };
-    }
-  };
-
-  const processExpenseApproval = async (expenseId: string) => {
-    return updateExpenseStatus(expenseId, 'approved');
-  };
-
-  const processExpenseReimbursement = async (expenseId: string) => {
-    return updateExpenseStatus(expenseId, 'reimbursed');
-  };
-
-  const addMission = async (mission: any) => {
-    try {
-      const result = await supabaseData.insertMission(mission);
-      if (!result.error) {
-        await refreshData();
-      }
-      return result;
-    } catch (err) {
-      console.error('Erro ao adicionar missão:', err);
-      return { data: null, error: 'Erro ao adicionar missão' };
-    }
-  };
-
-  const updateMission = async (missionId: string, updates: any) => {
-    try {
-      const result = await supabaseData.updateMission(missionId, updates);
-      if (!result.error) {
-        await refreshData();
-      }
-      return result;
-    } catch (err) {
-      console.error('Erro ao atualizar missão:', err);
-      return { data: null, error: 'Erro ao atualizar missão' };
-    }
-  };
-
-  const addClient = async (client: any) => {
-    try {
-      const result = await supabaseData.insertClient(client);
-      if (!result.error) {
-        await refreshData();
-      }
-      return result;
-    } catch (err) {
-      console.error('Erro ao adicionar cliente:', err);
-      return { data: null, error: 'Erro ao adicionar cliente' };
-    }
-  };
+  }, [supabaseData, getAccountSummary, refreshAccounts, calculateFinancialData]);
 
   useEffect(() => {
-    refreshData();
-  }, [accountsLoading]); // Recarrega quando as contas terminam de carregar
+    if (!accountsLoading) {
+      refreshData();
+    }
+  }, [accountsLoading, refreshData]);
 
   const contextValue = {
     data,
     loading: loading || accountsLoading,
     error,
     refreshData,
-    getRecentTransactions,
-    getCashFlowProjections,
-    addTransaction,
-    addPayment,
-    updatePayment,
-    updatePaymentStatus,
-    processPayment,
-    updateExpenseStatus,
-    processExpenseApproval,
-    processExpenseReimbursement,
-    addMission,
-    updateMission,
-    addClient
+    getRecentTransactions: (limit: number = 5): Transaction[] => {
+      return data.transactions
+        .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+        .slice(0, limit);
+    },
+    getCashFlowProjections: () => [],
+    addTransaction: async (transaction: any) => {
+      try {
+        const result = await supabaseData.insertTransaction(transaction);
+        if (!result.error) {
+          await refreshData();
+        }
+        return result;
+      } catch (err) {
+        console.error('Erro ao adicionar transação:', err);
+        return { data: null, error: 'Erro ao adicionar transação' };
+      }
+    },
+    addPayment: async (payment: any) => {
+      try {
+        const result = await supabaseData.insertPayment(payment);
+        if (!result.error) {
+          await refreshData();
+        }
+        return result;
+      } catch (err) {
+        console.error('Erro ao adicionar pagamento:', err);
+        return { data: null, error: 'Erro ao adicionar pagamento' };
+      }
+    },
+    updatePayment: async (paymentId: string, updates: any) => {
+      try {
+        const result = await supabaseData.updatePayment(paymentId, updates);
+        if (!result.error) {
+          await refreshData();
+        }
+        return result;
+      } catch (err) {
+        console.error('Erro ao atualizar pagamento:', err);
+        return { data: null, error: 'Erro ao atualizar pagamento' };
+      }
+    },
+    updatePaymentStatus: async (paymentId: string, status: string) => {
+      return contextValue.updatePayment(paymentId, { status });
+    },
+    processPayment: async (paymentId: string) => {
+      return contextValue.updatePaymentStatus(paymentId, 'completed');
+    },
+    updateExpenseStatus: async (expenseId: string, status: 'pending' | 'approved' | 'reimbursed') => {
+      try {
+        const result = await supabaseData.updateExpenseStatus(expenseId, status);
+        if (!result.error) {
+          await refreshData();
+        }
+        return result;
+      } catch (err) {
+        console.error('Erro ao atualizar status da despesa:', err);
+        return { data: null, error: 'Erro ao atualizar status da despesa' };
+      }
+    },
+    processExpenseApproval: async (expenseId: string) => {
+      return contextValue.updateExpenseStatus(expenseId, 'approved');
+    },
+    processExpenseReimbursement: async (expenseId: string) => {
+      return contextValue.updateExpenseStatus(expenseId, 'reimbursed');
+    },
+    addMission: async (mission: any) => {
+      try {
+        const result = await supabaseData.insertMission(mission);
+        if (!result.error) {
+          await refreshData();
+        }
+        return result;
+      } catch (err) {
+        console.error('Erro ao adicionar missão:', err);
+        return { data: null, error: 'Erro ao adicionar missão' };
+      }
+    },
+    updateMission: async (missionId: string, updates: any) => {
+      try {
+        const result = await supabaseData.updateMission(missionId, updates);
+        if (!result.error) {
+          await refreshData();
+        }
+        return result;
+      } catch (err) {
+        console.error('Erro ao atualizar missão:', err);
+        return { data: null, error: 'Erro ao atualizar missão' };
+      }
+    },
+    addClient: async (client: any) => {
+      try {
+        const result = await supabaseData.insertClient(client);
+        if (!result.error) {
+          await refreshData();
+        }
+        return result;
+      } catch (err) {
+        console.error('Erro ao adicionar cliente:', err);
+        return { data: null, error: 'Erro ao adicionar cliente' };
+      }
+    }
   };
 
   return (
