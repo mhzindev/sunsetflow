@@ -1,3 +1,4 @@
+
 import React, { createContext, useState, useContext } from 'react';
 
 interface Transaction {
@@ -28,6 +29,19 @@ interface Receivable {
   status: 'pending' | 'completed' | 'overdue';
 }
 
+interface Payment {
+  id: string;
+  providerId: string;
+  providerName: string;
+  amount: number;
+  dueDate: string;
+  paymentDate?: string;
+  status: 'pending' | 'partial' | 'completed' | 'overdue' | 'cancelled';
+  type: 'full' | 'installment' | 'advance' | 'partial';
+  description: string;
+  notes?: string;
+}
+
 interface FinancialContextProps {
   transactions: Transaction[];
   receivables: Receivable[];
@@ -38,6 +52,20 @@ interface FinancialContextProps {
   processExpenseReimbursement: (expenseId: string, amount: number, description: string, employeeName: string) => void;
   expenses: any[];
   addExpense: (expenseData: any) => void;
+  // Missing properties that other components need
+  data: {
+    transactions: Transaction[];
+    receivables: Receivable[];
+    expenses: any[];
+    payments: Payment[];
+  };
+  getRecentTransactions: (limit?: number) => Transaction[];
+  addPayment: (payment: Omit<Payment, 'id'>) => void;
+  updateExpenseStatus: (id: string, status: string) => void;
+  processPayment: (paymentId: string) => void;
+  updatePayment: (id: string, data: Partial<Payment>) => void;
+  updatePaymentStatus: (id: string, status: Payment['status']) => void;
+  getCashFlowProjections: () => any[];
 }
 
 const FinancialContext = createContext<FinancialContextProps | undefined>(undefined);
@@ -88,6 +116,19 @@ const mockReceivables: Receivable[] = [
   },
 ];
 
+const mockPayments: Payment[] = [
+  {
+    id: '1',
+    providerId: 'provider-1',
+    providerName: 'Provider A',
+    amount: 2000,
+    dueDate: '2024-02-15',
+    status: 'pending',
+    type: 'full',
+    description: 'Service payment'
+  },
+];
+
 const mockMissions = [
   { id: '1', title: 'Instalação - Cliente ABC' },
   { id: '2', title: 'Manutenção - Cliente XYZ' },
@@ -98,13 +139,26 @@ export const FinancialProvider = ({ children }: { children: React.ReactNode }) =
   const [transactions, setTransactions] = useState<Transaction[]>(mockTransactions);
   const [receivables, setReceivables] = useState<Receivable[]>(mockReceivables);
   const [expenses, setExpenses] = useState<any[]>([]);
+  const [payments, setPayments] = useState<Payment[]>(mockPayments);
 
   const addTransaction = (transaction: Omit<Transaction, 'id'>) => {
-    setTransactions(prev => [...prev, { id: Date.now().toString(), ...transaction }]);
+    const newTransaction = {
+      id: Date.now().toString(),
+      ...transaction,
+      // Ensure all required fields are present
+      isRecurring: transaction.isRecurring ?? false,
+      tags: transaction.tags ?? [],
+      createdAt: transaction.createdAt ?? new Date().toISOString()
+    };
+    setTransactions(prev => [...prev, newTransaction]);
   };
 
   const addReceivable = (receivable: Omit<Receivable, 'id'>) => {
     setReceivables(prev => [...prev, { id: Date.now().toString(), ...receivable }]);
+  };
+
+  const addPayment = (payment: Omit<Payment, 'id'>) => {
+    setPayments(prev => [...prev, { id: Date.now().toString(), ...payment }]);
   };
 
   const updateTransactionStatus = (id: string, status: Transaction['status']) => {
@@ -113,6 +167,45 @@ export const FinancialProvider = ({ children }: { children: React.ReactNode }) =
         transaction.id === id ? { ...transaction, status } : transaction
       )
     );
+  };
+
+  const updateExpenseStatus = (id: string, status: string) => {
+    setExpenses(prev =>
+      prev.map(expense =>
+        expense.id === id ? { ...expense, status } : expense
+      )
+    );
+  };
+
+  const updatePayment = (id: string, data: Partial<Payment>) => {
+    setPayments(prev =>
+      prev.map(payment =>
+        payment.id === id ? { ...payment, ...data } : payment
+      )
+    );
+  };
+
+  const updatePaymentStatus = (id: string, status: Payment['status']) => {
+    setPayments(prev =>
+      prev.map(payment =>
+        payment.id === id ? { ...payment, status } : payment
+      )
+    );
+  };
+
+  const processPayment = (paymentId: string) => {
+    updatePaymentStatus(paymentId, 'completed');
+  };
+
+  const getRecentTransactions = (limit: number = 5) => {
+    return transactions
+      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+      .slice(0, limit);
+  };
+
+  const getCashFlowProjections = () => {
+    // Simple projection logic
+    return [];
   };
 
   const processExpenseApproval = (expenseId: string, amount: number, description: string) => {
@@ -173,7 +266,6 @@ export const FinancialProvider = ({ children }: { children: React.ReactNode }) =
     // Registrar impacto financeiro imediatamente para adiantamentos
     if (expenseData.isAdvanced) {
       const transaction = {
-        id: Date.now().toString(),
         type: 'expense' as const,
         category: 'expenses',
         description: `Adiantamento - ${expenseData.description}`,
@@ -187,7 +279,7 @@ export const FinancialProvider = ({ children }: { children: React.ReactNode }) =
         userName: expenseData.employeeName
       };
 
-      setTransactions(prev => [...prev, transaction]);
+      addTransaction(transaction);
 
       // Para hospedagem com adiantamento, registrar também o recebível
       if (expenseData.category === 'accommodation' && expenseData.reimbursementAmount && expenseData.thirdPartyCompany) {
@@ -208,6 +300,13 @@ export const FinancialProvider = ({ children }: { children: React.ReactNode }) =
     }
   };
 
+  const data = {
+    transactions,
+    receivables,
+    expenses,
+    payments
+  };
+
   const value: FinancialContextProps = {
     transactions,
     receivables,
@@ -217,7 +316,15 @@ export const FinancialProvider = ({ children }: { children: React.ReactNode }) =
     processExpenseApproval,
     processExpenseReimbursement,
     expenses,
-    addExpense
+    addExpense,
+    data,
+    getRecentTransactions,
+    addPayment,
+    updateExpenseStatus,
+    processPayment,
+    updatePayment,
+    updatePaymentStatus,
+    getCashFlowProjections
   };
 
   return (

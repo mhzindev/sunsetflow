@@ -73,7 +73,7 @@ export const PaymentModal = ({ isOpen, onClose, provider }: PaymentModalProps) =
       // Registrar como transação de despesa no sistema financeiro
       const transactionData = {
         type: 'expense' as const,
-        category: 'service_payment' as const,
+        category: 'service_payment',
         amount: amount,
         description: formData.description,
         date: currentDate,
@@ -81,7 +81,10 @@ export const PaymentModal = ({ isOpen, onClose, provider }: PaymentModalProps) =
         status: 'completed' as const,
         userId: '1',
         userName: 'Sistema - Pagamento Manual',
-        tags: ['payment', 'manual']
+        tags: ['payment', 'manual'],
+        // Add required fields
+        isRecurring: false,
+        createdAt: new Date().toISOString()
       };
 
       addTransaction(transactionData);

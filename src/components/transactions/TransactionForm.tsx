@@ -1,3 +1,4 @@
+
 import { useState } from 'react';
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -169,7 +170,11 @@ export const TransactionForm = ({ onTransactionSubmitted }: TransactionFormProps
             userId: user?.id || '',
             userName: user?.name || 'Usuário',
             receipt: formData.receipt?.name,
-            clientName: formData.clientName
+            clientName: formData.clientName,
+            // Add required fields
+            isRecurring: false,
+            tags: ['client_payment'],
+            createdAt: new Date().toISOString()
           };
           
           addTransaction(transactionData);
@@ -191,7 +196,11 @@ export const TransactionForm = ({ onTransactionSubmitted }: TransactionFormProps
           status: 'completed' as const,
           userId: user?.id || '',
           userName: user?.name || 'Usuário',
-          receipt: formData.receipt?.name
+          receipt: formData.receipt?.name,
+          // Add required fields
+          isRecurring: false,
+          tags: [formData.category],
+          createdAt: new Date().toISOString()
         };
         
         addTransaction(transactionData);

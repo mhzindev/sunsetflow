@@ -25,7 +25,7 @@ export const ExpenseForm = ({ onExpenseSubmitted }: ExpenseFormProps) => {
   
   const [formData, setFormData] = useState({
     missionId: '',
-    category: 'fuel' as const,
+    category: 'fuel',
     description: '',
     amount: '',
     date: new Date().toISOString().split('T')[0],
@@ -227,7 +227,7 @@ export const ExpenseForm = ({ onExpenseSubmitted }: ExpenseFormProps) => {
                           ? 'bg-blue-600 text-white' 
                           : category.color
                       }`}
-                      onClick={() => setFormData({...formData, category: category.value as any})}
+                      onClick={() => setFormData({...formData, category: category.value})}
                     >
                       {category.label}
                     </Badge>
