@@ -78,8 +78,9 @@ export const PaymentEditModal = ({ isOpen, onClose, payment, onSave }: PaymentEd
 
       // Se o status mudou, usar updatePaymentStatus para garantir integração
       if (formData.status !== payment?.status) {
-        updatePaymentStatus(payment!.id, formData.status);
-        updates.paymentDate = formData.status === 'completed' ? new Date().toISOString().split('T')[0] : payment?.paymentDate;
+        const paymentDate = formData.status === 'completed' ? new Date().toISOString().split('T')[0] : payment?.paymentDate;
+        updatePaymentStatus(payment!.id, formData.status, paymentDate);
+        updates.paymentDate = paymentDate;
       }
 
       // Atualizar outros campos
@@ -164,7 +165,6 @@ export const PaymentEditModal = ({ isOpen, onClose, payment, onSave }: PaymentEd
                 <SelectItem value="full">Integral</SelectItem>
                 <SelectItem value="installment">Parcelado</SelectItem>
                 <SelectItem value="advance">Adiantamento</SelectItem>
-                <SelectItem value="partial">Parcial</SelectItem>
               </SelectContent>
             </Select>
           </div>

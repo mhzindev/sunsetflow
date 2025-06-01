@@ -7,7 +7,6 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
-import { Info } from 'lucide-react';
 import { useToastFeedback } from '@/hooks/useToastFeedback';
 
 interface Expense {
@@ -20,8 +19,6 @@ interface Expense {
   date: string;
   isAdvanced: boolean;
   status: string;
-  reimbursementAmount?: number;
-  thirdPartyCompany?: string;
 }
 
 interface ExpenseEditModalProps {
@@ -42,9 +39,7 @@ export const ExpenseEditModal = ({ isOpen, onClose, expense, onSave }: ExpenseEd
     amount: '',
     date: '',
     isAdvanced: false,
-    status: 'pending',
-    reimbursementAmount: '',
-    thirdPartyCompany: ''
+    status: 'pending'
   });
 
   // Inicializar dados do formulário quando a despesa for carregada
@@ -70,9 +65,7 @@ export const ExpenseEditModal = ({ isOpen, onClose, expense, onSave }: ExpenseEd
         amount: expense.amount?.toString() || '',
         date: expense.date || '',
         isAdvanced: expense.isAdvanced || false,
-        status: expense.status || 'pending',
-        reimbursementAmount: expense.reimbursementAmount?.toString() || '',
-        thirdPartyCompany: expense.thirdPartyCompany || ''
+        status: expense.status || 'pending'
       });
     } else if (!isOpen) {
       // Resetar formulário quando modal fechar
@@ -84,9 +77,7 @@ export const ExpenseEditModal = ({ isOpen, onClose, expense, onSave }: ExpenseEd
         amount: '',
         date: '',
         isAdvanced: false,
-        status: 'pending',
-        reimbursementAmount: '',
-        thirdPartyCompany: ''
+        status: 'pending'
       });
     }
   }, [expense, isOpen]);
@@ -103,20 +94,6 @@ export const ExpenseEditModal = ({ isOpen, onClose, expense, onSave }: ExpenseEd
     if (isNaN(amount) || amount <= 0) {
       showError('Valor Inválido', 'Por favor, insira um valor válido maior que zero');
       return;
-    }
-
-    // Validação específica para hospedagem com adiantamento
-    if (formData.category === 'accommodation' && formData.isAdvanced) {
-      if (!formData.reimbursementAmount || !formData.thirdPartyCompany) {
-        showError('Campos Obrigatórios', 'Para hospedagem em adiantamento, informe o valor de ressarcimento e a empresa terceirizada');
-        return;
-      }
-      
-      const reimbursementAmount = parseFloat(formData.reimbursementAmount);
-      if (isNaN(reimbursementAmount) || reimbursementAmount <= 0) {
-        showError('Valor Inválido', 'Por favor, insira um valor de ressarcimento válido');
-        return;
-      }
     }
 
     setIsLoading(true);
@@ -138,9 +115,7 @@ export const ExpenseEditModal = ({ isOpen, onClose, expense, onSave }: ExpenseEd
         amount,
         date: formData.date,
         isAdvanced: formData.isAdvanced,
-        status: formData.status,
-        reimbursementAmount: formData.reimbursementAmount ? parseFloat(formData.reimbursementAmount) : undefined,
-        thirdPartyCompany: formData.thirdPartyCompany || undefined
+        status: formData.status
       };
 
       console.log('Saving updated expense:', updatedExpense);
@@ -171,8 +146,6 @@ export const ExpenseEditModal = ({ isOpen, onClose, expense, onSave }: ExpenseEd
     'Maria Silva',
     'Pedro Costa'
   ];
-
-  const showReimbursementFields = formData.category === 'accommodation' && formData.isAdvanced;
 
   console.log('Rendering form with data:', formData);
 
@@ -237,7 +210,7 @@ export const ExpenseEditModal = ({ isOpen, onClose, expense, onSave }: ExpenseEd
             </div>
 
             <div>
-              <Label htmlFor="amount">Valor Gasto (R$) *</Label>
+              <Label htmlFor="amount">Valor (R$) *</Label>
               <Input
                 id="amount"
                 type="number"
@@ -296,59 +269,6 @@ export const ExpenseEditModal = ({ isOpen, onClose, expense, onSave }: ExpenseEd
             />
             <Label htmlFor="isAdvanced">É um adiantamento?</Label>
           </div>
-
-          {showReimbursementFields && (
-            <div className="border-t pt-4 space-y-4">
-              <div className="flex items-center gap-2 mb-3">
-                <Info className="w-5 h-5 text-blue-600" />
-                <h5 className="font-medium text-slate-700">Informações de Ressarcimento</h5>
-              </div>
-              
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <Label htmlFor="reimbursementAmount">Valor da Nota de Ressarcimento (R$) *</Label>
-                  <Input
-                    id="reimbursementAmount"
-                    type="number"
-                    step="0.01"
-                    placeholder="0,00"
-                    value={formData.reimbursementAmount}
-                    onChange={(e) => setFormData({...formData, reimbursementAmount: e.target.value})}
-                    required={showReimbursementFields}
-                  />
-                </div>
-
-                <div>
-                  <Label htmlFor="thirdPartyCompany">Empresa Terceirizada *</Label>
-                  <Input
-                    id="thirdPartyCompany"
-                    placeholder="Nome da empresa"
-                    value={formData.thirdPartyCompany}
-                    onChange={(e) => setFormData({...formData, thirdPartyCompany: e.target.value})}
-                    required={showReimbursementFields}
-                  />
-                </div>
-              </div>
-
-              {formData.amount && formData.reimbursementAmount && (
-                <div className="bg-blue-50 p-3 rounded-lg">
-                  <p className="text-sm font-medium text-blue-900">Resumo da Operação:</p>
-                  <p className="text-sm text-blue-800">
-                    Valor gasto: R$ {parseFloat(formData.amount || '0').toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                  </p>
-                  <p className="text-sm text-blue-800">
-                    Valor a receber: R$ {parseFloat(formData.reimbursementAmount || '0').toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                  </p>
-                  <p className="text-sm font-medium text-blue-900">
-                    Resultado líquido: {(() => {
-                      const net = parseFloat(formData.reimbursementAmount || '0') - parseFloat(formData.amount || '0');
-                      return `${net >= 0 ? '+' : ''}R$ ${Math.abs(net).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`;
-                    })()}
-                  </p>
-                </div>
-              )}
-            </div>
-          )}
 
           <div className="flex space-x-4 pt-4">
             <Button 
