@@ -31,6 +31,8 @@ interface Expense {
   approvedAt?: string;
   reimbursedAt?: string;
   receipt?: string;
+  reimbursementAmount?: number;
+  thirdPartyCompany?: string;
 }
 
 interface Receivable {
@@ -134,7 +136,9 @@ export const FinancialProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       date: '2024-01-15',
       isAdvanced: true,
       status: 'pending',
-      submittedAt: '2024-01-15T18:00:00Z'
+      submittedAt: '2024-01-15T18:00:00Z',
+      reimbursementAmount: 200.00,
+      thirdPartyCompany: 'TechCorp Soluções'
     },
     {
       id: '3',
@@ -322,6 +326,7 @@ export const FinancialProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     console.log('Expense added to financial system:', newExpense);
 
     if (expenseData.isAdvanced) {
+      // Registrar a saída da empresa (valor gasto)
       const expenseTransaction = {
         type: 'expense' as const,
         category: 'other' as const,
@@ -334,6 +339,23 @@ export const FinancialProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         userName: `Adiantamento - ${expenseData.employeeName}`
       };
       addTransaction(expenseTransaction);
+
+      // Se é hospedagem com ressarcimento, registrar o recebível
+      if (expenseData.category === 'accommodation' && expenseData.reimbursementAmount && expenseData.thirdPartyCompany) {
+        const reimbursementReceivable = {
+          clientName: expenseData.thirdPartyCompany,
+          amount: expenseData.reimbursementAmount,
+          description: `Ressarcimento de hospedagem - ${expenseData.description}`,
+          expectedDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0], // 30 dias
+          notes: `Referente à despesa de hospedagem no valor de R$ ${expenseData.amount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`,
+          createdDate: new Date().toISOString().split('T')[0],
+          userId: expenseData.employeeId,
+          userName: expenseData.employeeName
+        };
+        addReceivable(reimbursementReceivable);
+        
+        console.log('Reimbursement receivable created for accommodation expense:', reimbursementReceivable);
+      }
     }
   };
 

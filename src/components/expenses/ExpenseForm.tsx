@@ -1,3 +1,4 @@
+
 import { useState } from 'react';
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -7,7 +8,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { Upload, X } from 'lucide-react';
+import { Upload, X, Info } from 'lucide-react';
 import { useAuth } from '@/components/auth/AuthContext';
 import { useToastFeedback } from '@/hooks/useToastFeedback';
 import { useFinancial } from '@/contexts/FinancialContext';
@@ -29,7 +30,9 @@ export const ExpenseForm = ({ onExpenseSubmitted }: ExpenseFormProps) => {
     amount: '',
     date: new Date().toISOString().split('T')[0],
     receipt: null as File | null,
-    isAdvanced: false
+    isAdvanced: false,
+    reimbursementAmount: '', // Valor da nota de ressarcimento
+    thirdPartyCompany: '' // Empresa que fará o ressarcimento
   });
 
   const categories = [
@@ -43,7 +46,7 @@ export const ExpenseForm = ({ onExpenseSubmitted }: ExpenseFormProps) => {
       value: 'accommodation', 
       label: 'Hospedagem', 
       color: 'bg-blue-100 text-blue-800',
-      tooltip: 'Despesas com hotéis, pousadas ou outros tipos de acomodação durante viagens de trabalho. Inclui diárias e taxas de serviços relacionados.'
+      tooltip: 'Despesas com hotéis, pousadas ou outros tipos de acomodação durante viagens de trabalho. Para adiantamentos, registre tanto o valor gasto quanto o valor da nota de ressarcimento.'
     },
     { 
       value: 'meals', 
@@ -85,7 +88,9 @@ export const ExpenseForm = ({ onExpenseSubmitted }: ExpenseFormProps) => {
       amount: '',
       date: new Date().toISOString().split('T')[0],
       receipt: null,
-      isAdvanced: false
+      isAdvanced: false,
+      reimbursementAmount: '',
+      thirdPartyCompany: ''
     });
   };
 
@@ -125,6 +130,20 @@ export const ExpenseForm = ({ onExpenseSubmitted }: ExpenseFormProps) => {
       return;
     }
 
+    // Validação específica para hospedagem com adiantamento
+    if (formData.category === 'accommodation' && formData.isAdvanced) {
+      if (!formData.reimbursementAmount || !formData.thirdPartyCompany) {
+        showError('Campos Obrigatórios', 'Para hospedagem em adiantamento, informe o valor de ressarcimento e a empresa terceirizada');
+        return;
+      }
+      
+      const reimbursementAmount = parseFloat(formData.reimbursementAmount);
+      if (isNaN(reimbursementAmount) || reimbursementAmount <= 0) {
+        showError('Valor Inválido', 'Por favor, insira um valor de ressarcimento válido');
+        return;
+      }
+    }
+
     setIsLoading(true);
     
     try {
@@ -138,19 +157,26 @@ export const ExpenseForm = ({ onExpenseSubmitted }: ExpenseFormProps) => {
         date: formData.date,
         isAdvanced: formData.isAdvanced,
         status: 'pending' as const,
-        submittedAt: new Date().toISOString()
+        submittedAt: new Date().toISOString(),
+        reimbursementAmount: formData.reimbursementAmount ? parseFloat(formData.reimbursementAmount) : undefined,
+        thirdPartyCompany: formData.thirdPartyCompany || undefined
       };
       
       addExpense(expenseData);
       
-      const impactMessage = formData.isAdvanced 
-        ? 'Despesa registrada como adiantamento e já impactou o saldo da empresa.'
-        : 'Despesa registrada e aguarda aprovação para reembolso.';
+      let impactMessage = 'Despesa registrada e aguarda aprovação para reembolso.';
       
-      showSuccess(
-        'Despesa Registrada', 
-        `${impactMessage} Valor: R$ ${amount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`
-      );
+      if (formData.isAdvanced) {
+        if (formData.category === 'accommodation' && formData.reimbursementAmount) {
+          const reimbursementAmount = parseFloat(formData.reimbursementAmount);
+          const netAmount = reimbursementAmount - amount;
+          impactMessage = `Adiantamento registrado. Empresa pagou R$ ${amount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} e receberá R$ ${reimbursementAmount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}. Resultado líquido: ${netAmount >= 0 ? '+' : ''}R$ ${Math.abs(netAmount).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}.`;
+        } else {
+          impactMessage = 'Adiantamento registrado e já impactou o saldo da empresa.';
+        }
+      }
+      
+      showSuccess('Despesa Registrada', impactMessage);
       
       resetForm();
       onExpenseSubmitted?.();
@@ -160,6 +186,8 @@ export const ExpenseForm = ({ onExpenseSubmitted }: ExpenseFormProps) => {
       setIsLoading(false);
     }
   };
+
+  const showReimbursementFields = formData.category === 'accommodation' && formData.isAdvanced;
 
   return (
     <TooltipProvider>
@@ -225,7 +253,7 @@ export const ExpenseForm = ({ onExpenseSubmitted }: ExpenseFormProps) => {
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <Label htmlFor="amount">Valor (R$) *</Label>
+              <Label htmlFor="amount">Valor Gasto (R$) *</Label>
               <Input
                 id="amount"
                 type="number"
@@ -258,7 +286,73 @@ export const ExpenseForm = ({ onExpenseSubmitted }: ExpenseFormProps) => {
             <Label htmlFor="isAdvanced" className="text-sm">
               Esta é uma despesa adiantada pela empresa
             </Label>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Info className="w-4 h-4 text-gray-400 cursor-help" />
+              </TooltipTrigger>
+              <TooltipContent className="max-w-xs p-3">
+                <p className="text-sm">
+                  Marque esta opção quando a empresa arca com o custo inicialmente e será ressarcida posteriormente por uma empresa terceirizada.
+                </p>
+              </TooltipContent>
+            </Tooltip>
           </div>
+
+          {showReimbursementFields && (
+            <div className="border-t pt-4 space-y-4">
+              <div className="flex items-center gap-2 mb-3">
+                <Info className="w-5 h-5 text-blue-600" />
+                <h5 className="font-medium text-slate-700">Informações de Ressarcimento</h5>
+              </div>
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <Label htmlFor="reimbursementAmount">Valor da Nota de Ressarcimento (R$) *</Label>
+                  <Input
+                    id="reimbursementAmount"
+                    type="number"
+                    step="0.01"
+                    placeholder="0,00"
+                    value={formData.reimbursementAmount}
+                    onChange={(e) => setFormData({...formData, reimbursementAmount: e.target.value})}
+                    required={showReimbursementFields}
+                  />
+                  <p className="text-xs text-gray-500 mt-1">
+                    Valor que será recebido da empresa terceirizada
+                  </p>
+                </div>
+
+                <div>
+                  <Label htmlFor="thirdPartyCompany">Empresa Terceirizada *</Label>
+                  <Input
+                    id="thirdPartyCompany"
+                    placeholder="Nome da empresa que fará o ressarcimento"
+                    value={formData.thirdPartyCompany}
+                    onChange={(e) => setFormData({...formData, thirdPartyCompany: e.target.value})}
+                    required={showReimbursementFields}
+                  />
+                </div>
+              </div>
+
+              {formData.amount && formData.reimbursementAmount && (
+                <div className="bg-blue-50 p-3 rounded-lg">
+                  <p className="text-sm font-medium text-blue-900">Resumo da Operação:</p>
+                  <p className="text-sm text-blue-800">
+                    Valor gasto: R$ {parseFloat(formData.amount || '0').toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                  </p>
+                  <p className="text-sm text-blue-800">
+                    Valor a receber: R$ {parseFloat(formData.reimbursementAmount || '0').toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                  </p>
+                  <p className="text-sm font-medium text-blue-900">
+                    Resultado líquido: {(() => {
+                      const net = parseFloat(formData.reimbursementAmount || '0') - parseFloat(formData.amount || '0');
+                      return `${net >= 0 ? '+' : ''}R$ ${Math.abs(net).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`;
+                    })()}
+                  </p>
+                </div>
+              )}
+            </div>
+          )}
 
           <div>
             <Label>Comprovante (Opcional)</Label>
