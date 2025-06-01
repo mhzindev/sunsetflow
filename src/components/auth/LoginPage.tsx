@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card } from "@/components/ui/card";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { supabase } from "@/integrations/supabase/client";
 import { useToastFeedback } from "@/hooks/useToastFeedback";
 
@@ -17,6 +18,7 @@ export const LoginPage = ({ onLoginSuccess }: LoginPageProps) => {
   const [isLoading, setIsLoading] = useState(false);
   const [isSignUp, setIsSignUp] = useState(false);
   const [name, setName] = useState('');
+  const [role, setRole] = useState<'owner' | 'employee'>('employee');
   const { showSuccess, showError, showInfo } = useToastFeedback();
 
   const handleLogin = async (e: React.FormEvent) => {
@@ -61,7 +63,8 @@ export const LoginPage = ({ onLoginSuccess }: LoginPageProps) => {
         password,
         options: {
           data: {
-            name: name
+            name: name,
+            role: role
           },
           emailRedirectTo: `${window.location.origin}/`
         }
@@ -127,17 +130,47 @@ export const LoginPage = ({ onLoginSuccess }: LoginPageProps) => {
 
         <form onSubmit={isSignUp ? handleSignUp : handleLogin} className="space-y-4">
           {isSignUp && (
-            <div>
-              <Label htmlFor="name">Nome</Label>
-              <Input
-                id="name"
-                type="text"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                required
-                placeholder="Seu nome completo"
-              />
-            </div>
+            <>
+              <div>
+                <Label htmlFor="name">Nome</Label>
+                <Input
+                  id="name"
+                  type="text"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  required
+                  placeholder="Seu nome completo"
+                />
+              </div>
+
+              <div>
+                <Label className="text-sm font-medium">Tipo de conta</Label>
+                <RadioGroup
+                  value={role}
+                  onValueChange={(value) => setRole(value as 'owner' | 'employee')}
+                  className="mt-2"
+                >
+                  <div className="flex items-center space-x-2">
+                    <RadioGroupItem value="owner" id="company" />
+                    <Label htmlFor="company" className="text-sm">
+                      Empresa (Proprietário)
+                    </Label>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <RadioGroupItem value="employee" id="employee" />
+                    <Label htmlFor="employee" className="text-sm">
+                      Funcionário
+                    </Label>
+                  </div>
+                </RadioGroup>
+                <p className="text-xs text-gray-500 mt-1">
+                  {role === 'owner' 
+                    ? 'Como empresa, você terá acesso completo ao sistema'
+                    : 'Como funcionário, você poderá lançar despesas e visualizar relatórios'
+                  }
+                </p>
+              </div>
+            </>
           )}
 
           <div>
