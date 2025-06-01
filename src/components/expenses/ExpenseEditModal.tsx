@@ -70,7 +70,9 @@ export const ExpenseEditModal = ({ isOpen, onClose, expense, onSave }: ExpenseEd
         amount: expense.amount?.toString() || '',
         date: expense.date || '',
         isAdvanced: expense.isAdvanced || false,
-        status: expense.status || 'pending'
+        status: expense.status || 'pending',
+        reimbursementAmount: expense.reimbursementAmount?.toString() || '',
+        thirdPartyCompany: expense.thirdPartyCompany || ''
       });
     } else if (!isOpen) {
       // Resetar formulário quando modal fechar
@@ -82,7 +84,9 @@ export const ExpenseEditModal = ({ isOpen, onClose, expense, onSave }: ExpenseEd
         amount: '',
         date: '',
         isAdvanced: false,
-        status: 'pending'
+        status: 'pending',
+        reimbursementAmount: '',
+        thirdPartyCompany: ''
       });
     }
   }, [expense, isOpen]);
