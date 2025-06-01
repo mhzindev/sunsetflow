@@ -42,10 +42,8 @@ export const ExpenseEditModal = ({ isOpen, onClose, expense, onSave }: ExpenseEd
     status: 'pending'
   });
 
-  // Corrigir o useEffect para carregar os dados corretamente
   useEffect(() => {
-    if (expense && isOpen) {
-      console.log('Loading expense data into form:', expense);
+    if (expense) {
       setFormData({
         mission: expense.mission || '',
         employee: expense.employee || '',
@@ -56,20 +54,8 @@ export const ExpenseEditModal = ({ isOpen, onClose, expense, onSave }: ExpenseEd
         isAdvanced: expense.isAdvanced || false,
         status: expense.status || 'pending'
       });
-    } else if (!isOpen) {
-      // Limpar formulário quando modal fechar
-      setFormData({
-        mission: '',
-        employee: '',
-        category: '',
-        description: '',
-        amount: '',
-        date: '',
-        isAdvanced: false,
-        status: 'pending'
-      });
     }
-  }, [expense, isOpen]);
+  }, [expense]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
