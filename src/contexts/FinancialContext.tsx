@@ -1,23 +1,8 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { useSupabaseData } from '@/hooks/useSupabaseData';
 import { useAuth } from '@/contexts/AuthContext';
-import { TransactionCategory } from '@/types/transaction';
-
-interface Transaction {
-  id: string;
-  type: 'income' | 'expense';
-  category: TransactionCategory; // Use the proper enum type
-  amount: number;
-  description: string;
-  date: string;
-  method: string;
-  status: string;
-  userName: string;
-  userId?: string;
-  missionId?: string;
-  receipt?: string;
-  tags?: string[];
-}
+import { Transaction, TransactionCategory } from '@/types/transaction';
+import { Payment, PaymentMethod } from '@/types/payment';
 
 interface Expense {
   id: string;
@@ -33,28 +18,6 @@ interface Expense {
   receipt?: string;
   accommodationDetails?: any;
   missions?: { title: string; location: string };
-}
-
-interface Payment {
-  id: string;
-  providerId: string; // Make this required to match the type expectations
-  providerName: string;
-  amount: number;
-  dueDate: string;
-  paymentDate?: string;
-  status: 'pending' | 'partial' | 'completed' | 'overdue' | 'cancelled';
-  type: 'full' | 'installment' | 'advance';
-  description: string;
-  installments?: number;
-  currentInstallment?: number;
-  tags?: string[];
-  notes?: string;
-  service_providers?: {
-    name: string;
-    email: string;
-    phone: string;
-    service: string;
-  };
 }
 
 interface FinancialData {
@@ -133,17 +96,17 @@ export const FinancialProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       const mappedTransactions: Transaction[] = transactions.map(t => ({
         id: t.id,
         type: t.type as 'income' | 'expense',
-        category: t.category as TransactionCategory, // Cast to proper type
+        category: t.category as TransactionCategory,
         amount: Number(t.amount),
         description: t.description,
         date: t.date,
-        method: t.method,
-        status: t.status,
-        userName: t.user_name,
+        method: t.method as PaymentMethod,
+        status: t.status as 'pending' | 'completed' | 'cancelled',
         userId: t.user_id,
-        missionId: t.mission_id,
+        userName: t.user_name,
         receipt: t.receipt,
-        tags: t.tags
+        tags: t.tags,
+        missionId: t.mission_id
       }));
 
       const mappedExpenses: Expense[] = expenses.map(e => ({
@@ -164,7 +127,7 @@ export const FinancialProvider: React.FC<{ children: React.ReactNode }> = ({ chi
 
       const mappedPayments: Payment[] = payments.map(p => ({
         id: p.id,
-        providerId: p.provider_id || '', // Provide default empty string if null
+        providerId: p.provider_id || '',
         providerName: p.provider_name,
         amount: Number(p.amount),
         dueDate: p.due_date,
@@ -175,8 +138,7 @@ export const FinancialProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         installments: p.installments,
         currentInstallment: p.current_installment,
         tags: p.tags,
-        notes: p.notes,
-        service_providers: p.service_providers
+        notes: p.notes
       }));
 
       // Calcular totais
