@@ -147,7 +147,8 @@ export const TransactionForm = ({ onTransactionSubmitted }: TransactionFormProps
             notes: formData.notes,
             createdDate: formData.date,
             userId: user?.id || '',
-            userName: user?.name || 'Usuário'
+            userName: user?.name || 'Usuário',
+            status: 'pending' as const
           };
           addReceivable(receivableData);
           
