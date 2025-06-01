@@ -16,6 +16,7 @@ interface FinancialContextType {
   data: FinancialData;
   addTransaction: (transaction: Omit<Transaction, 'id'>) => void;
   addPayment: (payment: Omit<Payment, 'id'>) => void;
+  updatePayment: (paymentId: string, updates: Partial<Payment>) => void;
   updatePaymentStatus: (paymentId: string, status: Payment['status'], paymentDate?: string) => void;
   processPayment: (payment: Payment) => void;
   processExpenseApproval: (expenseId: string, amount: number, description: string) => void;
@@ -119,6 +120,17 @@ export const FinancialProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     }
   };
 
+  const updatePayment = (paymentId: string, updates: Partial<Payment>) => {
+    setPayments(prev => prev.map(p => {
+      if (p.id === paymentId) {
+        const updatedPayment = { ...p, ...updates };
+        console.log('Payment updated:', updatedPayment);
+        return updatedPayment;
+      }
+      return p;
+    }));
+  };
+
   const updatePaymentStatus = (paymentId: string, status: Payment['status'], paymentDate?: string) => {
     setPayments(prev => prev.map(p => {
       if (p.id === paymentId) {
@@ -128,13 +140,23 @@ export const FinancialProvider: React.FC<{ children: React.ReactNode }> = ({ chi
           ...(paymentDate && { paymentDate })
         };
 
+        console.log('Payment status updated:', paymentId, 'New status:', status);
+
         // Quando um pagamento é marcado como concluído, atualizar a transação correspondente
         if (status === 'completed') {
-          setTransactions(prevTrans => prevTrans.map(t => 
-            t.description.includes(`Pagamento agendado: ${p.description}`) 
-              ? { ...t, status: 'completed' as const, date: paymentDate || new Date().toISOString().split('T')[0] }
-              : t
-          ));
+          setTransactions(prevTrans => prevTrans.map(t => {
+            if (t.description.includes(`Pagamento agendado: ${p.description}`) || 
+                (t.description.includes(p.description) && t.amount === p.amount)) {
+              console.log('Transaction updated:', t.id);
+              return { ...t, status: 'completed' as const, date: paymentDate || new Date().toISOString().split('T')[0] };
+            }
+            return t;
+          }));
+        }
+
+        // Atualizar urgência baseada na nova data de vencimento ou status
+        if (status === 'overdue' || (updatedPayment.dueDate && new Date(updatedPayment.dueDate) < new Date() && status !== 'completed')) {
+          return { ...updatedPayment, status: 'overdue' as const };
         }
 
         return updatedPayment;
@@ -146,15 +168,27 @@ export const FinancialProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   const processPayment = (payment: Payment) => {
     const currentDate = new Date().toISOString().split('T')[0];
     
-    // Atualizar status do pagamento
+    console.log('Processing payment:', payment.id, 'Amount:', payment.amount);
+    
+    // Atualizar status do pagamento para concluído
     updatePaymentStatus(payment.id, 'completed', currentDate);
 
-    // Criar transação de despesa se não existir
+    // Verificar se já existe uma transação relacionada
     const existingTransaction = transactions.find(t => 
-      t.description.includes(payment.description) && t.amount === payment.amount
+      (t.description.includes(payment.description) && t.amount === payment.amount) ||
+      t.description.includes(`Pagamento agendado: ${payment.description}`)
     );
 
-    if (!existingTransaction) {
+    if (existingTransaction) {
+      // Atualizar transação existente para concluída
+      setTransactions(prev => prev.map(t => 
+        t.id === existingTransaction.id 
+          ? { ...t, status: 'completed' as const, date: currentDate, description: `Pagamento realizado: ${payment.description}` }
+          : t
+      ));
+      console.log('Existing transaction updated to completed:', existingTransaction.id);
+    } else {
+      // Criar nova transação de despesa
       const paymentTransaction = {
         type: 'expense' as const,
         category: 'service_payment' as const,
@@ -168,9 +202,8 @@ export const FinancialProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       };
 
       addTransaction(paymentTransaction);
+      console.log('New payment transaction created');
     }
-
-    console.log('Payment processed:', payment.id, 'Amount:', payment.amount);
   };
 
   const processExpenseApproval = (expenseId: string, amount: number, description: string) => {
@@ -204,14 +237,31 @@ export const FinancialProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     ));
 
     // Cancelar transação relacionada
-    setTransactions(prev => prev.map(t => 
-      t.description.includes('Pagamento agendado') && t.status === 'pending'
-        ? { ...t, status: 'cancelled' as const }
-        : t
-    ));
+    setTransactions(prev => prev.map(t => {
+      const payment = payments.find(p => p.id === paymentId);
+      if (payment && (t.description.includes('Pagamento agendado') || t.description.includes(payment.description)) && 
+          t.status === 'pending') {
+        console.log('Transaction cancelled:', t.id);
+        return { ...t, status: 'cancelled' as const };
+      }
+      return t;
+    }));
 
     console.log('Payment cancelled:', paymentId);
   };
+
+  // Atualizar status de urgência automaticamente
+  useEffect(() => {
+    const today = new Date();
+    setPayments(prev => prev.map(payment => {
+      const dueDate = new Date(payment.dueDate);
+      if (dueDate < today && payment.status !== 'completed' && payment.status !== 'cancelled' && payment.status !== 'overdue') {
+        console.log('Payment marked as overdue:', payment.id);
+        return { ...payment, status: 'overdue' as const };
+      }
+      return payment;
+    }));
+  }, []);
 
   const getRecentTransactions = (limit = 5) => {
     return transactions
@@ -260,6 +310,7 @@ export const FinancialProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     data,
     addTransaction,
     addPayment,
+    updatePayment,
     updatePaymentStatus,
     processPayment,
     processExpenseApproval,

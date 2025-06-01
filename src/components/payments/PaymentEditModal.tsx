@@ -8,6 +8,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Payment, PaymentStatus, PaymentType } from '@/types/payment';
 import { useToastFeedback } from '@/hooks/useToastFeedback';
+import { useFinancial } from '@/contexts/FinancialContext';
 
 interface PaymentEditModalProps {
   isOpen: boolean;
@@ -18,6 +19,7 @@ interface PaymentEditModalProps {
 
 export const PaymentEditModal = ({ isOpen, onClose, payment, onSave }: PaymentEditModalProps) => {
   const { showSuccess, showError } = useToastFeedback();
+  const { updatePayment, updatePaymentStatus } = useFinancial();
   const [isLoading, setIsLoading] = useState(false);
   const [formData, setFormData] = useState({
     amount: '',
@@ -64,17 +66,30 @@ export const PaymentEditModal = ({ isOpen, onClose, payment, onSave }: PaymentEd
     try {
       await new Promise(resolve => setTimeout(resolve, 1000));
 
-      const updatedPayment: Payment = {
-        ...payment!,
+      const updates: Partial<Payment> = {
         amount,
         dueDate: formData.dueDate,
-        status: formData.status,
         type: formData.type,
         description: formData.description,
         notes: formData.notes,
         installments: formData.installments ? parseInt(formData.installments) : undefined,
         currentInstallment: formData.currentInstallment ? parseInt(formData.currentInstallment) : undefined,
-        paymentDate: formData.status === 'completed' ? new Date().toISOString().split('T')[0] : payment?.paymentDate
+      };
+
+      // Se o status mudou, usar updatePaymentStatus para garantir integração
+      if (formData.status !== payment?.status) {
+        const paymentDate = formData.status === 'completed' ? new Date().toISOString().split('T')[0] : payment?.paymentDate;
+        updatePaymentStatus(payment!.id, formData.status, paymentDate);
+        updates.paymentDate = paymentDate;
+      }
+
+      // Atualizar outros campos
+      updatePayment(payment!.id, updates);
+
+      const updatedPayment: Payment = {
+        ...payment!,
+        ...updates,
+        status: formData.status
       };
 
       onSave(updatedPayment);

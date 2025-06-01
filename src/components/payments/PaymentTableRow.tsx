@@ -1,3 +1,4 @@
+
 import { useState } from 'react';
 import { TableCell, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
@@ -76,17 +77,20 @@ export const PaymentTableRow = ({ payment }: PaymentTableRowProps) => {
   };
 
   const handleSavePayment = (updatedPayment: Payment) => {
-    console.log('Payment updated:', updatedPayment);
+    console.log('Payment updated via modal:', updatedPayment);
     showSuccess('Sucesso', 'Pagamento atualizado com sucesso!');
+    // O modal já chama as funções do contexto, não precisamos fazer nada adicional aqui
   };
 
   const handleMarkAsPaid = (payment: Payment) => {
-    // Integrar com o sistema financeiro
+    console.log('Processing payment via button:', payment.id);
+    
+    // Processar o pagamento através do contexto financeiro
     processPayment(payment);
     
     showSuccess(
       'Pagamento Confirmado', 
-      `Pagamento de R$ ${payment.amount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} para ${payment.providerName} foi processado e registrado no sistema financeiro!`
+      `Pagamento de R$ ${payment.amount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} para ${payment.providerName} foi processado! Status atualizado para concluído e registrado no sistema financeiro.`
     );
   };
 
