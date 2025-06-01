@@ -6,14 +6,31 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useToastFeedback } from '@/hooks/useToastFeedback';
+import { MissionViewModal } from './MissionViewModal';
+import { MissionEditModal } from './MissionEditModal';
 
 interface MissionManagerProps {
   onMissionCreated?: () => void;
 }
 
+interface Mission {
+  id: string;
+  title: string;
+  client: string;
+  location: string;
+  startDate: string;
+  endDate?: string;
+  status: string;
+  assignedEmployees: string[];
+  totalExpenses: number;
+}
+
 export const MissionManager = ({ onMissionCreated }: MissionManagerProps) => {
   const [showForm, setShowForm] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [selectedMission, setSelectedMission] = useState<any>(null);
+  const [isViewModalOpen, setIsViewModalOpen] = useState(false);
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const { showSuccess, showError } = useToastFeedback();
   
   const [formData, setFormData] = useState({
@@ -135,13 +152,38 @@ export const MissionManager = ({ onMissionCreated }: MissionManagerProps) => {
   };
 
   const handleViewMission = (missionId: string, missionTitle: string) => {
-    showSuccess('Visualizar Missão', `Abrindo detalhes da missão: ${missionTitle}`);
-    console.log('View mission:', missionId);
+    const mission = mockMissions.find(m => m.id === missionId);
+    if (mission) {
+      setSelectedMission(mission);
+      setIsViewModalOpen(true);
+    }
   };
 
   const handleEditMission = (missionId: string, missionTitle: string) => {
-    showSuccess('Editar Missão', `Editando missão: ${missionTitle}`);
-    console.log('Edit mission:', missionId);
+    const mission = mockMissions.find(m => m.id === missionId);
+    if (mission) {
+      setSelectedMission(mission);
+      setIsEditModalOpen(true);
+    }
+  };
+
+  const handleSaveMission = (updatedMission: any) => {
+    console.log('Mission updated:', updatedMission);
+    showSuccess('Sucesso', 'Missão atualizada com sucesso!');
+  };
+
+  const handleEditFromView = (mission: any) => {
+    setIsViewModalOpen(false);
+    setTimeout(() => {
+      setSelectedMission(mission);
+      setIsEditModalOpen(true);
+    }, 100);
+  };
+
+  const handleCloseModals = () => {
+    setIsViewModalOpen(false);
+    setIsEditModalOpen(false);
+    setSelectedMission(null);
   };
 
   return (
@@ -298,6 +340,21 @@ export const MissionManager = ({ onMissionCreated }: MissionManagerProps) => {
           </TableBody>
         </Table>
       </Card>
+
+      {/* Import and add the modals */}
+      <MissionViewModal
+        isOpen={isViewModalOpen}
+        onClose={handleCloseModals}
+        mission={selectedMission}
+        onEdit={handleEditFromView}
+      />
+
+      <MissionEditModal
+        isOpen={isEditModalOpen}
+        onClose={handleCloseModals}
+        mission={selectedMission}
+        onSave={handleSaveMission}
+      />
     </div>
   );
 };
