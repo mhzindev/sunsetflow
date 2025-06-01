@@ -8,6 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Payment, PaymentStatus, PaymentType } from '@/types/payment';
 import { useToastFeedback } from '@/hooks/useToastFeedback';
 import { useFinancial } from '@/contexts/FinancialContext';
+import { formatDateForDatabase } from '@/utils/dateUtils';
 
 interface PaymentEditModalProps {
   isOpen: boolean;
@@ -77,8 +78,7 @@ export const PaymentEditModal = ({ isOpen, onClose, payment, onSave }: PaymentEd
 
       // Se o status mudou, usar updatePaymentStatus para garantir integração
       if (formData.status !== payment?.status) {
-        const paymentDate = formData.status === 'completed' ? new Date().toISOString().split('T')[0] : payment?.paymentDate;
-        // Fix: Call with correct arguments (paymentId and status only)
+        const paymentDate = formData.status === 'completed' ? formatDateForDatabase(new Date()) : payment?.paymentDate;
         updatePaymentStatus(payment!.id, formData.status);
         updates.paymentDate = paymentDate;
       }

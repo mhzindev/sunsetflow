@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -17,6 +16,7 @@ import { cn } from "@/lib/utils";
 import { useSupabaseData } from '@/hooks/useSupabaseData';
 import { useToastFeedback } from '@/hooks/useToastFeedback';
 import { AccountOption } from '@/types/account';
+import { formatDateForDatabase } from '@/utils/dateUtils';
 
 interface EnhancedExpenseFormProps {
   onSave: () => void;
@@ -166,7 +166,7 @@ export const EnhancedExpenseForm: React.FC<EnhancedExpenseFormProps> = ({ onSave
         amount: amount,
         receipt_amount: showDetailedAmounts ? parseFloat(formData.receiptAmount) || null : null,
         actual_amount: showDetailedAmounts ? parseFloat(formData.actualAmount) || null : null,
-        date: format(formData.date, 'yyyy-MM-dd'),
+        date: formatDateForDatabase(formData.date),
         is_advanced: formData.isAdvanced,
         account_id: formData.accountId || undefined,
         account_type: formData.accountType || undefined,

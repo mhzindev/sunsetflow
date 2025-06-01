@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -16,6 +15,7 @@ import { ptBR } from "date-fns/locale";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
 import { TransactionCategory, PaymentMethod, TransactionStatus } from "@/types/transaction";
+import { formatDateForDatabase } from "@/utils/dateUtils";
 
 interface TransactionFormProps {
   onClose: () => void;
@@ -89,7 +89,7 @@ export const TransactionForm: React.FC<TransactionFormProps> = ({ onClose }) => 
         category: formData.category as TransactionCategory,
         amount: parseFloat(formData.amount),
         description: formData.description,
-        date: format(date, 'yyyy-MM-dd'),
+        date: formatDateForDatabase(date),
         method: formData.method as PaymentMethod,
         status: formData.status as TransactionStatus,
         receipt: formData.receipt || undefined,
