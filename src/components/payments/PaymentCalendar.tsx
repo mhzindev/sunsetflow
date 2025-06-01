@@ -9,6 +9,7 @@ import { PaymentViewModal } from './PaymentViewModal';
 import { PaymentEditModal } from './PaymentEditModal';
 import { PaymentModal } from './PaymentModal';
 import { useToastFeedback } from '@/hooks/useToastFeedback';
+import { useFinancial } from '@/contexts/FinancialContext';
 
 export const PaymentCalendar = () => {
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(new Date());
@@ -18,65 +19,26 @@ export const PaymentCalendar = () => {
   const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
   const [filterStatus, setFilterStatus] = useState<string>('all');
   const { showSuccess } = useToastFeedback();
+  const { data, processPayment } = useFinancial();
 
-  const upcomingPayments = [
-    {
-      id: '1',
-      providerId: '1',
-      providerName: 'João Silva - Técnico',
-      amount: 2500.00,
-      dueDate: '2024-02-01',
-      status: 'pending',
-      type: 'full',
-      description: 'Serviços de instalação - Janeiro 2024',
-      daysUntilDue: 5,
-      paymentMethod: 'pix'
-    },
-    {
-      id: '2',
-      providerId: '2',
-      providerName: 'Maria Santos - Técnica',
-      amount: 1800.00,
-      dueDate: '2024-01-28',
-      paymentDate: '2024-01-30',
-      status: 'overdue',
-      type: 'full',
-      description: 'Serviços de manutenção - Janeiro 2024',
-      daysUntilDue: -2,
-      paymentMethod: 'transfer'
-    },
-    {
-      id: '3',
-      providerId: '3',
-      providerName: 'Tech Solutions Ltd',
-      amount: 3200.00,
-      dueDate: '2024-02-05',
-      status: 'pending',
-      type: 'installment',
-      description: 'Desenvolvimento de módulo personalizado',
-      installments: 3,
-      currentInstallment: 1,
-      daysUntilDue: 9,
-      paymentMethod: 'transfer'
-    },
-    {
-      id: '4',
-      providerId: '4',
-      providerName: 'Carlos Oliveira',
-      amount: 800.00,
-      dueDate: '2024-02-10',
-      status: 'pending',
-      type: 'advance',
-      description: 'Adiantamento para compra de materiais',
-      daysUntilDue: 14,
-      paymentMethod: 'pix'
-    }
-  ];
+  // Usar dados do contexto financeiro e calcular urgência dinamicamente
+  const upcomingPayments = data.payments.map(payment => {
+    const today = new Date();
+    const dueDate = new Date(payment.dueDate);
+    const diffTime = dueDate.getTime() - today.getTime();
+    const daysUntilDue = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+    return {
+      ...payment,
+      daysUntilDue,
+      paymentMethod: 'pix' // Default, pode ser expandido depois
+    };
+  });
 
   const getStatusColor = (status: string, daysUntilDue: number) => {
     if (status === 'overdue' || daysUntilDue < 0) {
       return 'bg-red-100 text-red-800 border-red-200';
-    } else if (daysUntilDue <= 3) {
+    } else if (daysUntilDue <= 3 && status !== 'completed') {
       return 'bg-yellow-100 text-yellow-800 border-yellow-200';
     } else {
       return 'bg-blue-100 text-blue-800 border-blue-200';
@@ -86,7 +48,7 @@ export const PaymentCalendar = () => {
   const getStatusIcon = (status: string, daysUntilDue: number) => {
     if (status === 'overdue' || daysUntilDue < 0) {
       return <AlertTriangle className="w-4 h-4 text-red-600" />;
-    } else if (daysUntilDue <= 3) {
+    } else if (daysUntilDue <= 3 && status !== 'completed') {
       return <Clock className="w-4 h-4 text-yellow-600" />;
     } else {
       return <CalendarDays className="w-4 h-4 text-blue-600" />;
@@ -107,8 +69,8 @@ export const PaymentCalendar = () => {
 
   const filteredPayments = upcomingPayments.filter(payment => {
     if (filterStatus === 'all') return true;
-    if (filterStatus === 'urgent') return payment.daysUntilDue <= 3;
-    if (filterStatus === 'overdue') return payment.daysUntilDue < 0;
+    if (filterStatus === 'urgent') return payment.daysUntilDue <= 3 && payment.status !== 'completed';
+    if (filterStatus === 'overdue') return payment.daysUntilDue < 0 && payment.status !== 'completed';
     return payment.status === filterStatus;
   });
 
@@ -120,8 +82,8 @@ export const PaymentCalendar = () => {
   };
 
   const totalUpcoming = filteredPayments.reduce((sum, payment) => sum + payment.amount, 0);
-  const overduePayments = filteredPayments.filter(p => p.daysUntilDue < 0);
-  const urgentPayments = filteredPayments.filter(p => p.daysUntilDue >= 0 && p.daysUntilDue <= 3);
+  const overduePayments = filteredPayments.filter(p => p.daysUntilDue < 0 && p.status !== 'completed');
+  const urgentPayments = filteredPayments.filter(p => p.daysUntilDue >= 0 && p.daysUntilDue <= 3 && p.status !== 'completed');
 
   const handleViewPayment = (payment: any) => {
     setSelectedPayment(payment);
@@ -151,6 +113,7 @@ export const PaymentCalendar = () => {
 
   const handleMarkAsPaid = (payment: any) => {
     console.log('Mark as paid:', payment);
+    processPayment(payment);
     showSuccess('Pagamento Confirmado', `Pagamento de ${payment.providerName} marcado como pago!`);
   };
 
@@ -236,8 +199,8 @@ export const PaymentCalendar = () => {
             className="rounded-md border"
             modifiers={{
               hasPayments: (date) => getPaymentsForDate(date).length > 0,
-              overdue: (date) => getPaymentsForDate(date).some(p => p.daysUntilDue < 0),
-              urgent: (date) => getPaymentsForDate(date).some(p => p.daysUntilDue >= 0 && p.daysUntilDue <= 3)
+              overdue: (date) => getPaymentsForDate(date).some(p => p.daysUntilDue < 0 && p.status !== 'completed'),
+              urgent: (date) => getPaymentsForDate(date).some(p => p.daysUntilDue >= 0 && p.daysUntilDue <= 3 && p.status !== 'completed')
             }}
             modifiersStyles={{
               hasPayments: { backgroundColor: '#e0f2fe', fontWeight: 'bold' },
@@ -257,6 +220,9 @@ export const PaymentCalendar = () => {
                     <div key={payment.id} className="p-2 bg-gray-50 rounded text-sm">
                       <p className="font-medium">{payment.providerName}</p>
                       <p className="text-gray-600">R$ {payment.amount.toLocaleString('pt-BR')}</p>
+                      <Badge className={`text-xs ${payment.status === 'completed' ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'}`}>
+                        {payment.status === 'completed' ? 'Pago' : 'Pendente'}
+                      </Badge>
                     </div>
                   ))}
                 </div>
@@ -309,7 +275,7 @@ export const PaymentCalendar = () => {
                       R$ {payment.amount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                     </p>
                     <Badge variant="outline" className="mt-1">
-                      {getUrgencyText(payment.daysUntilDue)}
+                      {payment.status === 'completed' ? 'Pago' : getUrgencyText(payment.daysUntilDue)}
                     </Badge>
                   </div>
                 </div>
@@ -330,17 +296,19 @@ export const PaymentCalendar = () => {
                   >
                     Editar
                   </Button>
-                  <Button 
-                    size="sm" 
-                    className={
-                      payment.daysUntilDue < 0 || payment.daysUntilDue <= 3
-                        ? "bg-red-600 hover:bg-red-700"
-                        : "bg-blue-600 hover:bg-blue-700"
-                    }
-                    onClick={() => handlePayNow(payment)}
-                  >
-                    Pagar Agora
-                  </Button>
+                  {payment.status !== 'completed' && (
+                    <Button 
+                      size="sm" 
+                      className={
+                        payment.daysUntilDue < 0 || payment.daysUntilDue <= 3
+                          ? "bg-red-600 hover:bg-red-700"
+                          : "bg-blue-600 hover:bg-blue-700"
+                      }
+                      onClick={() => handlePayNow(payment)}
+                    >
+                      Pagar Agora
+                    </Button>
+                  )}
                 </div>
               </div>
             ))}

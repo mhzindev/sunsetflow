@@ -6,6 +6,7 @@ import { FilterModal, FilterConfig } from '@/components/common/FilterModal';
 import { ExportModal } from '@/components/common/ExportModal';
 import { exportToCSV, exportToPDF, exportToExcel, ExportOptions } from '@/utils/exportUtils';
 import { useToastFeedback } from '@/hooks/useToastFeedback';
+import { useFinancial } from '@/contexts/FinancialContext';
 import { PaymentSummaryCards } from './PaymentSummaryCards';
 import { PaymentFilters } from './PaymentFilters';
 import { PaymentTable } from './PaymentTable';
@@ -24,69 +25,10 @@ export const PaymentList = () => {
   });
 
   const { showSuccess, showError } = useToastFeedback();
+  const { data } = useFinancial();
 
-  // Mock data - em um sistema real, viria de uma API
-  const mockPayments: Payment[] = [
-    {
-      id: '1',
-      providerId: '1',
-      providerName: 'João Silva - Técnico',
-      amount: 2500.00,
-      dueDate: '2024-02-01',
-      status: 'pending',
-      type: 'full',
-      description: 'Serviços de instalação - Janeiro 2024',
-      notes: 'Pagamento referente às 5 instalações realizadas'
-    },
-    {
-      id: '2',
-      providerId: '2',
-      providerName: 'Maria Santos - Técnica',
-      amount: 1800.00,
-      dueDate: '2024-01-28',
-      paymentDate: '2024-01-30',
-      status: 'overdue',
-      type: 'full',
-      description: 'Serviços de manutenção - Janeiro 2024',
-      notes: 'Manutenção preventiva em 8 veículos'
-    },
-    {
-      id: '3',
-      providerId: '3',
-      providerName: 'Tech Solutions Ltd',
-      amount: 4500.00,
-      dueDate: '2024-02-05',
-      status: 'pending',
-      type: 'installment',
-      description: 'Desenvolvimento de módulo personalizado',
-      installments: 3,
-      currentInstallment: 1,
-      notes: 'Primeira parcela de 3'
-    },
-    {
-      id: '4',
-      providerId: '4',
-      providerName: 'Carlos Oliveira - Freelancer',
-      amount: 800.00,
-      dueDate: '2024-01-25',
-      paymentDate: '2024-01-25',
-      status: 'completed',
-      type: 'advance',
-      description: 'Adiantamento para compra de materiais',
-      notes: 'Materiais para instalação em Campinas'
-    },
-    {
-      id: '5',
-      providerId: '1',
-      providerName: 'João Silva - Técnico',
-      amount: 1200.00,
-      dueDate: '2024-02-10',
-      status: 'partial',
-      type: 'full',
-      description: 'Pagamento parcial - Projeto especial',
-      notes: 'Pagamento de 50% do projeto'
-    }
-  ];
+  // Usar dados do contexto financeiro em vez de mock data
+  const payments = data.payments || [];
 
   const applyFilters = (payments: Payment[]): Payment[] => {
     if (!payments || !Array.isArray(payments)) {
@@ -123,7 +65,7 @@ export const PaymentList = () => {
     });
   };
 
-  const baseFilteredPayments = mockPayments.filter(payment => {
+  const baseFilteredPayments = payments.filter(payment => {
     if (!payment) return false;
     
     const matchesSearch = (payment.providerName && payment.providerName.toLowerCase().includes(searchTerm.toLowerCase())) ||
@@ -196,9 +138,9 @@ export const PaymentList = () => {
     { value: 'cancelled', label: 'Cancelado' }
   ];
 
-  const availableProviders = Array.from(new Set(mockPayments.filter(p => p && p.providerId).map(p => p.providerId)))
+  const availableProviders = Array.from(new Set(payments.filter(p => p && p.providerId).map(p => p.providerId)))
     .map(id => {
-      const payment = mockPayments.find(p => p && p.providerId === id);
+      const payment = payments.find(p => p && p.providerId === id);
       return { 
         value: id, 
         label: payment?.providerName || `Provider ${id}`
@@ -224,7 +166,7 @@ export const PaymentList = () => {
         
         {filteredPayments.length === 0 && (
           <div className="text-center py-8 text-gray-500">
-            Nenhum pagamento encontrado
+            {payments.length === 0 ? 'Nenhum pagamento cadastrado' : 'Nenhum pagamento encontrado'}
           </div>
         )}
       </Card>

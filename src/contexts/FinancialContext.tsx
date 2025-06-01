@@ -1,4 +1,3 @@
-
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { Transaction } from '@/types/transaction';
 import { Payment } from '@/types/payment';
@@ -38,7 +37,67 @@ export const useFinancial = () => {
 
 export const FinancialProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
-  const [payments, setPayments] = useState<Payment[]>([]);
+  const [payments, setPayments] = useState<Payment[]>([
+    // Pagamentos de exemplo para demonstrar o funcionamento
+    {
+      id: '1',
+      providerId: '1',
+      providerName: 'João Silva - Técnico',
+      amount: 2500.00,
+      dueDate: '2024-02-01',
+      status: 'pending',
+      type: 'full',
+      description: 'Serviços de instalação - Janeiro 2024',
+      notes: 'Pagamento referente às 5 instalações realizadas'
+    },
+    {
+      id: '2',
+      providerId: '2',
+      providerName: 'Maria Santos - Técnica',
+      amount: 1800.00,
+      dueDate: '2024-01-28',
+      status: 'overdue',
+      type: 'full',
+      description: 'Serviços de manutenção - Janeiro 2024',
+      notes: 'Manutenção preventiva em 8 veículos'
+    },
+    {
+      id: '3',
+      providerId: '3',
+      providerName: 'Tech Solutions Ltd',
+      amount: 4500.00,
+      dueDate: '2024-02-05',
+      status: 'pending',
+      type: 'installment',
+      description: 'Desenvolvimento de módulo personalizado',
+      installments: 3,
+      currentInstallment: 1,
+      notes: 'Primeira parcela de 3'
+    },
+    {
+      id: '4',
+      providerId: '4',
+      providerName: 'Carlos Oliveira - Freelancer',
+      amount: 800.00,
+      dueDate: '2024-01-25',
+      paymentDate: '2024-01-25',
+      status: 'completed',
+      type: 'advance',
+      description: 'Adiantamento para compra de materiais',
+      notes: 'Materiais para instalação em Campinas'
+    },
+    {
+      id: '5',
+      providerId: '1',
+      providerName: 'João Silva - Técnico',
+      amount: 1200.00,
+      dueDate: '2024-02-10',
+      status: 'partial',
+      type: 'full',
+      description: 'Pagamento parcial - Projeto especial',
+      notes: 'Pagamento de 50% do projeto'
+    }
+  ]);
 
   // Saldo inicial da empresa
   const INITIAL_BALANCE = 45720;
