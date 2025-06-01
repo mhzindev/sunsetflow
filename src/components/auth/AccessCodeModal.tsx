@@ -34,7 +34,7 @@ export const AccessCodeModal = ({ open, onSuccess, userEmail }: AccessCodeModalP
 
   return (
     <Dialog open={open} onOpenChange={() => {}}>
-      <DialogContent className="sm:max-w-[425px]">
+      <DialogContent className="sm:max-w-[425px]" hideCloseButton>
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Key className="h-5 w-5" />
