@@ -19,5 +19,6 @@ export interface EmployeeAccessCode {
   employeeEmail: string;
   isUsed: boolean;
   createdAt: string;
+  expires_at?: string;
   usedAt?: string;
 }

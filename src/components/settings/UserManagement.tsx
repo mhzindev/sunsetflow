@@ -1,4 +1,3 @@
-
 import { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -259,7 +258,7 @@ export const UserManagement = () => {
                         </TableCell>
                         <TableCell>{new Date(code.createdAt).toLocaleDateString('pt-BR')}</TableCell>
                         <TableCell>
-                          {code.expiresAt ? new Date(code.expiresAt).toLocaleDateString('pt-BR') : '-'}
+                          {code.expires_at ? new Date(code.expires_at).toLocaleDateString('pt-BR') : '-'}
                         </TableCell>
                         <TableCell>
                           <Button
