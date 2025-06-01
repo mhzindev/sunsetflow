@@ -24,7 +24,7 @@ export const ExpenseForm = ({ onExpenseSubmitted }: ExpenseFormProps) => {
   
   const [formData, setFormData] = useState({
     missionId: '',
-    category: 'fuel' as const,
+    category: 'fuel' as 'fuel' | 'accommodation' | 'meals' | 'transportation' | 'materials' | 'other',
     description: '',
     amount: '',
     date: new Date().toISOString().split('T')[0],
@@ -39,37 +39,37 @@ export const ExpenseForm = ({ onExpenseSubmitted }: ExpenseFormProps) => {
 
   const categories = [
     { 
-      value: 'fuel', 
+      value: 'fuel' as const, 
       label: 'Combustível', 
       color: 'bg-orange-100 text-orange-800',
       tooltip: 'Gastos com combustível para veículos da empresa durante viagens de trabalho. Inclui gasolina, etanol, diesel e outros combustíveis necessários para deslocamentos.'
     },
     { 
-      value: 'accommodation', 
+      value: 'accommodation' as const, 
       label: 'Hospedagem', 
       color: 'bg-blue-100 text-blue-800',
       tooltip: 'Despesas com hotéis, pousadas ou outros tipos de acomodação durante viagens de trabalho. A empresa arca inicialmente com o custo e depois é ressarcida pela empresa terceirizada.'
     },
     { 
-      value: 'meals', 
+      value: 'meals' as const, 
       label: 'Alimentação', 
       color: 'bg-green-100 text-green-800',
       tooltip: 'Gastos com refeições durante viagens de trabalho, incluindo café da manhã, almoço, jantar e lanches necessários durante o período de trabalho fora da sede.'
     },
     { 
-      value: 'transportation', 
+      value: 'transportation' as const, 
       label: 'Transporte', 
       color: 'bg-purple-100 text-purple-800',
       tooltip: 'Despesas com transporte público, táxi, Uber, pedágios, estacionamento e outros meios de locomoção necessários para execução do trabalho.'
     },
     { 
-      value: 'materials', 
+      value: 'materials' as const, 
       label: 'Materiais', 
       color: 'bg-yellow-100 text-yellow-800',
       tooltip: 'Compra de materiais, ferramentas ou equipamentos necessários para execução dos serviços em campo. Inclui peças de reposição e consumíveis.'
     },
     { 
-      value: 'other', 
+      value: 'other' as const, 
       label: 'Outros', 
       color: 'bg-gray-100 text-gray-800',
       tooltip: 'Outras despesas relacionadas ao trabalho que não se enquadram nas categorias anteriores. Detalhe sempre na descrição o tipo de gasto realizado.'

@@ -35,6 +35,8 @@ interface Expense {
     actualCost: number;
     reimbursementAmount: number;
     netAmount: number;
+    outsourcingCompany?: string;
+    invoiceNumber?: string;
   };
 }
 
@@ -328,7 +330,7 @@ export const FinancialProvider: React.FC<{ children: React.ReactNode }> = ({ chi
 
     // Para hospedagem, criar transações tanto para o gasto quanto para o ressarcimento
     if (expenseData.category === 'accommodation' && expenseData.accommodationDetails) {
-      const { actualCost, reimbursementAmount, netAmount } = expenseData.accommodationDetails;
+      const { actualCost, reimbursementAmount, netAmount, outsourcingCompany } = expenseData.accommodationDetails;
       
       // Registrar o gasto inicial da empresa (saída)
       const expenseTransaction = {
@@ -351,15 +353,15 @@ export const FinancialProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         type: 'income' as const,
         category: 'client_payment' as const,
         amount: reimbursementAmount,
-        description: `Ressarcimento hospedagem: ${expenseData.description}${expenseData.accommodationDetails.outsourcingCompany ? ` - ${expenseData.accommodationDetails.outsourcingCompany}` : ''}`,
+        description: `Ressarcimento hospedagem: ${expenseData.description}${outsourcingCompany ? ` - ${outsourcingCompany}` : ''}`,
         date: expenseData.date,
         method: 'transfer' as const,
         status: 'completed' as const,
         userId: expenseData.employeeId,
-        userName: `Ressarcimento - ${expenseData.accommodationDetails.outsourcingCompany || 'Empresa Terceirizada'}`,
+        userName: `Ressarcimento - ${outsourcingCompany || 'Empresa Terceirizada'}`,
         isRecurring: false,
         createdAt: new Date().toISOString(),
-        clientName: expenseData.accommodationDetails.outsourcingCompany
+        clientName: outsourcingCompany
       };
       addTransaction(reimbursementTransaction);
 
