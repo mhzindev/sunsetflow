@@ -3,6 +3,7 @@ import { Button } from "@/components/ui/button";
 import { PageSection } from "@/pages/Index";
 import { useFinancial } from "@/contexts/FinancialContext";
 import { useAuth } from "@/components/auth/AuthContext";
+import { LogOut } from "lucide-react";
 
 interface TopBarProps {
   activeSection: PageSection;
@@ -22,7 +23,7 @@ const sectionTitles = {
 
 export const TopBar = ({ activeSection, sidebarOpen, setSidebarOpen }: TopBarProps) => {
   const { data } = useFinancial();
-  const { user } = useAuth();
+  const { user, logout } = useAuth();
 
   const getSectionTitle = () => {
     if (activeSection === 'transactions' && user?.role === 'employee') {
@@ -39,6 +40,14 @@ export const TopBar = ({ activeSection, sidebarOpen, setSidebarOpen }: TopBarPro
       style: 'currency',
       currency: 'BRL'
     }).format(value);
+  };
+
+  const handleLogout = async () => {
+    try {
+      await logout();
+    } catch (error) {
+      console.error('Erro ao fazer logout:', error);
+    }
   };
 
   return (
@@ -71,8 +80,21 @@ export const TopBar = ({ activeSection, sidebarOpen, setSidebarOpen }: TopBarPro
             </p>
           </div>
           
-          <div className="w-8 h-8 bg-slate-200 rounded-full flex items-center justify-center">
-            <span className="text-slate-600 font-medium text-sm">ST</span>
+          <div className="flex items-center space-x-2">
+            <div className="text-right">
+              <p className="text-sm text-slate-600">Bem-vindo,</p>
+              <p className="font-medium text-slate-800">{user?.name}</p>
+            </div>
+            
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={handleLogout}
+              className="p-2"
+              title="Sair"
+            >
+              <LogOut className="w-4 h-4" />
+            </Button>
           </div>
         </div>
       </div>
