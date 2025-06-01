@@ -12,29 +12,26 @@ export const useEmployeeManagement = () => {
   const [employees, setEmployees] = useState<Profile[]>([]);
   const [accessCodes, setAccessCodes] = useState<EmployeeAccessCode[]>([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
 
   const fetchEmployees = async () => {
-    if (!profile?.company_id) return;
+    if (!user || !profile?.company_id) return;
 
     try {
       const { data, error } = await supabase
         .from('profiles')
         .select('*')
         .eq('company_id', profile.company_id)
-        .eq('active', true)
-        .order('created_at', { ascending: false });
+        .eq('active', true);
 
       if (error) throw error;
       setEmployees(data || []);
     } catch (err) {
       console.error('Erro ao buscar funcionários:', err);
-      setError(err instanceof Error ? err.message : 'Erro desconhecido');
     }
   };
 
   const fetchAccessCodes = async () => {
-    if (!profile?.company_id) return;
+    if (!user || !profile?.company_id) return;
 
     try {
       const { data, error } = await supabase
@@ -44,23 +41,39 @@ export const useEmployeeManagement = () => {
         .order('created_at', { ascending: false });
 
       if (error) throw error;
-      setAccessCodes(data || []);
+      
+      // Mapear os dados do banco para a interface TypeScript
+      const mappedCodes = (data || []).map(code => ({
+        id: code.id,
+        code: code.code,
+        companyId: code.company_id,
+        employeeName: code.employee_name,
+        employeeEmail: code.employee_email,
+        isUsed: code.is_used,
+        createdAt: code.created_at,
+        expires_at: code.expires_at,
+        usedAt: code.used_at
+      }));
+      
+      setAccessCodes(mappedCodes);
     } catch (err) {
       console.error('Erro ao buscar códigos de acesso:', err);
-      setError(err instanceof Error ? err.message : 'Erro desconhecido');
     }
   };
 
-  const generateAccessCode = () => {
-    const timestamp = Date.now().toString().slice(-6);
-    return `STRACK-${new Date().getFullYear()}-${timestamp}`;
-  };
-
   const createAccessCode = async (employeeName: string, employeeEmail: string) => {
-    if (!profile?.company_id) throw new Error('Empresa não encontrada');
+    if (!profile?.company_id) {
+      toast({
+        title: "Erro",
+        description: "Empresa não encontrada",
+        variant: "destructive"
+      });
+      return;
+    }
 
     try {
-      const code = generateAccessCode();
+      // Gerar código único
+      const code = Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
       
       const { data, error } = await supabase
         .from('employee_access_codes')
@@ -75,22 +88,19 @@ export const useEmployeeManagement = () => {
 
       if (error) throw error;
 
-      setAccessCodes(prev => [data, ...prev]);
-      
       toast({
-        title: "Código de acesso criado",
-        description: `Código ${code} criado para ${employeeName}`,
+        title: "Código criado",
+        description: `Código de acesso criado para ${employeeName}`,
       });
 
-      return { data, error: null };
+      await fetchAccessCodes();
     } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Erro ao criar código';
+      console.error('Erro ao criar código de acesso:', err);
       toast({
         title: "Erro",
-        description: errorMessage,
+        description: "Erro ao criar código de acesso",
         variant: "destructive"
       });
-      return { data: null, error: errorMessage };
     }
   };
 
@@ -103,44 +113,45 @@ export const useEmployeeManagement = () => {
 
       if (error) throw error;
 
-      setEmployees(prev => prev.filter(emp => emp.id !== employeeId));
-      
       toast({
         title: "Funcionário desativado",
-        description: "Funcionário foi desativado do sistema.",
+        description: "Funcionário foi desativado com sucesso",
       });
 
-      return { error: null };
+      await fetchEmployees();
     } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Erro ao desativar funcionário';
+      console.error('Erro ao desativar funcionário:', err);
       toast({
         title: "Erro",
-        description: errorMessage,
+        description: "Erro ao desativar funcionário",
         variant: "destructive"
       });
-      return { error: errorMessage };
     }
   };
 
-  const copyToClipboard = (text: string) => {
-    navigator.clipboard.writeText(text);
-    toast({
-      title: "Copiado!",
-      description: "Código copiado para a área de transferência.",
-    });
+  const copyToClipboard = async (text: string) => {
+    try {
+      await navigator.clipboard.writeText(text);
+      toast({
+        title: "Copiado",
+        description: "Código copiado para a área de transferência",
+      });
+    } catch (err) {
+      console.error('Erro ao copiar:', err);
+      toast({
+        title: "Erro",
+        description: "Erro ao copiar código",
+        variant: "destructive"
+      });
+    }
   };
 
   useEffect(() => {
-    const loadData = async () => {
-      setLoading(true);
-      await Promise.all([fetchEmployees(), fetchAccessCodes()]);
-      setLoading(false);
-    };
-
     if (profile?.company_id) {
-      loadData();
-    } else {
-      setLoading(false);
+      setLoading(true);
+      Promise.all([fetchEmployees(), fetchAccessCodes()]).finally(() => {
+        setLoading(false);
+      });
     }
   }, [profile?.company_id]);
 
@@ -148,7 +159,6 @@ export const useEmployeeManagement = () => {
     employees,
     accessCodes,
     loading,
-    error,
     createAccessCode,
     deactivateEmployee,
     copyToClipboard,

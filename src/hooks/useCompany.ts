@@ -27,7 +27,19 @@ export const useCompany = () => {
           .single();
 
         if (error) throw error;
-        setCompany(data);
+        
+        // Mapear os campos do banco para a interface TypeScript
+        setCompany({
+          id: data.id,
+          name: data.name,
+          legalName: data.legal_name,
+          cnpj: data.cnpj,
+          email: data.email,
+          phone: data.phone,
+          address: data.address,
+          createdAt: data.created_at,
+          ownerId: data.owner_id
+        });
       } else if (profile.role === 'admin') {
         // Se é admin sem empresa, buscar empresa que ele possui
         const { data, error } = await supabase
@@ -37,7 +49,20 @@ export const useCompany = () => {
           .maybeSingle();
 
         if (error) throw error;
-        setCompany(data);
+        
+        if (data) {
+          setCompany({
+            id: data.id,
+            name: data.name,
+            legalName: data.legal_name,
+            cnpj: data.cnpj,
+            email: data.email,
+            phone: data.phone,
+            address: data.address,
+            createdAt: data.created_at,
+            ownerId: data.owner_id
+          });
+        }
       }
     } catch (err) {
       console.error('Erro ao buscar empresa:', err);
@@ -54,7 +79,12 @@ export const useCompany = () => {
       const { data, error } = await supabase
         .from('companies')
         .insert({
-          ...companyData,
+          name: companyData.name,
+          legal_name: companyData.legalName,
+          cnpj: companyData.cnpj,
+          email: companyData.email,
+          phone: companyData.phone,
+          address: companyData.address,
           owner_id: user.id
         })
         .select()
@@ -70,14 +100,26 @@ export const useCompany = () => {
 
       if (profileError) throw profileError;
 
-      setCompany(data);
+      const mappedCompany = {
+        id: data.id,
+        name: data.name,
+        legalName: data.legal_name,
+        cnpj: data.cnpj,
+        email: data.email,
+        phone: data.phone,
+        address: data.address,
+        createdAt: data.created_at,
+        ownerId: data.owner_id
+      };
+
+      setCompany(mappedCompany);
       
       toast({
         title: "Empresa criada",
         description: "Empresa criada com sucesso!",
       });
 
-      return { data, error: null };
+      return { data: mappedCompany, error: null };
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Erro ao criar empresa';
       toast({
@@ -93,23 +135,43 @@ export const useCompany = () => {
     if (!company) throw new Error('Nenhuma empresa carregada');
 
     try {
+      const updateData: any = {};
+      if (companyData.name) updateData.name = companyData.name;
+      if (companyData.legalName) updateData.legal_name = companyData.legalName;
+      if (companyData.cnpj) updateData.cnpj = companyData.cnpj;
+      if (companyData.email) updateData.email = companyData.email;
+      if (companyData.phone) updateData.phone = companyData.phone;
+      if (companyData.address) updateData.address = companyData.address;
+
       const { data, error } = await supabase
         .from('companies')
-        .update(companyData)
+        .update(updateData)
         .eq('id', company.id)
         .select()
         .single();
 
       if (error) throw error;
 
-      setCompany(data);
+      const mappedCompany = {
+        id: data.id,
+        name: data.name,
+        legalName: data.legal_name,
+        cnpj: data.cnpj,
+        email: data.email,
+        phone: data.phone,
+        address: data.address,
+        createdAt: data.created_at,
+        ownerId: data.owner_id
+      };
+
+      setCompany(mappedCompany);
       
       toast({
         title: "Empresa atualizada",
         description: "Dados da empresa atualizados com sucesso!",
       });
 
-      return { data, error: null };
+      return { data: mappedCompany, error: null };
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Erro ao atualizar empresa';
       toast({
