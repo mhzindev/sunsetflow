@@ -42,8 +42,21 @@ export const ExpenseEditModal = ({ isOpen, onClose, expense, onSave }: ExpenseEd
     status: 'pending'
   });
 
+  // Inicializar dados do formulário quando a despesa for carregada
   useEffect(() => {
-    if (expense) {
+    console.log('ExpenseEditModal - expense changed:', expense);
+    if (expense && isOpen) {
+      console.log('Loading expense data into form:', {
+        mission: expense.mission,
+        employee: expense.employee,
+        category: expense.category,
+        description: expense.description,
+        amount: expense.amount,
+        date: expense.date,
+        isAdvanced: expense.isAdvanced,
+        status: expense.status
+      });
+      
       setFormData({
         mission: expense.mission || '',
         employee: expense.employee || '',
@@ -54,8 +67,20 @@ export const ExpenseEditModal = ({ isOpen, onClose, expense, onSave }: ExpenseEd
         isAdvanced: expense.isAdvanced || false,
         status: expense.status || 'pending'
       });
+    } else if (!isOpen) {
+      // Resetar formulário quando modal fechar
+      setFormData({
+        mission: '',
+        employee: '',
+        category: '',
+        description: '',
+        amount: '',
+        date: '',
+        isAdvanced: false,
+        status: 'pending'
+      });
     }
-  }, [expense]);
+  }, [expense, isOpen]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -76,8 +101,13 @@ export const ExpenseEditModal = ({ isOpen, onClose, expense, onSave }: ExpenseEd
     try {
       await new Promise(resolve => setTimeout(resolve, 1000));
 
+      if (!expense) {
+        showError('Erro', 'Despesa não encontrada');
+        return;
+      }
+
       const updatedExpense: Expense = {
-        ...expense!,
+        ...expense,
         mission: formData.mission,
         employee: formData.employee,
         category: formData.category,
@@ -88,6 +118,7 @@ export const ExpenseEditModal = ({ isOpen, onClose, expense, onSave }: ExpenseEd
         status: formData.status
       };
 
+      console.log('Saving updated expense:', updatedExpense);
       onSave(updatedExpense);
       showSuccess('Sucesso', 'Despesa atualizada com sucesso!');
       onClose();
@@ -102,9 +133,11 @@ export const ExpenseEditModal = ({ isOpen, onClose, expense, onSave }: ExpenseEd
 
   const mockMissions = [
     'Instalação - Cliente ABC',
-    'Instalação - Cliente XYZ',
+    'Instalação - Cliente XYZ', 
     'Manutenção - Cliente DEF',
-    'Manutenção - Cliente GHI'
+    'Manutenção - Cliente GHI',
+    'Missão 1',
+    'Missão 2'
   ];
 
   const mockEmployees = [
@@ -113,6 +146,8 @@ export const ExpenseEditModal = ({ isOpen, onClose, expense, onSave }: ExpenseEd
     'Maria Silva',
     'Pedro Costa'
   ];
+
+  console.log('Rendering form with data:', formData);
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
