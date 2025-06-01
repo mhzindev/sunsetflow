@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -54,11 +55,16 @@ export const TransactionManager = () => {
           </TabsList>
 
           <TabsContent value="list" className="mt-6">
-            <TransactionList />
+            <TransactionList 
+              transactions={[]}
+              onView={(id) => console.log('View transaction:', id)}
+              onEdit={(id) => console.log('Edit transaction:', id)}
+              onDelete={(id) => console.log('Delete transaction:', id)}
+            />
           </TabsContent>
 
           <TabsContent value="new" className="mt-6">
-            <TransactionForm onTransactionSubmitted={handleTransactionSubmitted} />
+            <TransactionForm onClose={handleTransactionSubmitted} />
           </TabsContent>
 
           {user?.role === 'owner' && (

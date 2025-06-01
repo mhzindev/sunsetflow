@@ -44,7 +44,10 @@ export const ExpenseManager = () => {
           </TabsList>
 
           <TabsContent value="new-expense" className="mt-6">
-            <ExpenseForm onExpenseSubmitted={handleExpenseSubmitted} />
+            <ExpenseForm 
+              onSave={handleExpenseSubmitted} 
+              onCancel={() => setActiveTab('expenses')} 
+            />
           </TabsContent>
 
           <TabsContent value="expenses" className="mt-6">

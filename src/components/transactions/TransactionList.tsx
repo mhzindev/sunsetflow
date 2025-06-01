@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -17,13 +18,18 @@ interface Transaction {
 }
 
 interface TransactionListProps {
-  transactions: Transaction[];
-  onView: (id: string) => void;
-  onEdit: (id: string) => void;
-  onDelete: (id: string) => void;
+  transactions?: Transaction[];
+  onView?: (id: string) => void;
+  onEdit?: (id: string) => void;
+  onDelete?: (id: string) => void;
 }
 
-export const TransactionList = ({ transactions, onView, onEdit, onDelete }: TransactionListProps) => {
+export const TransactionList = ({ 
+  transactions = [], 
+  onView = () => {}, 
+  onEdit = () => {}, 
+  onDelete = () => {} 
+}: TransactionListProps) => {
   const { profile } = useAuth();
 
   return (
@@ -56,7 +62,7 @@ export const TransactionList = ({ transactions, onView, onEdit, onDelete }: Tran
                   }).format(transaction.amount)}
                 </TableCell>
                 <TableCell>
-                  <Badge variant={transaction.type === 'income' ? 'success' : 'destructive'}>
+                  <Badge variant={transaction.type === 'income' ? 'default' : 'destructive'}>
                     {transaction.type === 'income' ? (
                       <>
                         <TrendingUp className="h-4 w-4 mr-1" />
