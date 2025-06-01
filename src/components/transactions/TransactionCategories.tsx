@@ -43,7 +43,7 @@ export const TransactionCategories = () => {
       setCategoryData(categoryArray);
 
       // Processar despesas por funcionário
-      const employeeExpenses = expenses.reduce((acc: any, expense: any) => {
+      const employeeExpenses: Record<string, number> = expenses.reduce((acc: Record<string, number>, expense: any) => {
         const employeeName = expense.employee_name || 'Funcionário Desconhecido';
         if (!acc[employeeName]) {
           acc[employeeName] = 0;
@@ -54,17 +54,15 @@ export const TransactionCategories = () => {
       }, {});
 
       // Calcular total e percentuais
-      const totalExpenses: number = Object.values(employeeExpenses).reduce((sum: number, amount: unknown) => {
-        const numAmount = typeof amount === 'number' ? amount : parseFloat(String(amount)) || 0;
-        return sum + numAmount;
+      const totalExpenses: number = Object.values(employeeExpenses).reduce((sum: number, amount: number) => {
+        return sum + amount;
       }, 0);
       
-      const employeeArray = Object.entries(employeeExpenses).map(([employee, amount]: [string, unknown]) => {
-        const numAmount = typeof amount === 'number' ? amount : parseFloat(String(amount)) || 0;
-        const percentage = totalExpenses > 0 ? Math.round((numAmount / totalExpenses) * 100) : 0;
+      const employeeArray = Object.entries(employeeExpenses).map(([employee, amount]: [string, number]) => {
+        const percentage = totalExpenses > 0 ? Math.round((amount / totalExpenses) * 100) : 0;
         return {
           employee,
-          amount: numAmount,
+          amount,
           percentage
         };
       });
