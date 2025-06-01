@@ -6,12 +6,14 @@ interface FinancialData {
   transactions: Transaction[];
   payments: Payment[];
   expenses: Expense[];
+  receivables: Receivable[];
   totalBalance: number;
   monthlyIncome: number;
   monthlyExpenses: number;
   pendingPayments: number;
   pendingExpenses: number;
   approvedExpenses: number;
+  pendingReceivables: number;
 }
 
 interface Expense {
@@ -31,21 +33,39 @@ interface Expense {
   receipt?: string;
 }
 
+interface Receivable {
+  id: string;
+  clientName: string;
+  amount: number;
+  description: string;
+  expectedDate: string;
+  notes?: string;
+  status: 'pending' | 'received' | 'overdue';
+  createdDate: string;
+  receivedDate?: string;
+  userId: string;
+  userName: string;
+}
+
 interface FinancialContextType {
   data: FinancialData;
   addTransaction: (transaction: Omit<Transaction, 'id'>) => void;
   addPayment: (payment: Omit<Payment, 'id'>) => void;
   addExpense: (expense: Omit<Expense, 'id'>) => void;
+  addReceivable: (receivable: Omit<Receivable, 'id'>) => void;
   updatePayment: (paymentId: string, updates: Partial<Payment>) => void;
   updatePaymentStatus: (paymentId: string, status: Payment['status'], paymentDate?: string) => void;
   updateExpenseStatus: (expenseId: string, status: Expense['status']) => void;
+  updateReceivableStatus: (receivableId: string, status: Receivable['status'], receivedDate?: string) => void;
   processPayment: (payment: Payment) => void;
   processExpenseApproval: (expenseId: string, amount: number, description: string) => void;
   processExpenseReimbursement: (expenseId: string, amount: number, description: string, employeeName: string) => void;
+  processReceivablePayment: (receivableId: string) => void;
   cancelPayment: (paymentId: string) => void;
   getRecentTransactions: (limit?: number) => Transaction[];
   getCashFlowProjections: () => any[];
   getExpensesByStatus: (status: Expense['status']) => Expense[];
+  getReceivablesByStatus: (status: Receivable['status']) => Receivable[];
 }
 
 const FinancialContext = createContext<FinancialContextType | undefined>(undefined);
@@ -60,8 +80,35 @@ export const useFinancial = () => {
 
 export const FinancialProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
+  const [receivables, setReceivables] = useState<Receivable[]>([
+    // Exemplos de recebíveis para demonstração
+    {
+      id: '1',
+      clientName: 'Empresa ABC Ltda',
+      amount: 8500.00,
+      description: 'Instalação de 15 rastreadores - Projeto Alpha',
+      expectedDate: '2024-02-10',
+      notes: 'Cliente solicitou pagamento em 30 dias',
+      status: 'pending',
+      createdDate: '2024-01-10',
+      userId: '1',
+      userName: 'Sistema'
+    },
+    {
+      id: '2',
+      clientName: 'Transportadora XYZ',
+      amount: 3200.00,
+      description: 'Manutenção mensal - Janeiro 2024',
+      expectedDate: '2024-02-05',
+      notes: 'Pagamento via PIX acordado',
+      status: 'overdue',
+      createdDate: '2024-01-05',
+      userId: '1',
+      userName: 'Sistema'
+    }
+  ]);
+
   const [expenses, setExpenses] = useState<Expense[]>([
-    // Exemplos de despesas para demonstração
     {
       id: '1',
       missionId: '1',
@@ -107,7 +154,6 @@ export const FinancialProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   ]);
 
   const [payments, setPayments] = useState<Payment[]>([
-    // Pagamentos de exemplo para demonstrar o funcionamento
     {
       id: '1',
       providerId: '1',
@@ -229,16 +275,22 @@ export const FinancialProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       .filter(e => e.status === 'approved')
       .reduce((sum, e) => sum + e.amount, 0);
 
+    const pendingReceivables = receivables
+      .filter(r => r.status === 'pending' || r.status === 'overdue')
+      .reduce((sum, r) => sum + r.amount, 0);
+
     return {
       transactions,
       payments,
       expenses,
+      receivables,
       totalBalance,
       monthlyIncome,
       monthlyExpenses,
       pendingPayments,
       pendingExpenses,
-      approvedExpenses
+      approvedExpenses,
+      pendingReceivables
     };
   };
 
@@ -269,7 +321,6 @@ export const FinancialProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     setExpenses(prev => [newExpense, ...prev]);
     console.log('Expense added to financial system:', newExpense);
 
-    // Se é um adiantamento (isAdvanced), criar transação de despesa imediatamente
     if (expenseData.isAdvanced) {
       const expenseTransaction = {
         type: 'expense' as const,
@@ -284,6 +335,16 @@ export const FinancialProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       };
       addTransaction(expenseTransaction);
     }
+  };
+
+  const addReceivable = (receivableData: Omit<Receivable, 'id'>) => {
+    const newReceivable: Receivable = {
+      ...receivableData,
+      id: Date.now().toString() + Math.random().toString(36).substr(2, 9),
+      status: 'pending'
+    };
+    setReceivables(prev => [newReceivable, ...prev]);
+    console.log('Receivable added to financial system:', newReceivable);
   };
 
   const updateExpenseStatus = (expenseId: string, status: Expense['status']) => {
@@ -301,6 +362,47 @@ export const FinancialProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       }
       return expense;
     }));
+  };
+
+  const updateReceivableStatus = (receivableId: string, status: Receivable['status'], receivedDate?: string) => {
+    setReceivables(prev => prev.map(r => {
+      if (r.id === receivableId) {
+        const updatedReceivable = { 
+          ...r, 
+          status,
+          ...(receivedDate && { receivedDate })
+        };
+
+        console.log('Receivable status updated:', receivableId, 'New status:', status);
+        return updatedReceivable;
+      }
+      return r;
+    }));
+  };
+
+  const processReceivablePayment = (receivableId: string) => {
+    const receivable = receivables.find(r => r.id === receivableId);
+    if (!receivable) return;
+
+    const currentDate = new Date().toISOString().split('T')[0];
+    
+    updateReceivableStatus(receivableId, 'received', currentDate);
+
+    const receivableTransaction = {
+      type: 'income' as const,
+      category: 'client_payment' as const,
+      amount: receivable.amount,
+      description: `Recebimento: ${receivable.description} - Cliente: ${receivable.clientName}`,
+      date: currentDate,
+      method: 'transfer' as const,
+      status: 'completed' as const,
+      userId: receivable.userId,
+      userName: receivable.userName,
+      clientName: receivable.clientName
+    };
+
+    addTransaction(receivableTransaction);
+    console.log('Receivable payment processed:', receivableId, 'Amount:', receivable.amount);
   };
 
   const updatePayment = (paymentId: string, updates: Partial<Payment>) => {
@@ -325,7 +427,6 @@ export const FinancialProvider: React.FC<{ children: React.ReactNode }> = ({ chi
 
         console.log('Payment status updated:', paymentId, 'New status:', status);
 
-        // Quando um pagamento é marcado como concluído, atualizar a transação correspondente
         if (status === 'completed') {
           setTransactions(prevTrans => prevTrans.map(t => {
             if (t.description.includes(`Pagamento agendado: ${p.description}`) || 
@@ -337,7 +438,6 @@ export const FinancialProvider: React.FC<{ children: React.ReactNode }> = ({ chi
           }));
         }
 
-        // Atualizar urgência baseada na nova data de vencimento ou status
         if (status === 'overdue' || (updatedPayment.dueDate && new Date(updatedPayment.dueDate) < new Date() && status !== 'completed')) {
           return { ...updatedPayment, status: 'overdue' as const };
         }
@@ -353,17 +453,14 @@ export const FinancialProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     
     console.log('Processing payment:', payment.id, 'Amount:', payment.amount);
     
-    // Atualizar status do pagamento para concluído
     updatePaymentStatus(payment.id, 'completed', currentDate);
 
-    // Verificar se já existe uma transação relacionada
     const existingTransaction = transactions.find(t => 
       (t.description.includes(payment.description) && t.amount === payment.amount) ||
       t.description.includes(`Pagamento agendado: ${payment.description}`)
     );
 
     if (existingTransaction) {
-      // Atualizar transação existente para concluída
       setTransactions(prev => prev.map(t => 
         t.id === existingTransaction.id 
           ? { ...t, status: 'completed' as const, date: currentDate, description: `Pagamento realizado: ${payment.description}` }
@@ -371,7 +468,6 @@ export const FinancialProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       ));
       console.log('Existing transaction updated to completed:', existingTransaction.id);
     } else {
-      // Criar nova transação de despesa
       const paymentTransaction = {
         type: 'expense' as const,
         category: 'service_payment' as const,
@@ -393,7 +489,6 @@ export const FinancialProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     console.log('Expense approved:', expenseId, 'Amount:', amount);
     updateExpenseStatus(expenseId, 'approved');
 
-    // Para despesas não-adiantadas, criar transação pendente que será efetivada no reembolso
     const expense = expenses.find(e => e.id === expenseId);
     if (expense && !expense.isAdvanced) {
       const approvalTransaction = {
@@ -414,17 +509,13 @@ export const FinancialProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   const processExpenseReimbursement = (expenseId: string, amount: number, description: string, employeeName: string) => {
     const currentDate = new Date().toISOString().split('T')[0];
     
-    // Atualizar status da despesa
     updateExpenseStatus(expenseId, 'reimbursed');
 
-    // Encontrar e atualizar transação pendente relacionada ou criar nova
     const expense = expenses.find(e => e.id === expenseId);
     if (expense) {
       if (expense.isAdvanced) {
-        // Para adiantamentos, a transação já foi criada, apenas log
         console.log('Expense reimbursement processed for advance:', expenseId);
       } else {
-        // Para reembolsos, atualizar transação pendente para concluída
         setTransactions(prev => prev.map(t => {
           if (t.description.includes(`Despesa aprovada: ${description}`) && t.status === 'pending') {
             return { ...t, status: 'completed' as const, date: currentDate };
@@ -432,7 +523,6 @@ export const FinancialProvider: React.FC<{ children: React.ReactNode }> = ({ chi
           return t;
         }));
 
-        // Se não encontrou transação pendente, criar nova
         const pendingTransaction = transactions.find(t => 
           t.description.includes(`Despesa aprovada: ${description}`) && t.status === 'pending'
         );
@@ -462,7 +552,6 @@ export const FinancialProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       p.id === paymentId ? { ...p, status: 'cancelled' as const } : p
     ));
 
-    // Cancelar transação relacionada
     setTransactions(prev => prev.map(t => {
       const payment = payments.find(p => p.id === paymentId);
       if (payment && (t.description.includes('Pagamento agendado') || t.description.includes(payment.description)) && 
@@ -476,9 +565,11 @@ export const FinancialProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     console.log('Payment cancelled:', paymentId);
   };
 
-  // Atualizar status de urgência automaticamente
+  // Auto-atualizar status de urgência
   useEffect(() => {
     const today = new Date();
+    
+    // Atualizar pagamentos em atraso
     setPayments(prev => prev.map(payment => {
       const dueDate = new Date(payment.dueDate);
       if (dueDate < today && payment.status !== 'completed' && payment.status !== 'cancelled' && payment.status !== 'overdue') {
@@ -486,6 +577,16 @@ export const FinancialProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         return { ...payment, status: 'overdue' as const };
       }
       return payment;
+    }));
+
+    // Atualizar recebíveis em atraso
+    setReceivables(prev => prev.map(receivable => {
+      const expectedDate = new Date(receivable.expectedDate);
+      if (expectedDate < today && receivable.status !== 'received' && receivable.status !== 'overdue') {
+        console.log('Receivable marked as overdue:', receivable.id);
+        return { ...receivable, status: 'overdue' as const };
+      }
+      return receivable;
     }));
   }, []);
 
@@ -499,13 +600,11 @@ export const FinancialProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     const today = new Date();
     const projections = [];
 
-    // Próximos 7 dias
     const next7Days = new Date(today.getTime() + 7 * 24 * 60 * 60 * 1000);
     const expected7DaysIncome = payments
       .filter(p => p.status === 'pending' && new Date(p.dueDate) <= next7Days)
       .reduce((sum, p) => sum + p.amount, 0);
 
-    // Próximos 30 dias
     const next30Days = new Date(today.getTime() + 30 * 24 * 60 * 60 * 1000);
     const expected30DaysIncome = payments
       .filter(p => p.status === 'pending' && new Date(p.dueDate) <= next30Days)
@@ -534,6 +633,10 @@ export const FinancialProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     return expenses.filter(expense => expense.status === status);
   };
 
+  const getReceivablesByStatus = (status: Receivable['status']) => {
+    return receivables.filter(receivable => receivable.status === status);
+  };
+
   const data = calculateFinancialData();
 
   const contextValue: FinancialContextType = {
@@ -541,16 +644,20 @@ export const FinancialProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     addTransaction,
     addPayment,
     addExpense,
+    addReceivable,
     updatePayment,
     updatePaymentStatus,
     updateExpenseStatus,
+    updateReceivableStatus,
     processPayment,
     processExpenseApproval,
     processExpenseReimbursement,
+    processReceivablePayment,
     cancelPayment,
     getRecentTransactions,
     getCashFlowProjections,
-    getExpensesByStatus
+    getExpensesByStatus,
+    getReceivablesByStatus
   };
 
   return (
