@@ -1,4 +1,3 @@
-
 import { useState } from 'react';
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -8,24 +7,31 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Search, Filter, Download, Eye, Edit } from 'lucide-react';
 import { FilterModal, FilterConfig } from '@/components/common/FilterModal';
 import { ExportModal } from '@/components/common/ExportModal';
+import { ExpenseViewModal } from './ExpenseViewModal';
+import { ExpenseEditModal } from './ExpenseEditModal';
 import { exportToCSV, exportToPDF, exportToExcel, ExportOptions } from '@/utils/exportUtils';
 import { useToastFeedback } from '@/hooks/useToastFeedback';
+
+interface Expense {
+  id: string;
+  mission: string;
+  employee: string;
+  category: string;
+  description: string;
+  amount: number;
+  date: string;
+  isAdvanced: boolean;
+  status: string;
+}
 
 export const ExpenseList = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [isFilterModalOpen, setIsFilterModalOpen] = useState(false);
   const [isExportModalOpen, setIsExportModalOpen] = useState(false);
-  const [activeFilters, setActiveFilters] = useState<FilterConfig>({
-    dateRange: { start: null, end: null },
-    status: [],
-    category: [],
-    amountRange: { min: null, max: null },
-    search: ''
-  });
-
-  const { showSuccess, showError } = useToastFeedback();
-
-  const mockExpenses = [
+  const [isViewModalOpen, setIsViewModalOpen] = useState(false);
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [selectedExpense, setSelectedExpense] = useState<Expense | null>(null);
+  const [expenses, setExpenses] = useState<Expense[]>([
     {
       id: '1',
       mission: 'Instalação - Cliente ABC',
@@ -59,9 +65,19 @@ export const ExpenseList = () => {
       isAdvanced: false,
       status: 'reimbursed'
     }
-  ];
+  ]);
+  
+  const [activeFilters, setActiveFilters] = useState<FilterConfig>({
+    dateRange: { start: null, end: null },
+    status: [],
+    category: [],
+    amountRange: { min: null, max: null },
+    search: ''
+  });
 
-  const applyFilters = (expenses: typeof mockExpenses) => {
+  const { showSuccess, showError } = useToastFeedback();
+
+  const applyFilters = (expenses: Expense[]) => {
     return expenses.filter(expense => {
       const searchMatch = !activeFilters.search || 
         expense.employee.toLowerCase().includes(activeFilters.search.toLowerCase()) ||
@@ -86,12 +102,35 @@ export const ExpenseList = () => {
     });
   };
 
-  const filteredExpenses = applyFilters(mockExpenses.filter(expense => 
+  const filteredExpenses = applyFilters(expenses.filter(expense => 
     !searchTerm || 
     expense.employee.toLowerCase().includes(searchTerm.toLowerCase()) ||
     expense.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
     expense.mission.toLowerCase().includes(searchTerm.toLowerCase())
   ));
+
+  const handleViewExpense = (expense: Expense) => {
+    setSelectedExpense(expense);
+    setIsViewModalOpen(true);
+  };
+
+  const handleEditExpense = (expense: Expense) => {
+    setSelectedExpense(expense);
+    setIsEditModalOpen(true);
+  };
+
+  const handleSaveExpense = (updatedExpense: Expense) => {
+    setExpenses(prevExpenses => 
+      prevExpenses.map(expense => 
+        expense.id === updatedExpense.id ? updatedExpense : expense
+      )
+    );
+  };
+
+  const handleApproveExpense = (expense: Expense) => {
+    const updatedExpense = { ...expense, status: 'approved' };
+    handleSaveExpense(updatedExpense);
+  };
 
   const handleExport = (options: ExportOptions) => {
     try {
@@ -259,10 +298,20 @@ export const ExpenseList = () => {
               </TableCell>
               <TableCell>
                 <div className="flex space-x-1">
-                  <Button variant="outline" size="sm">
+                  <Button 
+                    variant="outline" 
+                    size="sm"
+                    onClick={() => handleViewExpense(expense)}
+                    title="Visualizar despesa"
+                  >
                     <Eye className="w-4 h-4" />
                   </Button>
-                  <Button variant="outline" size="sm">
+                  <Button 
+                    variant="outline" 
+                    size="sm"
+                    onClick={() => handleEditExpense(expense)}
+                    title="Editar despesa"
+                  >
                     <Edit className="w-4 h-4" />
                   </Button>
                 </div>
@@ -274,7 +323,7 @@ export const ExpenseList = () => {
 
       {filteredExpenses.length === 0 && (
         <div className="text-center py-8 text-gray-500">
-          {mockExpenses.length === 0 ? (
+          {expenses.length === 0 ? (
             <div>
               <p>Nenhuma despesa registrada ainda</p>
               <p className="text-sm mt-1">Comece registrando sua primeira despesa</p>
@@ -284,6 +333,21 @@ export const ExpenseList = () => {
           )}
         </div>
       )}
+
+      <ExpenseViewModal
+        isOpen={isViewModalOpen}
+        onClose={() => setIsViewModalOpen(false)}
+        expense={selectedExpense}
+        onEdit={handleEditExpense}
+        onApprove={handleApproveExpense}
+      />
+
+      <ExpenseEditModal
+        isOpen={isEditModalOpen}
+        onClose={() => setIsEditModalOpen(false)}
+        expense={selectedExpense}
+        onSave={handleSaveExpense}
+      />
 
       <FilterModal
         isOpen={isFilterModalOpen}
