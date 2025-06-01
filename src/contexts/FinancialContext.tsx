@@ -2,7 +2,7 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { useSupabaseData } from '@/hooks/useSupabaseData';
 import { useAccounts } from '@/hooks/useAccounts';
-import { Transaction, Expense, Payment } from '@/types';
+import { Transaction, Expense, Payment } from '@/types/transaction';
 
 interface FinancialData {
   transactions: Transaction[];
@@ -25,6 +25,16 @@ interface FinancialContextType {
   loading: boolean;
   error: string | null;
   refreshData: () => Promise<void>;
+  getRecentTransactions: (limit?: number) => Transaction[];
+  getCashFlowProjections: () => any[];
+  addTransaction: (transaction: any) => Promise<any>;
+  addPayment: (payment: any) => Promise<any>;
+  updatePayment: (paymentId: string, updates: any) => Promise<any>;
+  updatePaymentStatus: (paymentId: string, status: string) => Promise<any>;
+  processPayment: (paymentId: string) => Promise<any>;
+  updateExpenseStatus: (expenseId: string, status: string) => Promise<any>;
+  processExpenseApproval: (expenseId: string) => Promise<any>;
+  processExpenseReimbursement: (expenseId: string) => Promise<any>;
 }
 
 const FinancialContext = createContext<FinancialContextType | undefined>(undefined);
@@ -155,6 +165,95 @@ export const FinancialProvider = ({ children }: FinancialProviderProps) => {
     }
   };
 
+  // Função para obter transações recentes
+  const getRecentTransactions = (limit: number = 5): Transaction[] => {
+    return data.transactions
+      .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+      .slice(0, limit);
+  };
+
+  // Função para obter projeções de fluxo de caixa
+  const getCashFlowProjections = () => {
+    // Implementação básica de projeções
+    return [];
+  };
+
+  // Função para adicionar transação
+  const addTransaction = async (transaction: any) => {
+    try {
+      const result = await supabaseData.insertTransaction(transaction);
+      if (!result.error) {
+        await refreshData();
+      }
+      return result;
+    } catch (err) {
+      console.error('Erro ao adicionar transação:', err);
+      return { data: null, error: 'Erro ao adicionar transação' };
+    }
+  };
+
+  // Função para adicionar pagamento
+  const addPayment = async (payment: any) => {
+    try {
+      const result = await supabaseData.insertPayment(payment);
+      if (!result.error) {
+        await refreshData();
+      }
+      return result;
+    } catch (err) {
+      console.error('Erro ao adicionar pagamento:', err);
+      return { data: null, error: 'Erro ao adicionar pagamento' };
+    }
+  };
+
+  // Função para atualizar pagamento
+  const updatePayment = async (paymentId: string, updates: any) => {
+    try {
+      const result = await supabaseData.updatePayment(paymentId, updates);
+      if (!result.error) {
+        await refreshData();
+      }
+      return result;
+    } catch (err) {
+      console.error('Erro ao atualizar pagamento:', err);
+      return { data: null, error: 'Erro ao atualizar pagamento' };
+    }
+  };
+
+  // Função para atualizar status do pagamento
+  const updatePaymentStatus = async (paymentId: string, status: string) => {
+    return updatePayment(paymentId, { status });
+  };
+
+  // Função para processar pagamento
+  const processPayment = async (paymentId: string) => {
+    return updatePaymentStatus(paymentId, 'completed');
+  };
+
+  // Função para atualizar status da despesa
+  const updateExpenseStatus = async (expenseId: string, status: string) => {
+    try {
+      const result = await supabaseData.updateExpenseStatus(expenseId, status);
+      if (!result.error) {
+        await refreshData();
+      }
+      return result;
+    } catch (err) {
+      console.error('Erro ao atualizar status da despesa:', err);
+      return { data: null, error: 'Erro ao atualizar status da despesa' };
+    }
+  };
+
+  // Função para aprovar despesa
+  const processExpenseApproval = async (expenseId: string) => {
+    return updateExpenseStatus(expenseId, 'approved');
+  };
+
+  // Função para reembolsar despesa
+  const processExpenseReimbursement = async (expenseId: string) => {
+    return updateExpenseStatus(expenseId, 'reimbursed');
+  };
+
   useEffect(() => {
     refreshData();
   }, [accountsLoading]); // Recarrega quando as contas terminam de carregar
@@ -163,7 +262,17 @@ export const FinancialProvider = ({ children }: FinancialProviderProps) => {
     data,
     loading: loading || accountsLoading,
     error,
-    refreshData
+    refreshData,
+    getRecentTransactions,
+    getCashFlowProjections,
+    addTransaction,
+    addPayment,
+    updatePayment,
+    updatePaymentStatus,
+    processPayment,
+    updateExpenseStatus,
+    processExpenseApproval,
+    processExpenseReimbursement
   };
 
   return (
