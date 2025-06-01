@@ -83,14 +83,20 @@ export const PaymentViewModal = ({ isOpen, onClose, payment, onEdit, onMarkAsPai
 
   // Safe calculation functions for installments
   const getInstallmentValue = () => {
-    if (!payment.installments || payment.installments === 0) return 0;
+    if (!payment.amount || !payment.installments || payment.installments === 0) return 0;
     return payment.amount / payment.installments;
   };
 
   const getRemainingAmount = () => {
-    if (!payment.installments || !payment.currentInstallment) return payment.amount;
+    if (!payment.amount || !payment.installments || !payment.currentInstallment) return payment.amount || 0;
     const remaining = payment.installments - payment.currentInstallment;
     return (payment.amount * remaining) / payment.installments;
+  };
+
+  // Safe formatter for currency values
+  const formatCurrency = (value: number | undefined | null) => {
+    const safeValue = value || 0;
+    return safeValue.toLocaleString('pt-BR', { minimumFractionDigits: 2 });
   };
 
   const daysUntilDue = getDaysUntilDue();
@@ -153,7 +159,7 @@ export const PaymentViewModal = ({ isOpen, onClose, payment, onEdit, onMarkAsPai
                 <div>
                   <span className="text-sm text-slate-500">Valor:</span>
                   <span className="ml-2 font-semibold text-lg">
-                    R$ {payment.amount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                    R$ {formatCurrency(payment.amount)}
                   </span>
                 </div>
               </div>
@@ -201,13 +207,13 @@ export const PaymentViewModal = ({ isOpen, onClose, payment, onEdit, onMarkAsPai
                 <div className="text-center p-3 bg-green-50 rounded-lg">
                   <p className="text-sm text-green-600">Valor da Parcela</p>
                   <p className="text-lg font-semibold text-green-800">
-                    R$ {getInstallmentValue().toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                    R$ {formatCurrency(getInstallmentValue())}
                   </p>
                 </div>
                 <div className="text-center p-3 bg-purple-50 rounded-lg">
                   <p className="text-sm text-purple-600">Total Restante</p>
                   <p className="text-lg font-semibold text-purple-800">
-                    R$ {getRemainingAmount().toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                    R$ {formatCurrency(getRemainingAmount())}
                   </p>
                 </div>
               </div>
