@@ -47,6 +47,10 @@ export const RecentTransactions = ({ onViewAll }: RecentTransactionsProps) => {
     return labels[category as keyof typeof labels] || 'Outros';
   };
 
+  const formatAmount = (amount: number | undefined) => {
+    return (amount || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 });
+  };
+
   return (
     <Card className="p-6">
       <div className="flex items-center justify-between mb-4">
@@ -77,9 +81,9 @@ export const RecentTransactions = ({ onViewAll }: RecentTransactionsProps) => {
                   )}
                 </div>
                 <div>
-                  <p className="font-medium text-slate-800">{transaction.description}</p>
+                  <p className="font-medium text-slate-800">{transaction.description || 'Sem descrição'}</p>
                   <p className="text-sm text-slate-600">
-                    {new Date(transaction.date).toLocaleDateString('pt-BR')} • {transaction.userName}
+                    {transaction.date ? new Date(transaction.date).toLocaleDateString('pt-BR') : 'Data não informada'} • {transaction.userName || 'Usuário'}
                   </p>
                 </div>
               </div>
@@ -88,7 +92,7 @@ export const RecentTransactions = ({ onViewAll }: RecentTransactionsProps) => {
                 <p className={`font-semibold ${
                   transaction.type === 'income' ? 'text-green-600' : 'text-red-600'
                 }`}>
-                  {transaction.type === 'income' ? '+' : '-'}R$ {transaction.amount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                  {transaction.type === 'income' ? '+' : '-'}R$ {formatAmount(transaction.amount)}
                 </p>
                 <Badge variant="outline" className={getCategoryColor(transaction.category)}>
                   {getCategoryLabel(transaction.category)}

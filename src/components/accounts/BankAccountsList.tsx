@@ -34,6 +34,10 @@ export const BankAccountsList = ({ accounts }: BankAccountsListProps) => {
     return colors[type as keyof typeof colors] || 'bg-gray-100 text-gray-800';
   };
 
+  const formatBalance = (balance: number | undefined) => {
+    return (balance || 0).toLocaleString('pt-BR');
+  };
+
   if (accounts.length === 0) {
     return (
       <Card>
@@ -60,7 +64,7 @@ export const BankAccountsList = ({ accounts }: BankAccountsListProps) => {
                 <div className="flex items-center gap-3 mb-2">
                   <Building2 className="w-5 h-5 text-slate-600" />
                   <h4 className="text-lg font-semibold text-slate-800">
-                    {account.name}
+                    {account.name || 'Conta sem nome'}
                   </h4>
                   <Badge className={getAccountTypeColor(account.accountType)}>
                     {getAccountTypeLabel(account.accountType)}
@@ -73,26 +77,26 @@ export const BankAccountsList = ({ accounts }: BankAccountsListProps) => {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
                   <div>
                     <p className="text-sm text-slate-600">Banco</p>
-                    <p className="font-medium text-slate-800">{account.bank}</p>
+                    <p className="font-medium text-slate-800">{account.bank || 'Não informado'}</p>
                   </div>
                   <div>
                     <p className="text-sm text-slate-600">Agência / Conta</p>
                     <p className="font-medium text-slate-800">
-                      {account.agency} / {account.accountNumber}
+                      {account.agency || 'N/A'} / {account.accountNumber || 'N/A'}
                     </p>
                   </div>
                   <div>
                     <p className="text-sm text-slate-600">Saldo Atual</p>
                     <p className={`text-xl font-bold ${
-                      account.balance >= 0 ? 'text-green-600' : 'text-red-600'
+                      (account.balance || 0) >= 0 ? 'text-green-600' : 'text-red-600'
                     }`}>
-                      R$ {account.balance.toLocaleString('pt-BR')}
+                      R$ {formatBalance(account.balance)}
                     </p>
                   </div>
                   <div>
                     <p className="text-sm text-slate-600">Última Atualização</p>
                     <p className="font-medium text-slate-800">
-                      {new Date(account.updatedAt).toLocaleDateString('pt-BR')}
+                      {account.updatedAt ? new Date(account.updatedAt).toLocaleDateString('pt-BR') : 'Não informado'}
                     </p>
                   </div>
                 </div>

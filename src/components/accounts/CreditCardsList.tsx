@@ -34,10 +34,8 @@ export const CreditCardsList = ({ cards }: CreditCardsListProps) => {
     return 'text-red-600';
   };
 
-  const getProgressColor = (percentage: number) => {
-    if (percentage <= 30) return 'bg-green-500';
-    if (percentage <= 60) return 'bg-yellow-500';
-    return 'bg-red-500';
+  const formatCurrency = (value: number | undefined) => {
+    return (value || 0).toLocaleString('pt-BR');
   };
 
   if (cards.length === 0) {
@@ -59,7 +57,10 @@ export const CreditCardsList = ({ cards }: CreditCardsListProps) => {
   return (
     <div className="space-y-4">
       {cards.map((card) => {
-        const utilizationPercentage = (card.usedLimit / card.limit) * 100;
+        const limit = card.limit || 0;
+        const usedLimit = card.usedLimit || 0;
+        const availableLimit = card.availableLimit || 0;
+        const utilizationPercentage = limit > 0 ? (usedLimit / limit) * 100 : 0;
         
         return (
           <Card key={card.id} className="hover:shadow-md transition-shadow">
@@ -69,10 +70,10 @@ export const CreditCardsList = ({ cards }: CreditCardsListProps) => {
                   <div className="flex items-center gap-3 mb-4">
                     <CreditCard className="w-5 h-5 text-slate-600" />
                     <h4 className="text-lg font-semibold text-slate-800">
-                      {card.name}
+                      {card.name || 'Cartão sem nome'}
                     </h4>
                     <Badge className={getBrandColor(card.brand)}>
-                      {card.brand.toUpperCase()}
+                      {(card.brand || 'other').toUpperCase()}
                     </Badge>
                     {!card.isActive && (
                       <Badge variant="secondary">Inativo</Badge>
@@ -82,17 +83,17 @@ export const CreditCardsList = ({ cards }: CreditCardsListProps) => {
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                     <div>
                       <p className="text-sm text-slate-600">Banco</p>
-                      <p className="font-medium text-slate-800">{card.bank}</p>
+                      <p className="font-medium text-slate-800">{card.bank || 'Não informado'}</p>
                     </div>
                     <div>
                       <p className="text-sm text-slate-600">Final do Cartão</p>
-                      <p className="font-medium text-slate-800">**** {card.cardNumber}</p>
+                      <p className="font-medium text-slate-800">**** {card.cardNumber || '0000'}</p>
                     </div>
                     <div>
                       <p className="text-sm text-slate-600">Vencimento / Fechamento</p>
                       <p className="font-medium text-slate-800 flex items-center">
                         <Calendar className="w-4 h-4 mr-1" />
-                        {card.dueDate} / {card.closingDate}
+                        {card.dueDate || 'N/A'} / {card.closingDate || 'N/A'}
                       </p>
                     </div>
                   </div>
@@ -115,19 +116,19 @@ export const CreditCardsList = ({ cards }: CreditCardsListProps) => {
                       <div>
                         <p className="text-slate-600">Limite Total</p>
                         <p className="font-bold text-slate-800">
-                          R$ {card.limit.toLocaleString('pt-BR')}
+                          R$ {formatCurrency(limit)}
                         </p>
                       </div>
                       <div>
                         <p className="text-slate-600">Utilizado</p>
                         <p className="font-bold text-red-600">
-                          R$ {card.usedLimit.toLocaleString('pt-BR')}
+                          R$ {formatCurrency(usedLimit)}
                         </p>
                       </div>
                       <div>
                         <p className="text-slate-600">Disponível</p>
                         <p className="font-bold text-green-600">
-                          R$ {card.availableLimit.toLocaleString('pt-BR')}
+                          R$ {formatCurrency(availableLimit)}
                         </p>
                       </div>
                     </div>

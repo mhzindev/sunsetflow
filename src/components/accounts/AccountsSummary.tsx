@@ -8,14 +8,25 @@ interface AccountsSummaryProps {
 }
 
 export const AccountsSummary = ({ summary }: AccountsSummaryProps) => {
-  const creditUtilization = summary.totalCreditLimit > 0 
-    ? (summary.totalCreditUsed / summary.totalCreditLimit) * 100 
+  const totalBankBalance = summary.totalBankBalance || 0;
+  const totalCreditLimit = summary.totalCreditLimit || 0;
+  const totalCreditUsed = summary.totalCreditUsed || 0;
+  const totalCreditAvailable = summary.totalCreditAvailable || 0;
+  const accountsCount = summary.accountsCount || 0;
+  const cardsCount = summary.cardsCount || 0;
+
+  const creditUtilization = totalCreditLimit > 0 
+    ? (totalCreditUsed / totalCreditLimit) * 100 
     : 0;
 
   const getUtilizationColor = (utilization: number) => {
     if (utilization <= 30) return 'text-green-600';
     if (utilization <= 60) return 'text-yellow-600';
     return 'text-red-600';
+  };
+
+  const formatCurrency = (value: number) => {
+    return value.toLocaleString('pt-BR');
   };
 
   return (
@@ -31,10 +42,10 @@ export const AccountsSummary = ({ summary }: AccountsSummaryProps) => {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-blue-800">
-              R$ {summary.totalBankBalance.toLocaleString('pt-BR')}
+              R$ {formatCurrency(totalBankBalance)}
             </div>
             <p className="text-xs text-blue-600 mt-1">
-              {summary.accountsCount} conta(s) ativa(s)
+              {accountsCount} conta(s) ativa(s)
             </p>
           </CardContent>
         </Card>
@@ -48,10 +59,10 @@ export const AccountsSummary = ({ summary }: AccountsSummaryProps) => {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-green-800">
-              R$ {summary.totalCreditAvailable.toLocaleString('pt-BR')}
+              R$ {formatCurrency(totalCreditAvailable)}
             </div>
             <p className="text-xs text-green-600 mt-1">
-              {summary.cardsCount} cartão(ões) ativo(s)
+              {cardsCount} cartão(ões) ativo(s)
             </p>
           </CardContent>
         </Card>
@@ -65,10 +76,10 @@ export const AccountsSummary = ({ summary }: AccountsSummaryProps) => {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-purple-800">
-              R$ {summary.totalCreditLimit.toLocaleString('pt-BR')}
+              R$ {formatCurrency(totalCreditLimit)}
             </div>
             <p className="text-xs text-purple-600 mt-1">
-              Valor usado: R$ {summary.totalCreditUsed.toLocaleString('pt-BR')}
+              Valor usado: R$ {formatCurrency(totalCreditUsed)}
             </p>
           </CardContent>
         </Card>
@@ -103,19 +114,19 @@ export const AccountsSummary = ({ summary }: AccountsSummaryProps) => {
               <div className="flex justify-between items-center">
                 <span className="text-slate-600">Total em Contas Bancárias:</span>
                 <span className="font-semibold text-slate-800">
-                  R$ {summary.totalBankBalance.toLocaleString('pt-BR')}
+                  R$ {formatCurrency(totalBankBalance)}
                 </span>
               </div>
               <div className="flex justify-between items-center">
                 <span className="text-slate-600">Limite de Crédito Disponível:</span>
                 <span className="font-semibold text-green-600">
-                  R$ {summary.totalCreditAvailable.toLocaleString('pt-BR')}
+                  R$ {formatCurrency(totalCreditAvailable)}
                 </span>
               </div>
               <div className="flex justify-between items-center">
                 <span className="text-slate-600">Total de Recursos:</span>
                 <span className="font-bold text-blue-600 text-lg">
-                  R$ {(summary.totalBankBalance + summary.totalCreditAvailable).toLocaleString('pt-BR')}
+                  R$ {formatCurrency(totalBankBalance + totalCreditAvailable)}
                 </span>
               </div>
             </div>
