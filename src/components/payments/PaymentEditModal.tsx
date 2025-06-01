@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Payment, PaymentStatus } from '@/types/payment';
+import { Payment, PaymentStatus, PaymentType } from '@/types/payment';
 import { useToastFeedback } from '@/hooks/useToastFeedback';
 
 interface PaymentEditModalProps {
@@ -23,7 +23,7 @@ export const PaymentEditModal = ({ isOpen, onClose, payment, onSave }: PaymentEd
     amount: '',
     dueDate: '',
     status: 'pending' as PaymentStatus,
-    type: 'full',
+    type: 'full' as PaymentType,
     description: '',
     notes: '',
     installments: '',
@@ -64,7 +64,7 @@ export const PaymentEditModal = ({ isOpen, onClose, payment, onSave }: PaymentEd
     try {
       await new Promise(resolve => setTimeout(resolve, 1000));
 
-      const updatedPayment = {
+      const updatedPayment: Payment = {
         ...payment!,
         amount,
         dueDate: formData.dueDate,
@@ -140,7 +140,7 @@ export const PaymentEditModal = ({ isOpen, onClose, payment, onSave }: PaymentEd
 
           <div>
             <Label htmlFor="type">Tipo</Label>
-            <Select value={formData.type} onValueChange={(value) => 
+            <Select value={formData.type} onValueChange={(value: PaymentType) => 
               setFormData({...formData, type: value})
             }>
               <SelectTrigger>
@@ -150,7 +150,6 @@ export const PaymentEditModal = ({ isOpen, onClose, payment, onSave }: PaymentEd
                 <SelectItem value="full">Integral</SelectItem>
                 <SelectItem value="installment">Parcelado</SelectItem>
                 <SelectItem value="advance">Adiantamento</SelectItem>
-                <SelectItem value="partial">Parcial</SelectItem>
               </SelectContent>
             </Select>
           </div>
