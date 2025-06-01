@@ -1,6 +1,6 @@
 
 import { Card } from "@/components/ui/card";
-import { TrendingUp, TrendingDown, Wallet, CreditCard } from "lucide-react";
+import { TrendingUp, TrendingDown, Wallet, CreditCard, Receipt, AlertTriangle } from "lucide-react";
 import { useFinancial } from "@/contexts/FinancialContext";
 
 export const FinancialSummary = () => {
@@ -57,11 +57,27 @@ export const FinancialSummary = () => {
       changeType: "neutral",
       icon: CreditCard,
       color: "bg-purple-600"
+    },
+    {
+      title: "Despesas Pendentes",
+      value: formatCurrency(data.pendingExpenses),
+      change: `${data.expenses.filter(e => e.status === 'pending').length} aguardando`,
+      changeType: data.pendingExpenses > 0 ? "warning" : "positive",
+      icon: Receipt,
+      color: "bg-orange-600"
+    },
+    {
+      title: "Despesas Aprovadas",
+      value: formatCurrency(data.approvedExpenses),
+      change: `${data.expenses.filter(e => e.status === 'approved').length} para reembolso`,
+      changeType: data.approvedExpenses > 0 ? "warning" : "positive",
+      icon: AlertTriangle,
+      color: "bg-yellow-600"
     }
   ];
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
       {summaryCards.map((card, index) => {
         const Icon = card.icon;
         return (
@@ -72,7 +88,8 @@ export const FinancialSummary = () => {
                 <p className="text-2xl font-bold text-slate-800">{card.value}</p>
                 <p className={`text-sm mt-1 ${
                   card.changeType === 'positive' ? 'text-emerald-600' :
-                  card.changeType === 'negative' ? 'text-red-600' : 'text-slate-600'
+                  card.changeType === 'negative' ? 'text-red-600' : 
+                  card.changeType === 'warning' ? 'text-orange-600' : 'text-slate-600'
                 }`}>
                   {card.change}
                 </p>

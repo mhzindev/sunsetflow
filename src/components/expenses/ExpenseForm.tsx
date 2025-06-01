@@ -10,6 +10,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Upload, X } from 'lucide-react';
 import { useAuth } from '@/components/auth/AuthContext';
 import { useToastFeedback } from '@/hooks/useToastFeedback';
+import { useFinancial } from '@/contexts/FinancialContext';
 
 interface ExpenseFormProps {
   onExpenseSubmitted?: () => void;
@@ -18,6 +19,7 @@ interface ExpenseFormProps {
 export const ExpenseForm = ({ onExpenseSubmitted }: ExpenseFormProps) => {
   const { user } = useAuth();
   const { showSuccess, showError } = useToastFeedback();
+  const { addExpense } = useFinancial();
   const [isLoading, setIsLoading] = useState(false);
   
   const [formData, setFormData] = useState({
@@ -96,24 +98,29 @@ export const ExpenseForm = ({ onExpenseSubmitted }: ExpenseFormProps) => {
     setIsLoading(true);
     
     try {
-      // Simular API call
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
+      // Integrar com o sistema financeiro
       const expenseData = {
-        ...formData,
-        id: Date.now().toString(),
-        employeeId: user?.id,
+        missionId: formData.missionId,
+        employeeId: user?.id || '1',
+        employeeName: user?.name || 'Usuário',
+        category: formData.category,
+        description: formData.description,
         amount: amount,
-        status: 'pending' as const,
-        submittedBy: user?.name || 'Usuário',
-        submittedAt: new Date().toISOString()
+        date: formData.date,
+        isAdvanced: formData.isAdvanced,
+        status: 'pending' as const
       };
       
-      console.log('Expense submitted:', expenseData);
+      // Adicionar despesa ao contexto financeiro
+      addExpense(expenseData);
+      
+      const impactMessage = formData.isAdvanced 
+        ? 'Despesa registrada como adiantamento e já impactou o saldo da empresa.'
+        : 'Despesa registrada e aguarda aprovação para reembolso.';
       
       showSuccess(
         'Despesa Registrada', 
-        `Despesa de R$ ${amount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} registrada com sucesso!`
+        `${impactMessage} Valor: R$ ${amount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`
       );
       
       resetForm();

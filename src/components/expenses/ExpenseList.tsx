@@ -11,6 +11,7 @@ import { ExpenseViewModal } from './ExpenseViewModal';
 import { ExpenseEditModal } from './ExpenseEditModal';
 import { exportToCSV, exportToPDF, exportToExcel, ExportOptions } from '@/utils/exportUtils';
 import { useToastFeedback } from '@/hooks/useToastFeedback';
+import { useFinancial } from '@/contexts/FinancialContext';
 
 interface Expense {
   id: string;
@@ -31,41 +32,6 @@ export const ExpenseList = () => {
   const [isViewModalOpen, setIsViewModalOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [selectedExpense, setSelectedExpense] = useState<Expense | null>(null);
-  const [expenses, setExpenses] = useState<Expense[]>([
-    {
-      id: '1',
-      mission: 'Instalação - Cliente ABC',
-      employee: 'Carlos Santos',
-      category: 'fuel',
-      description: 'Combustível viagem São Paulo',
-      amount: 280.50,
-      date: '2024-01-15',
-      isAdvanced: true,
-      status: 'approved'
-    },
-    {
-      id: '2',
-      mission: 'Instalação - Cliente ABC',
-      employee: 'Carlos Santos',
-      category: 'accommodation',
-      description: 'Hotel Ibis São Paulo',
-      amount: 150.00,
-      date: '2024-01-15',
-      isAdvanced: true,
-      status: 'pending'
-    },
-    {
-      id: '3',
-      mission: 'Manutenção - Cliente XYZ',
-      employee: 'João Oliveira',
-      category: 'meals',
-      description: 'Almoço durante manutenção',
-      amount: 45.00,
-      date: '2024-01-14',
-      isAdvanced: false,
-      status: 'reimbursed'
-    }
-  ]);
   
   const [activeFilters, setActiveFilters] = useState<FilterConfig>({
     dateRange: { start: null, end: null },
@@ -76,6 +42,20 @@ export const ExpenseList = () => {
   });
 
   const { showSuccess, showError } = useToastFeedback();
+  const { data, updateExpenseStatus } = useFinancial();
+
+  // Usar dados do contexto financeiro em vez de mock data
+  const expenses = data.expenses.map(expense => ({
+    id: expense.id,
+    mission: `Missão ${expense.missionId}`,
+    employee: expense.employeeName,
+    category: expense.category,
+    description: expense.description,
+    amount: expense.amount,
+    date: expense.date,
+    isAdvanced: expense.isAdvanced,
+    status: expense.status
+  }));
 
   const applyFilters = (expenses: Expense[]) => {
     return expenses.filter(expense => {
@@ -120,16 +100,18 @@ export const ExpenseList = () => {
   };
 
   const handleSaveExpense = (updatedExpense: Expense) => {
-    setExpenses(prevExpenses => 
-      prevExpenses.map(expense => 
-        expense.id === updatedExpense.id ? updatedExpense : expense
-      )
-    );
+    // Atualizar no contexto financeiro
+    updateExpenseStatus(updatedExpense.id, updatedExpense.status as any);
+    showSuccess('Despesa Atualizada', 'As alterações foram salvas e impactaram o sistema financeiro');
   };
 
   const handleApproveExpense = (expense: Expense) => {
-    const updatedExpense = { ...expense, status: 'approved' };
-    handleSaveExpense(updatedExpense);
+    // Atualizar status no contexto financeiro
+    updateExpenseStatus(expense.id, 'approved');
+    showSuccess(
+      'Despesa Aprovada', 
+      `Despesa de R$ ${expense.amount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} aprovada e registrada no sistema financeiro`
+    );
   };
 
   const handleExport = (options: ExportOptions) => {

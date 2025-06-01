@@ -5,24 +5,47 @@ import { Payment } from '@/types/payment';
 interface FinancialData {
   transactions: Transaction[];
   payments: Payment[];
+  expenses: Expense[];
   totalBalance: number;
   monthlyIncome: number;
   monthlyExpenses: number;
   pendingPayments: number;
+  pendingExpenses: number;
+  approvedExpenses: number;
+}
+
+interface Expense {
+  id: string;
+  missionId: string;
+  employeeId: string;
+  employeeName: string;
+  category: string;
+  description: string;
+  amount: number;
+  date: string;
+  isAdvanced: boolean;
+  status: 'pending' | 'approved' | 'reimbursed' | 'rejected';
+  submittedAt: string;
+  approvedAt?: string;
+  reimbursedAt?: string;
+  receipt?: string;
 }
 
 interface FinancialContextType {
   data: FinancialData;
   addTransaction: (transaction: Omit<Transaction, 'id'>) => void;
   addPayment: (payment: Omit<Payment, 'id'>) => void;
+  addExpense: (expense: Omit<Expense, 'id'>) => void;
   updatePayment: (paymentId: string, updates: Partial<Payment>) => void;
   updatePaymentStatus: (paymentId: string, status: Payment['status'], paymentDate?: string) => void;
+  updateExpenseStatus: (expenseId: string, status: Expense['status']) => void;
   processPayment: (payment: Payment) => void;
   processExpenseApproval: (expenseId: string, amount: number, description: string) => void;
   processExpenseReimbursement: (expenseId: string, amount: number, description: string, employeeName: string) => void;
   cancelPayment: (paymentId: string) => void;
   getRecentTransactions: (limit?: number) => Transaction[];
   getCashFlowProjections: () => any[];
+  getExpensesByStatus: (status: Expense['status']) => Expense[];
 }
 
 const FinancialContext = createContext<FinancialContextType | undefined>(undefined);
@@ -37,6 +60,52 @@ export const useFinancial = () => {
 
 export const FinancialProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
+  const [expenses, setExpenses] = useState<Expense[]>([
+    // Exemplos de despesas para demonstração
+    {
+      id: '1',
+      missionId: '1',
+      employeeId: '1',
+      employeeName: 'Carlos Santos',
+      category: 'fuel',
+      description: 'Combustível viagem São Paulo',
+      amount: 280.50,
+      date: '2024-01-15',
+      isAdvanced: true,
+      status: 'approved',
+      submittedAt: '2024-01-15T08:00:00Z',
+      approvedAt: '2024-01-15T10:30:00Z'
+    },
+    {
+      id: '2',
+      missionId: '1',
+      employeeId: '1',
+      employeeName: 'Carlos Santos',
+      category: 'accommodation',
+      description: 'Hotel Ibis São Paulo',
+      amount: 150.00,
+      date: '2024-01-15',
+      isAdvanced: true,
+      status: 'pending',
+      submittedAt: '2024-01-15T18:00:00Z'
+    },
+    {
+      id: '3',
+      missionId: '2',
+      employeeId: '2',
+      employeeName: 'João Oliveira',
+      category: 'meals',
+      description: 'Almoço durante manutenção',
+      amount: 45.00,
+      date: '2024-01-14',
+      isAdvanced: false,
+      status: 'reimbursed',
+      submittedAt: '2024-01-14T13:00:00Z',
+      approvedAt: '2024-01-14T14:00:00Z',
+      reimbursedAt: '2024-01-16T09:00:00Z'
+    }
+  ]);
+
   const [payments, setPayments] = useState<Payment[]>([
     // Pagamentos de exemplo para demonstrar o funcionamento
     {
@@ -102,7 +171,7 @@ export const FinancialProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   // Saldo inicial da empresa
   const INITIAL_BALANCE = 45720;
 
-  // Calcular dados financeiros baseados nas transações
+  // Calcular dados financeiros baseados nas transações e despesas
   const calculateFinancialData = (): FinancialData => {
     const currentDate = new Date();
     const currentMonth = currentDate.getMonth();
@@ -119,28 +188,57 @@ export const FinancialProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       .filter(t => t.type === 'income' && t.status === 'completed')
       .reduce((sum, t) => sum + t.amount, 0);
 
-    const monthlyExpenses = monthlyTransactions
+    // Incluir despesas aprovadas e reembolsadas no cálculo das despesas mensais
+    const monthlyExpenseTransactions = monthlyTransactions
       .filter(t => t.type === 'expense' && t.status === 'completed')
       .reduce((sum, t) => sum + t.amount, 0);
 
-    // Calcular saldo total: saldo inicial + todas as entradas - todas as saídas completadas
-    const totalBalance = transactions
+    const monthlyApprovedExpenses = expenses
+      .filter(e => {
+        const expenseDate = new Date(e.date);
+        return expenseDate.getMonth() === currentMonth && 
+               expenseDate.getFullYear() === currentYear &&
+               (e.status === 'approved' || e.status === 'reimbursed');
+      })
+      .reduce((sum, e) => sum + e.amount, 0);
+
+    const monthlyExpenses = monthlyExpenseTransactions + monthlyApprovedExpenses;
+
+    // Calcular saldo total: saldo inicial + entradas - saídas - despesas reembolsadas
+    const completedTransactionBalance = transactions
       .filter(t => t.status === 'completed')
       .reduce((sum, t) => {
         return t.type === 'income' ? sum + t.amount : sum - t.amount;
-      }, INITIAL_BALANCE);
+      }, 0);
+
+    const reimbursedExpenses = expenses
+      .filter(e => e.status === 'reimbursed')
+      .reduce((sum, e) => sum + e.amount, 0);
+
+    const totalBalance = INITIAL_BALANCE + completedTransactionBalance - reimbursedExpenses;
 
     const pendingPayments = payments
       .filter(p => p.status === 'pending' || p.status === 'overdue')
       .reduce((sum, p) => sum + p.amount, 0);
 
+    const pendingExpenses = expenses
+      .filter(e => e.status === 'pending')
+      .reduce((sum, e) => sum + e.amount, 0);
+
+    const approvedExpenses = expenses
+      .filter(e => e.status === 'approved')
+      .reduce((sum, e) => sum + e.amount, 0);
+
     return {
       transactions,
       payments,
+      expenses,
       totalBalance,
       monthlyIncome,
       monthlyExpenses,
-      pendingPayments
+      pendingPayments,
+      pendingExpenses,
+      approvedExpenses
     };
   };
 
@@ -153,30 +251,47 @@ export const FinancialProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     console.log('Transaction added to financial system:', newTransaction);
   };
 
-  const addPayment = (paymentData: Omit<Payment, 'id'>) => {
-    const newPayment: Payment = {
-      ...paymentData,
+  const addExpense = (expenseData: Omit<Expense, 'id'>) => {
+    const newExpense: Expense = {
+      ...expenseData,
       id: Date.now().toString() + Math.random().toString(36).substr(2, 9),
+      submittedAt: new Date().toISOString()
     };
-    setPayments(prev => [newPayment, ...prev]);
-    console.log('Payment added to financial system:', newPayment);
+    setExpenses(prev => [newExpense, ...prev]);
+    console.log('Expense added to financial system:', newExpense);
 
-    // Se o pagamento é agendado (status pending), criar uma transação pendente
-    if (paymentData.status === 'pending') {
-      const paymentTransaction = {
+    // Se é um adiantamento (isAdvanced), criar transação de despesa imediatamente
+    if (expenseData.isAdvanced) {
+      const expenseTransaction = {
         type: 'expense' as const,
-        category: 'service_payment' as const,
-        amount: paymentData.amount,
-        description: `Pagamento agendado: ${paymentData.description}`,
-        date: paymentData.dueDate,
+        category: 'other' as const,
+        amount: expenseData.amount,
+        description: `Adiantamento: ${expenseData.description}`,
+        date: expenseData.date,
         method: 'transfer' as const,
-        status: 'pending' as const,
-        userId: '1',
-        userName: 'Sistema - Pagamento Agendado'
+        status: 'completed' as const,
+        userId: expenseData.employeeId,
+        userName: `Adiantamento - ${expenseData.employeeName}`
       };
-
-      addTransaction(paymentTransaction);
+      addTransaction(expenseTransaction);
     }
+  };
+
+  const updateExpenseStatus = (expenseId: string, status: Expense['status']) => {
+    setExpenses(prev => prev.map(expense => {
+      if (expense.id === expenseId) {
+        const updatedExpense = { 
+          ...expense, 
+          status,
+          ...(status === 'approved' && { approvedAt: new Date().toISOString() }),
+          ...(status === 'reimbursed' && { reimbursedAt: new Date().toISOString() })
+        };
+
+        console.log('Expense status updated:', expenseId, 'New status:', status);
+        return updatedExpense;
+      }
+      return expense;
+    }));
   };
 
   const updatePayment = (paymentId: string, updates: Partial<Payment>) => {
@@ -267,26 +382,69 @@ export const FinancialProvider: React.FC<{ children: React.ReactNode }> = ({ chi
 
   const processExpenseApproval = (expenseId: string, amount: number, description: string) => {
     console.log('Expense approved:', expenseId, 'Amount:', amount);
-    // Lógica adicional para aprovação pode ser adicionada aqui
+    updateExpenseStatus(expenseId, 'approved');
+
+    // Para despesas não-adiantadas, criar transação pendente que será efetivada no reembolso
+    const expense = expenses.find(e => e.id === expenseId);
+    if (expense && !expense.isAdvanced) {
+      const approvalTransaction = {
+        type: 'expense' as const,
+        category: 'other' as const,
+        amount: amount,
+        description: `Despesa aprovada: ${description}`,
+        date: new Date().toISOString().split('T')[0],
+        method: 'transfer' as const,
+        status: 'pending' as const,
+        userId: expense.employeeId,
+        userName: `Aprovação - ${expense.employeeName}`
+      };
+      addTransaction(approvalTransaction);
+    }
   };
 
   const processExpenseReimbursement = (expenseId: string, amount: number, description: string, employeeName: string) => {
     const currentDate = new Date().toISOString().split('T')[0];
     
-    // Criar transação de reembolso
-    const reimbursementTransaction = {
-      type: 'expense' as const,
-      category: 'other' as const,
-      amount: amount,
-      description: `Reembolso para ${employeeName}: ${description}`,
-      date: currentDate,
-      method: 'transfer' as const,
-      status: 'completed' as const,
-      userId: '1',
-      userName: 'Sistema - Reembolso'
-    };
+    // Atualizar status da despesa
+    updateExpenseStatus(expenseId, 'reimbursed');
 
-    addTransaction(reimbursementTransaction);
+    // Encontrar e atualizar transação pendente relacionada ou criar nova
+    const expense = expenses.find(e => e.id === expenseId);
+    if (expense) {
+      if (expense.isAdvanced) {
+        // Para adiantamentos, a transação já foi criada, apenas log
+        console.log('Expense reimbursement processed for advance:', expenseId);
+      } else {
+        // Para reembolsos, atualizar transação pendente para concluída
+        setTransactions(prev => prev.map(t => {
+          if (t.description.includes(`Despesa aprovada: ${description}`) && t.status === 'pending') {
+            return { ...t, status: 'completed' as const, date: currentDate };
+          }
+          return t;
+        }));
+
+        // Se não encontrou transação pendente, criar nova
+        const pendingTransaction = transactions.find(t => 
+          t.description.includes(`Despesa aprovada: ${description}`) && t.status === 'pending'
+        );
+        
+        if (!pendingTransaction) {
+          const reimbursementTransaction = {
+            type: 'expense' as const,
+            category: 'other' as const,
+            amount: amount,
+            description: `Reembolso: ${description}`,
+            date: currentDate,
+            method: 'transfer' as const,
+            status: 'completed' as const,
+            userId: expense.employeeId,
+            userName: `Reembolso - ${employeeName}`
+          };
+          addTransaction(reimbursementTransaction);
+        }
+      }
+    }
+
     console.log('Expense reimbursed:', expenseId, 'Amount:', amount, 'Employee:', employeeName);
   };
 
@@ -363,20 +521,27 @@ export const FinancialProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     return projections;
   };
 
+  const getExpensesByStatus = (status: Expense['status']) => {
+    return expenses.filter(expense => expense.status === status);
+  };
+
   const data = calculateFinancialData();
 
   const contextValue: FinancialContextType = {
     data,
     addTransaction,
     addPayment,
+    addExpense,
     updatePayment,
     updatePaymentStatus,
+    updateExpenseStatus,
     processPayment,
     processExpenseApproval,
     processExpenseReimbursement,
     cancelPayment,
     getRecentTransactions,
-    getCashFlowProjections
+    getCashFlowProjections,
+    getExpensesByStatus
   };
 
   return (
