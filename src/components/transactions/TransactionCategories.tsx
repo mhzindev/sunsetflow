@@ -29,7 +29,8 @@ export const TransactionCategories = () => {
         if (!acc[category]) {
           acc[category] = 0;
         }
-        acc[category] += parseFloat(transaction.amount) || 0;
+        const amount = typeof transaction.amount === 'number' ? transaction.amount : parseFloat(transaction.amount) || 0;
+        acc[category] += amount;
         return acc;
       }, {});
 
@@ -48,18 +49,25 @@ export const TransactionCategories = () => {
         if (!acc[employeeName]) {
           acc[employeeName] = 0;
         }
-        acc[employeeName] += parseFloat(expense.amount) || 0;
+        const amount = typeof expense.amount === 'number' ? expense.amount : parseFloat(expense.amount) || 0;
+        acc[employeeName] += amount;
         return acc;
       }, {});
 
       // Calcular total e percentuais
-      const totalExpenses = Object.values(employeeExpenses).reduce((sum: number, amount: any) => sum + amount, 0);
+      const totalExpenses = Object.values(employeeExpenses).reduce((sum: number, amount: any) => {
+        const numAmount = typeof amount === 'number' ? amount : parseFloat(amount) || 0;
+        return sum + numAmount;
+      }, 0);
       
-      const employeeArray = Object.entries(employeeExpenses).map(([employee, amount]) => ({
-        employee,
-        amount: amount as number,
-        percentage: totalExpenses > 0 ? Math.round(((amount as number) / totalExpenses) * 100) : 0
-      }));
+      const employeeArray = Object.entries(employeeExpenses).map(([employee, amount]) => {
+        const numAmount = typeof amount === 'number' ? amount : parseFloat(amount) || 0;
+        return {
+          employee,
+          amount: numAmount,
+          percentage: totalExpenses > 0 ? Math.round((numAmount / totalExpenses) * 100) : 0
+        };
+      });
 
       setExpensesByEmployee(employeeArray);
     } catch (error) {
