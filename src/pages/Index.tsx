@@ -8,10 +8,11 @@ import { PaymentManager } from "@/components/payments/PaymentManager";
 import { CashFlow } from "@/components/cashflow/CashFlow";
 import { Reports } from "@/components/reports/Reports";
 import { ExpenseManager } from "@/components/expenses/ExpenseManager";
+import { Settings } from "@/components/settings/Settings";
 import { AuthProvider } from "@/components/auth/AuthContext";
 import { FinancialProvider } from "@/contexts/FinancialContext";
 
-export type PageSection = 'dashboard' | 'transactions' | 'payments' | 'expenses' | 'cashflow' | 'reports';
+export type PageSection = 'dashboard' | 'transactions' | 'payments' | 'expenses' | 'cashflow' | 'reports' | 'settings';
 
 const Index = () => {
   const [activeSection, setActiveSection] = useState<PageSection>('dashboard');
@@ -35,6 +36,8 @@ const Index = () => {
         return <CashFlow />;
       case 'reports':
         return <Reports />;
+      case 'settings':
+        return <Settings />;
       default:
         return <Dashboard onNavigate={handleNavigate} />;
     }

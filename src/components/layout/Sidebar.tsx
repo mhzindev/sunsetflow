@@ -141,8 +141,10 @@ export const Sidebar = ({ activeSection, setActiveSection, isOpen }: SidebarProp
           variant="ghost"
           className={cn(
             "w-full justify-start text-slate-300 hover:text-white hover:bg-slate-800",
+            activeSection === 'settings' && "bg-slate-800 text-white",
             !isOpen && "justify-center px-2"
           )}
+          onClick={() => setActiveSection('settings' as PageSection)}
         >
           <Settings className="h-5 w-5 text-slate-400" />
           {isOpen && <span className="ml-3">Configurações</span>}
