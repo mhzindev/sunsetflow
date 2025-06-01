@@ -6,12 +6,16 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Switch } from "@/components/ui/switch";
-import { useToastFeedback } from '@/hooks/useToastFeedback';
+import { Badge } from "@/components/ui/badge";
+import { Save, X } from 'lucide-react';
 
-interface Expense {
+interface ExpenseListItem {
   id: string;
-  mission: string;
+  mission: {
+    title?: string;
+    location?: string;
+    client_name?: string;
+  } | string;
   employee: string;
   category: string;
   description: string;
@@ -19,275 +23,227 @@ interface Expense {
   date: string;
   isAdvanced: boolean;
   status: string;
+  accommodationDetails?: {
+    actualCost: number;
+    reimbursementAmount: number;
+    netAmount: number;
+  };
+  employee_role?: string;
 }
 
 interface ExpenseEditModalProps {
   isOpen: boolean;
   onClose: () => void;
-  expense: Expense | null;
-  onSave: (expense: Expense) => void;
+  expense: ExpenseListItem | null;
+  onSave: (updatedExpense: ExpenseListItem) => void;
 }
 
-export const ExpenseEditModal = ({ isOpen, onClose, expense, onSave }: ExpenseEditModalProps) => {
-  const { showSuccess, showError } = useToastFeedback();
-  const [isLoading, setIsLoading] = useState(false);
-  const [formData, setFormData] = useState({
-    mission: '',
-    employee: '',
-    category: '',
-    description: '',
-    amount: '',
-    date: '',
-    isAdvanced: false,
-    status: 'pending'
-  });
+export const ExpenseEditModal = ({
+  isOpen,
+  onClose,
+  expense,
+  onSave
+}: ExpenseEditModalProps) => {
+  const [formData, setFormData] = useState<ExpenseListItem | null>(null);
 
-  // Inicializar dados do formulário quando a despesa for carregada
   useEffect(() => {
-    console.log('ExpenseEditModal - expense changed:', expense);
-    if (expense && isOpen) {
-      console.log('Loading expense data into form:', {
-        mission: expense.mission,
-        employee: expense.employee,
-        category: expense.category,
-        description: expense.description,
-        amount: expense.amount,
-        date: expense.date,
-        isAdvanced: expense.isAdvanced,
-        status: expense.status
-      });
-      
-      setFormData({
-        mission: expense.mission || '',
-        employee: expense.employee || '',
-        category: expense.category || '',
-        description: expense.description || '',
-        amount: expense.amount?.toString() || '',
-        date: expense.date || '',
-        isAdvanced: expense.isAdvanced || false,
-        status: expense.status || 'pending'
-      });
-    } else if (!isOpen) {
-      // Resetar formulário quando modal fechar
-      setFormData({
-        mission: '',
-        employee: '',
-        category: '',
-        description: '',
-        amount: '',
-        date: '',
-        isAdvanced: false,
-        status: 'pending'
-      });
+    if (expense) {
+      setFormData({ ...expense });
     }
-  }, [expense, isOpen]);
+  }, [expense]);
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    
-    if (!formData.mission || !formData.employee || !formData.category || !formData.description || !formData.amount || !formData.date) {
-      showError('Erro de Validação', 'Por favor, preencha todos os campos obrigatórios');
-      return;
-    }
+  if (!expense || !formData) return null;
 
-    const amount = parseFloat(formData.amount);
-    if (isNaN(amount) || amount <= 0) {
-      showError('Valor Inválido', 'Por favor, insira um valor válido maior que zero');
-      return;
-    }
-
-    setIsLoading(true);
-
-    try {
-      await new Promise(resolve => setTimeout(resolve, 1000));
-
-      if (!expense) {
-        showError('Erro', 'Despesa não encontrada');
-        return;
-      }
-
-      const updatedExpense: Expense = {
-        ...expense,
-        mission: formData.mission,
-        employee: formData.employee,
-        category: formData.category,
-        description: formData.description,
-        amount,
-        date: formData.date,
-        isAdvanced: formData.isAdvanced,
-        status: formData.status
-      };
-
-      console.log('Saving updated expense:', updatedExpense);
-      onSave(updatedExpense);
-      showSuccess('Sucesso', 'Despesa atualizada com sucesso!');
+  const handleSave = () => {
+    if (formData) {
+      onSave(formData);
       onClose();
-    } catch (error) {
-      showError('Erro', 'Erro ao atualizar despesa. Tente novamente.');
-    } finally {
-      setIsLoading(false);
     }
   };
 
-  if (!expense) return null;
+  const getCategoryLabel = (category: string) => {
+    const labels = {
+      fuel: 'Combustível',
+      accommodation: 'Hospedagem',
+      meals: 'Alimentação',
+      transportation: 'Transporte',
+      materials: 'Materiais',
+      other: 'Outros'
+    };
+    return labels[category as keyof typeof labels] || 'Outros';
+  };
 
-  const mockMissions = [
-    'Instalação - Cliente ABC',
-    'Instalação - Cliente XYZ', 
-    'Manutenção - Cliente DEF',
-    'Manutenção - Cliente GHI',
-    'Missão 1',
-    'Missão 2'
-  ];
+  const getStatusLabel = (status: string) => {
+    const labels = {
+      pending: 'Pendente',
+      approved: 'Aprovado',
+      reimbursed: 'Reembolsado'
+    };
+    return labels[status as keyof typeof labels] || 'Pendente';
+  };
 
-  const mockEmployees = [
-    'Carlos Santos',
-    'João Oliveira',
-    'Maria Silva',
-    'Pedro Costa'
-  ];
-
-  console.log('Rendering form with data:', formData);
+  const mission = typeof expense.mission === 'object' ? expense.mission : { title: expense.mission };
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-w-2xl">
         <DialogHeader>
           <DialogTitle>Editar Despesa</DialogTitle>
         </DialogHeader>
 
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <Label htmlFor="mission">Missão *</Label>
-              <Select value={formData.mission} onValueChange={(value) => 
-                setFormData({...formData, mission: value})
-              }>
-                <SelectTrigger>
-                  <SelectValue placeholder="Selecione a missão" />
-                </SelectTrigger>
-                <SelectContent>
-                  {mockMissions.map((mission) => (
-                    <SelectItem key={mission} value={mission}>{mission}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div>
-              <Label htmlFor="employee">Funcionário *</Label>
-              <Select value={formData.employee} onValueChange={(value) => 
-                setFormData({...formData, employee: value})
-              }>
-                <SelectTrigger>
-                  <SelectValue placeholder="Selecione o funcionário" />
-                </SelectTrigger>
-                <SelectContent>
-                  {mockEmployees.map((employee) => (
-                    <SelectItem key={employee} value={employee}>{employee}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div>
-              <Label htmlFor="category">Categoria *</Label>
-              <Select value={formData.category} onValueChange={(value) => 
-                setFormData({...formData, category: value})
-              }>
-                <SelectTrigger>
-                  <SelectValue placeholder="Selecione a categoria" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="fuel">Combustível</SelectItem>
-                  <SelectItem value="accommodation">Hospedagem</SelectItem>
-                  <SelectItem value="meals">Alimentação</SelectItem>
-                  <SelectItem value="transportation">Transporte</SelectItem>
-                  <SelectItem value="materials">Materiais</SelectItem>
-                  <SelectItem value="other">Outros</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div>
-              <Label htmlFor="amount">Valor (R$) *</Label>
-              <Input
-                id="amount"
-                type="number"
-                step="0.01"
-                value={formData.amount}
-                onChange={(e) => setFormData({...formData, amount: e.target.value})}
-                required
-              />
-            </div>
-
-            <div>
-              <Label htmlFor="date">Data *</Label>
-              <Input
-                id="date"
-                type="date"
-                value={formData.date}
-                onChange={(e) => setFormData({...formData, date: e.target.value})}
-                required
-              />
-            </div>
-
-            <div>
-              <Label htmlFor="status">Status</Label>
-              <Select value={formData.status} onValueChange={(value) => 
-                setFormData({...formData, status: value})
-              }>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="pending">Pendente</SelectItem>
-                  <SelectItem value="approved">Aprovado</SelectItem>
-                  <SelectItem value="reimbursed">Reembolsado</SelectItem>
-                </SelectContent>
-              </Select>
+        <div className="space-y-4">
+          {/* Informações da Missão (Read-only) */}
+          <div>
+            <Label>Missão</Label>
+            <div className="bg-gray-50 p-3 rounded-lg">
+              <div className="font-medium">{mission.title || 'N/A'}</div>
+              {mission.client_name && (
+                <div className="text-sm text-gray-600">Cliente: {mission.client_name}</div>
+              )}
+              {mission.location && (
+                <div className="text-sm text-gray-500">{mission.location}</div>
+              )}
             </div>
           </div>
 
+          {/* Funcionário (Read-only) */}
           <div>
-            <Label htmlFor="description">Descrição *</Label>
+            <Label>Funcionário</Label>
+            <div className="bg-gray-50 p-3 rounded-lg">
+              <div className="font-medium">{expense.employee}</div>
+              <div className="text-sm text-gray-600">{expense.employee_role}</div>
+            </div>
+          </div>
+
+          {/* Categoria (Read-only) */}
+          <div>
+            <Label>Categoria</Label>
+            <Badge className="mt-1">
+              {getCategoryLabel(expense.category)}
+            </Badge>
+          </div>
+
+          {/* Descrição */}
+          <div>
+            <Label htmlFor="description">Descrição</Label>
             <Textarea
               id="description"
-              placeholder="Descreva a despesa..."
               value={formData.description}
-              onChange={(e) => setFormData({...formData, description: e.target.value})}
-              required
+              onChange={(e) => setFormData({ ...formData, description: e.target.value })}
               rows={3}
             />
           </div>
 
-          <div className="flex items-center space-x-2">
-            <Switch
-              id="isAdvanced"
-              checked={formData.isAdvanced}
-              onCheckedChange={(checked) => setFormData({...formData, isAdvanced: checked})}
+          {/* Valor */}
+          <div>
+            <Label htmlFor="amount">Valor (R$)</Label>
+            <Input
+              id="amount"
+              type="number"
+              step="0.01"
+              value={formData.amount}
+              onChange={(e) => setFormData({ ...formData, amount: parseFloat(e.target.value) || 0 })}
             />
-            <Label htmlFor="isAdvanced">É um adiantamento?</Label>
           </div>
 
-          <div className="flex space-x-4 pt-4">
-            <Button 
-              type="submit" 
-              className="flex-1"
-              disabled={isLoading}
+          {/* Data */}
+          <div>
+            <Label htmlFor="date">Data</Label>
+            <Input
+              id="date"
+              type="date"
+              value={formData.date}
+              onChange={(e) => setFormData({ ...formData, date: e.target.value })}
+            />
+          </div>
+
+          {/* Status */}
+          <div>
+            <Label>Status</Label>
+            <Select
+              value={formData.status}
+              onValueChange={(value) => setFormData({ ...formData, status: value })}
             >
-              {isLoading ? 'Salvando...' : 'Salvar Alterações'}
-            </Button>
-            <Button 
-              type="button" 
-              variant="outline"
-              onClick={onClose}
-              disabled={isLoading}
-            >
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="pending">Pendente</SelectItem>
+                <SelectItem value="approved">Aprovado</SelectItem>
+                <SelectItem value="reimbursed">Reembolsado</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          {/* Detalhes de Hospedagem (se existir) */}
+          {formData.accommodationDetails && (
+            <div>
+              <Label>Detalhes de Hospedagem</Label>
+              <div className="grid grid-cols-3 gap-2 mt-2">
+                <div>
+                  <Label htmlFor="actualCost" className="text-xs">Gasto Real</Label>
+                  <Input
+                    id="actualCost"
+                    type="number"
+                    step="0.01"
+                    value={formData.accommodationDetails.actualCost}
+                    onChange={(e) => {
+                      const actualCost = parseFloat(e.target.value) || 0;
+                      const reimbursementAmount = formData.accommodationDetails?.reimbursementAmount || 0;
+                      setFormData({
+                        ...formData,
+                        accommodationDetails: {
+                          ...formData.accommodationDetails!,
+                          actualCost,
+                          netAmount: reimbursementAmount - actualCost
+                        }
+                      });
+                    }}
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="reimbursementAmount" className="text-xs">Ressarcimento</Label>
+                  <Input
+                    id="reimbursementAmount"
+                    type="number"
+                    step="0.01"
+                    value={formData.accommodationDetails.reimbursementAmount}
+                    onChange={(e) => {
+                      const reimbursementAmount = parseFloat(e.target.value) || 0;
+                      const actualCost = formData.accommodationDetails?.actualCost || 0;
+                      setFormData({
+                        ...formData,
+                        accommodationDetails: {
+                          ...formData.accommodationDetails!,
+                          reimbursementAmount,
+                          netAmount: reimbursementAmount - actualCost
+                        }
+                      });
+                    }}
+                  />
+                </div>
+                <div>
+                  <Label className="text-xs">Líquido</Label>
+                  <div className={`p-2 text-sm font-medium rounded ${formData.accommodationDetails.netAmount >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                    {formData.accommodationDetails.netAmount >= 0 ? '+' : ''}R$ {formData.accommodationDetails.netAmount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Ações */}
+          <div className="flex gap-2 justify-end pt-4">
+            <Button variant="outline" onClick={onClose}>
+              <X className="w-4 h-4 mr-2" />
               Cancelar
             </Button>
+            <Button onClick={handleSave}>
+              <Save className="w-4 h-4 mr-2" />
+              Salvar
+            </Button>
           </div>
-        </form>
+        </div>
       </DialogContent>
     </Dialog>
   );

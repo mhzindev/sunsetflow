@@ -2,15 +2,16 @@
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Card } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
-import { MapPin, User, Calendar, DollarSign, FileText, Edit, Receipt, AlertTriangle, Clock, CheckCircle } from 'lucide-react';
-import { useToastFeedback } from '@/hooks/useToastFeedback';
-import { useFinancial } from '@/contexts/FinancialContext';
+import { Edit, CheckCircle } from 'lucide-react';
 
-interface Expense {
+interface ExpenseListItem {
   id: string;
-  mission: string;
+  mission: {
+    title?: string;
+    location?: string;
+    client_name?: string;
+  } | string;
   employee: string;
   category: string;
   description: string;
@@ -18,42 +19,32 @@ interface Expense {
   date: string;
   isAdvanced: boolean;
   status: string;
+  accommodationDetails?: {
+    actualCost: number;
+    reimbursementAmount: number;
+    netAmount: number;
+  };
+  employee_role?: string;
 }
 
 interface ExpenseViewModalProps {
   isOpen: boolean;
   onClose: () => void;
-  expense: Expense | null;
-  onEdit?: (expense: Expense) => void;
-  onApprove?: (expense: Expense) => void;
+  expense: ExpenseListItem | null;
+  onEdit: (expense: ExpenseListItem) => void;
+  onApprove: (expense: ExpenseListItem) => void;
 }
 
-export const ExpenseViewModal = ({ isOpen, onClose, expense, onEdit, onApprove }: ExpenseViewModalProps) => {
-  const { showSuccess } = useToastFeedback();
-  const { processExpenseApproval, processExpenseReimbursement } = useFinancial();
-
+export const ExpenseViewModal = ({
+  isOpen,
+  onClose,
+  expense,
+  onEdit,
+  onApprove
+}: ExpenseViewModalProps) => {
   if (!expense) return null;
 
-  const getCategoryColor = (category: string) => {
-    const colors = {
-      fuel: 'bg-orange-100 text-orange-800',
-      accommodation: 'bg-blue-100 text-blue-800',
-      meals: 'bg-green-100 text-green-800',
-      transportation: 'bg-purple-100 text-purple-800',
-      materials: 'bg-yellow-100 text-yellow-800',
-      other: 'bg-gray-100 text-gray-800'
-    };
-    return colors[category as keyof typeof colors] || colors.other;
-  };
-
-  const getStatusColor = (status: string) => {
-    const colors = {
-      pending: 'bg-yellow-100 text-yellow-800',
-      approved: 'bg-green-100 text-green-800',
-      reimbursed: 'bg-blue-100 text-blue-800'
-    };
-    return colors[status as keyof typeof colors] || colors.pending;
-  };
+  const mission = typeof expense.mission === 'object' ? expense.mission : { title: expense.mission };
 
   const getCategoryLabel = (category: string) => {
     const labels = {
@@ -76,200 +67,124 @@ export const ExpenseViewModal = ({ isOpen, onClose, expense, onEdit, onApprove }
     return labels[status as keyof typeof labels] || 'Pendente';
   };
 
-  const handleEditClick = () => {
-    onEdit?.(expense);
-    onClose();
+  const getStatusColor = (status: string) => {
+    const colors = {
+      pending: 'bg-yellow-100 text-yellow-800',
+      approved: 'bg-green-100 text-green-800',
+      reimbursed: 'bg-blue-100 text-blue-800'
+    };
+    return colors[status as keyof typeof colors] || colors.pending;
   };
-
-  const handleApprove = () => {
-    // Fix: Call with correct arguments (expenseId only)
-    processExpenseApproval(expense.id);
-    onApprove?.(expense);
-    
-    showSuccess(
-      'Despesa Aprovada', 
-      `Despesa de R$ ${expense.amount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} de ${expense.employee} foi aprovada e registrada no sistema!`
-    );
-    onClose();
-  };
-
-  const handleReimburse = () => {
-    // Fix: Call with correct arguments (expenseId only)
-    processExpenseReimbursement(expense.id);
-    
-    showSuccess(
-      'Reembolso Processado', 
-      `Reembolso de R$ ${expense.amount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} para ${expense.employee} foi processado e registrado no sistema financeiro!`
-    );
-    onClose();
-  };
-
-  const handleGenerateReceipt = () => {
-    showSuccess('Comprovante Gerado', `Comprovante da despesa de ${expense.employee} está sendo preparado para download`);
-  };
-
-  const isHighValue = expense.amount > 500;
-  const isPending = expense.status === 'pending';
-  const isApproved = expense.status === 'approved';
-  const isOld = new Date().getTime() - new Date(expense.date).getTime() > 30 * 24 * 60 * 60 * 1000; // 30 dias
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-w-2xl">
         <DialogHeader>
-          <DialogTitle className="flex items-center space-x-2">
-            <FileText className="w-5 h-5" />
-            <span>Detalhes da Despesa</span>
-          </DialogTitle>
+          <DialogTitle>Detalhes da Despesa</DialogTitle>
         </DialogHeader>
 
         <div className="space-y-6">
-          {/* Alertas de Contexto */}
-          {isHighValue && isPending && (
-            <Card className="p-4 border-orange-200 bg-orange-50">
-              <div className="flex items-center space-x-2">
-                <AlertTriangle className="w-5 h-5 text-orange-600" />
-                <div>
-                  <p className="font-semibold text-orange-800">Despesa de Alto Valor</p>
-                  <p className="text-sm text-orange-600">
-                    Esta despesa de R$ {expense.amount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} requer aprovação gerencial
-                  </p>
-                </div>
-              </div>
-            </Card>
-          )}
-
-          {isOld && isPending && (
-            <Card className="p-4 border-red-200 bg-red-50">
-              <div className="flex items-center space-x-2">
-                <Clock className="w-5 h-5 text-red-600" />
-                <div>
-                  <p className="font-semibold text-red-800">Despesa Antiga Pendente</p>
-                  <p className="text-sm text-red-600">
-                    Esta despesa está pendente há mais de 30 dias e precisa de atenção
-                  </p>
-                </div>
-              </div>
-            </Card>
-          )}
-
-          {/* Informações Principais */}
-          <Card className="p-4">
-            <div className="flex items-start justify-between mb-4">
-              <div>
-                <h3 className="text-xl font-semibold text-slate-800 mb-2">{expense.description}</h3>
-                <p className="text-slate-600 flex items-center">
-                  <MapPin className="w-4 h-4 mr-1" />
-                  {expense.mission}
-                </p>
-              </div>
-              <div className="flex space-x-2">
-                <Badge className={getStatusColor(expense.status)}>
-                  {getStatusLabel(expense.status)}
-                </Badge>
-                <Badge variant={expense.isAdvanced ? 'default' : 'secondary'}>
-                  {expense.isAdvanced ? 'Adiantamento' : 'Reembolso'}
-                </Badge>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="flex items-center space-x-2">
-                <User className="w-4 h-4 text-slate-500" />
-                <div>
-                  <span className="text-sm text-slate-500">Funcionário:</span>
-                  <span className="ml-2 font-medium">{expense.employee}</span>
-                </div>
-              </div>
-              <div className="flex items-center space-x-2">
-                <Calendar className="w-4 h-4 text-slate-500" />
-                <div>
-                  <span className="text-sm text-slate-500">Data:</span>
-                  <span className="ml-2 font-medium">
-                    {new Date(expense.date).toLocaleDateString('pt-BR')}
-                  </span>
-                </div>
-              </div>
-              <div className="flex items-center space-x-2">
-                <DollarSign className="w-4 h-4 text-slate-500" />
-                <div>
-                  <span className="text-sm text-slate-500">Valor:</span>
-                  <span className="ml-2 font-semibold text-lg text-green-600">
-                    R$ {expense.amount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                  </span>
-                </div>
-              </div>
-              <div className="flex items-center space-x-2">
-                <div className="w-4 h-4 flex items-center justify-center">
-                  <Badge className={getCategoryColor(expense.category)} variant="outline">
-                    {getCategoryLabel(expense.category)}
-                  </Badge>
-                </div>
-              </div>
-            </div>
-          </Card>
-
-          {/* Contexto da Missão */}
-          <Card className="p-4">
-            <h4 className="font-semibold text-slate-800 mb-3">Contexto da Missão</h4>
+          {/* Informações da Missão */}
+          <div>
+            <h3 className="font-semibold text-slate-800 mb-2">Missão</h3>
             <div className="bg-gray-50 p-3 rounded-lg">
-              <p className="text-slate-700 mb-2">
-                <strong>Tipo de Serviço:</strong> {expense.mission.includes('Instalação') ? 'Instalação de Rastreadores' : 'Manutenção de Equipamentos'}
-              </p>
-              <p className="text-slate-700">
-                <strong>Localização:</strong> {expense.mission}
-              </p>
+              <div className="font-medium">{mission.title || 'N/A'}</div>
+              {mission.client_name && (
+                <div className="text-sm text-gray-600">Cliente: {mission.client_name}</div>
+              )}
+              {mission.location && (
+                <div className="text-sm text-gray-500">{mission.location}</div>
+              )}
             </div>
-          </Card>
+          </div>
 
-          {/* Análise de Custo-Benefício */}
-          {expense.category === 'fuel' && (
-            <Card className="p-4">
-              <h4 className="font-semibold text-slate-800 mb-3">Análise de Eficiência</h4>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="bg-blue-50 p-3 rounded-lg">
-                  <p className="text-sm text-blue-600">Custo por KM (estimado)</p>
-                  <p className="text-lg font-semibold text-blue-800">
-                    R$ {(expense.amount / 300).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                  </p>
-                </div>
-                <div className="bg-green-50 p-3 rounded-lg">
-                  <p className="text-sm text-green-600">Eficiência</p>
-                  <p className="text-lg font-semibold text-green-800">
-                    {expense.amount < 200 ? 'Excelente' : expense.amount < 400 ? 'Boa' : 'Verificar'}
-                  </p>
-                </div>
-              </div>
-            </Card>
-          )}
+          {/* Informações do Funcionário */}
+          <div>
+            <h3 className="font-semibold text-slate-800 mb-2">Funcionário</h3>
+            <div className="bg-gray-50 p-3 rounded-lg">
+              <div className="font-medium">{expense.employee}</div>
+              <div className="text-sm text-gray-600">{expense.employee_role}</div>
+            </div>
+          </div>
 
           <Separator />
 
+          {/* Detalhes da Despesa */}
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="text-sm font-medium text-gray-600">Categoria</label>
+              <Badge className="mt-1 block w-fit">
+                {getCategoryLabel(expense.category)}
+              </Badge>
+            </div>
+            <div>
+              <label className="text-sm font-medium text-gray-600">Status</label>
+              <Badge className={`mt-1 block w-fit ${getStatusColor(expense.status)}`}>
+                {getStatusLabel(expense.status)}
+              </Badge>
+            </div>
+            <div>
+              <label className="text-sm font-medium text-gray-600">Valor</label>
+              <div className="font-semibold text-lg">
+                R$ {expense.amount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+              </div>
+            </div>
+            <div>
+              <label className="text-sm font-medium text-gray-600">Data</label>
+              <div>{new Date(expense.date).toLocaleDateString('pt-BR')}</div>
+            </div>
+            <div className="col-span-2">
+              <label className="text-sm font-medium text-gray-600">Tipo</label>
+              <Badge variant={expense.isAdvanced ? 'default' : 'secondary'} className="mt-1">
+                {expense.category === 'accommodation' ? 'Hospedagem' : (expense.isAdvanced ? 'Adiantamento' : 'Reembolso')}
+              </Badge>
+            </div>
+          </div>
+
+          {/* Descrição */}
+          <div>
+            <label className="text-sm font-medium text-gray-600">Descrição</label>
+            <div className="mt-1 p-3 bg-gray-50 rounded-lg">
+              {expense.description}
+            </div>
+          </div>
+
+          {/* Detalhes de Hospedagem */}
+          {expense.accommodationDetails && (
+            <div>
+              <label className="text-sm font-medium text-gray-600">Detalhes de Hospedagem</label>
+              <div className="mt-1 p-3 bg-gray-50 rounded-lg space-y-2">
+                <div className="flex justify-between">
+                  <span>Gasto:</span>
+                  <span>R$ {expense.accommodationDetails.actualCost.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span>Ressarcimento:</span>
+                  <span>R$ {expense.accommodationDetails.reimbursementAmount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+                </div>
+                <Separator />
+                <div className={`flex justify-between font-semibold ${expense.accommodationDetails.netAmount >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                  <span>Líquido:</span>
+                  <span>
+                    {expense.accommodationDetails.netAmount >= 0 ? '+' : ''}R$ {expense.accommodationDetails.netAmount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                  </span>
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* Ações */}
-          <div className="flex flex-wrap gap-2">
-            {expense.status === 'pending' && (
-              <Button onClick={handleApprove} className="bg-green-600 hover:bg-green-700">
-                <CheckCircle className="w-4 h-4 mr-2" />
-                Aprovar Despesa
-              </Button>
-            )}
-            {isApproved && (
-              <Button onClick={handleReimburse} className="bg-blue-600 hover:bg-blue-700">
-                <DollarSign className="w-4 h-4 mr-2" />
-                Processar Reembolso
-              </Button>
-            )}
-            <Button variant="outline" onClick={handleEditClick}>
+          <div className="flex gap-2 justify-end">
+            <Button variant="outline" onClick={() => onEdit(expense)}>
               <Edit className="w-4 h-4 mr-2" />
               Editar
             </Button>
-            <Button variant="outline" onClick={handleGenerateReceipt}>
-              <Receipt className="w-4 h-4 mr-2" />
-              Gerar Comprovante
-            </Button>
-            <Button variant="outline" onClick={onClose}>
-              Fechar
-            </Button>
+            {expense.status === 'pending' && (
+              <Button onClick={() => onApprove(expense)}>
+                <CheckCircle className="w-4 h-4 mr-2" />
+                Aprovar
+              </Button>
+            )}
           </div>
         </div>
       </DialogContent>
