@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -79,7 +78,8 @@ export const PaymentEditModal = ({ isOpen, onClose, payment, onSave }: PaymentEd
       // Se o status mudou, usar updatePaymentStatus para garantir integração
       if (formData.status !== payment?.status) {
         const paymentDate = formData.status === 'completed' ? new Date().toISOString().split('T')[0] : payment?.paymentDate;
-        updatePaymentStatus(payment!.id, formData.status, paymentDate);
+        // Fix: Call with correct arguments (paymentId and status only)
+        updatePaymentStatus(payment!.id, formData.status);
         updates.paymentDate = paymentDate;
       }
 

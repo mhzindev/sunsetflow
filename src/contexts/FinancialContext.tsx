@@ -1,4 +1,3 @@
-
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { useSupabaseData } from '@/hooks/useSupabaseData';
 import { useAccounts } from '@/hooks/useAccounts';
@@ -32,7 +31,7 @@ interface FinancialContextType {
   updatePayment: (paymentId: string, updates: any) => Promise<any>;
   updatePaymentStatus: (paymentId: string, status: string) => Promise<any>;
   processPayment: (paymentId: string) => Promise<any>;
-  updateExpenseStatus: (expenseId: string, status: string) => Promise<any>;
+  updateExpenseStatus: (expenseId: string, status: 'pending' | 'approved' | 'reimbursed') => Promise<any>;
   processExpenseApproval: (expenseId: string) => Promise<any>;
   processExpenseReimbursement: (expenseId: string) => Promise<any>;
 }
@@ -231,7 +230,7 @@ export const FinancialProvider = ({ children }: FinancialProviderProps) => {
   };
 
   // Função para atualizar status da despesa
-  const updateExpenseStatus = async (expenseId: string, status: string) => {
+  const updateExpenseStatus = async (expenseId: string, status: 'pending' | 'approved' | 'reimbursed') => {
     try {
       const result = await supabaseData.updateExpenseStatus(expenseId, status);
       if (!result.error) {

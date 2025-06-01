@@ -82,8 +82,8 @@ export const ExpenseViewModal = ({ isOpen, onClose, expense, onEdit, onApprove }
   };
 
   const handleApprove = () => {
-    // Fix: Call with correct arguments (expenseId, approved)
-    processExpenseApproval(expense.id, true);
+    // Fix: Call with correct arguments (expenseId only)
+    processExpenseApproval(expense.id);
     onApprove?.(expense);
     
     showSuccess(

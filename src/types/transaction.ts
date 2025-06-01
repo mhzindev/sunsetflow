@@ -15,6 +15,34 @@ export interface Transaction {
   missionId?: string;
 }
 
+export interface Expense {
+  id: string;
+  mission: string;
+  employee: string;
+  category: string;
+  description: string;
+  amount: number;
+  date: string;
+  isAdvanced: boolean;
+  status: string;
+}
+
+export interface Payment {
+  id: string;
+  providerId: string;
+  providerName: string;
+  amount: number;
+  dueDate: string;
+  paymentDate?: string;
+  status: PaymentStatus;
+  type: PaymentType;
+  description: string;
+  installments?: number;
+  currentInstallment?: number;
+  tags?: string[];
+  notes?: string;
+}
+
 export type TransactionCategory = 
   | 'service_payment'    // Pagamento de serviços
   | 'client_payment'     // Recebimento de cliente
@@ -28,3 +56,5 @@ export type TransactionCategory =
 
 export type PaymentMethod = 'pix' | 'transfer' | 'credit_card' | 'debit_card' | 'cash';
 export type TransactionStatus = 'pending' | 'completed' | 'cancelled';
+export type PaymentStatus = 'pending' | 'partial' | 'completed' | 'overdue' | 'cancelled';
+export type PaymentType = 'full' | 'installment' | 'advance';
