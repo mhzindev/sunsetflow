@@ -1,6 +1,8 @@
 
 import { Button } from "@/components/ui/button";
 import { PageSection } from "@/pages/Index";
+import { useFinancial } from "@/contexts/FinancialContext";
+import { useAuth } from "@/components/auth/AuthContext";
 
 interface TopBarProps {
   activeSection: PageSection;
@@ -14,10 +16,31 @@ const sectionTitles = {
   payments: 'Pagamentos',
   expenses: 'Despesas de Viagem',
   cashflow: 'Fluxo de Caixa',
-  reports: 'Relatórios'
+  reports: 'Relatórios',
+  settings: 'Configurações'
 };
 
 export const TopBar = ({ activeSection, sidebarOpen, setSidebarOpen }: TopBarProps) => {
+  const { data } = useFinancial();
+  const { user } = useAuth();
+
+  const getSectionTitle = () => {
+    if (activeSection === 'transactions' && user?.role === 'employee') {
+      return 'Minhas Despesas';
+    }
+    if (activeSection === 'expenses' && user?.role === 'employee') {
+      return 'Nova Despesa';
+    }
+    return sectionTitles[activeSection];
+  };
+
+  const formatCurrency = (value: number) => {
+    return new Intl.NumberFormat('pt-BR', {
+      style: 'currency',
+      currency: 'BRL'
+    }).format(value);
+  };
+
   return (
     <header className="bg-white border-b border-slate-200 px-6 py-4">
       <div className="flex items-center justify-between">
@@ -36,14 +59,16 @@ export const TopBar = ({ activeSection, sidebarOpen, setSidebarOpen }: TopBarPro
           </Button>
           
           <h2 className="text-2xl font-bold text-slate-800">
-            {sectionTitles[activeSection]}
+            {getSectionTitle()}
           </h2>
         </div>
 
         <div className="flex items-center space-x-4">
           <div className="text-right">
             <p className="text-sm text-slate-600">Saldo Atual</p>
-            <p className="font-bold text-lg text-slate-800">R$ 45.720,00</p>
+            <p className="font-bold text-lg text-slate-800">
+              {formatCurrency(data.totalBalance)}
+            </p>
           </div>
           
           <div className="w-8 h-8 bg-slate-200 rounded-full flex items-center justify-center">
