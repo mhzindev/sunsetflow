@@ -19,7 +19,7 @@ interface PaymentModalProps {
     service: string;
     paymentMethod: PaymentMethod;
     totalPaid: number;
-  };
+  } | null;
 }
 
 export const PaymentModal = ({ isOpen, onClose, provider }: PaymentModalProps) => {
@@ -29,10 +29,15 @@ export const PaymentModal = ({ isOpen, onClose, provider }: PaymentModalProps) =
   
   const [formData, setFormData] = useState({
     amount: '',
-    description: `Pagamento para ${provider.name}`,
-    method: provider.paymentMethod,
+    description: provider ? `Pagamento para ${provider.name}` : 'Pagamento',
+    method: (provider?.paymentMethod || 'pix') as PaymentMethod,
     notes: ''
   });
+
+  // Don't render if provider is null
+  if (!provider) {
+    return null;
+  }
 
   const resetForm = () => {
     setFormData({
