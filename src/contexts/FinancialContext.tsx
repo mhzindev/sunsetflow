@@ -16,7 +16,11 @@ interface FinancialContextType {
   data: FinancialData;
   addTransaction: (transaction: Omit<Transaction, 'id'>) => void;
   addPayment: (payment: Omit<Payment, 'id'>) => void;
-  updatePaymentStatus: (paymentId: string, status: Payment['status']) => void;
+  updatePaymentStatus: (paymentId: string, status: Payment['status'], paymentDate?: string) => void;
+  processPayment: (payment: Payment) => void;
+  processExpenseApproval: (expenseId: string, amount: number, description: string) => void;
+  processExpenseReimbursement: (expenseId: string, amount: number, description: string, employeeName: string) => void;
+  cancelPayment: (paymentId: string) => void;
   getRecentTransactions: (limit?: number) => Transaction[];
   getCashFlowProjections: () => any[];
 }
@@ -83,7 +87,7 @@ export const FinancialProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   const addTransaction = (transactionData: Omit<Transaction, 'id'>) => {
     const newTransaction: Transaction = {
       ...transactionData,
-      id: Date.now().toString(),
+      id: Date.now().toString() + Math.random().toString(36).substr(2, 9),
     };
     setTransactions(prev => [newTransaction, ...prev]);
     console.log('Transaction added to financial system:', newTransaction);
@@ -92,13 +96,12 @@ export const FinancialProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   const addPayment = (paymentData: Omit<Payment, 'id'>) => {
     const newPayment: Payment = {
       ...paymentData,
-      id: Date.now().toString(),
+      id: Date.now().toString() + Math.random().toString(36).substr(2, 9),
     };
     setPayments(prev => [newPayment, ...prev]);
     console.log('Payment added to financial system:', newPayment);
 
     // Se o pagamento é agendado (status pending), criar uma transação pendente
-    // Se o pagamento é concluído (status completed), não criar transação pois já foi criada manualmente
     if (paymentData.status === 'pending') {
       const paymentTransaction = {
         type: 'expense' as const,
@@ -116,21 +119,98 @@ export const FinancialProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     }
   };
 
-  const updatePaymentStatus = (paymentId: string, status: Payment['status']) => {
+  const updatePaymentStatus = (paymentId: string, status: Payment['status'], paymentDate?: string) => {
     setPayments(prev => prev.map(p => {
       if (p.id === paymentId) {
+        const updatedPayment = { 
+          ...p, 
+          status,
+          ...(paymentDate && { paymentDate })
+        };
+
         // Quando um pagamento é marcado como concluído, atualizar a transação correspondente
         if (status === 'completed') {
           setTransactions(prevTrans => prevTrans.map(t => 
             t.description.includes(`Pagamento agendado: ${p.description}`) 
-              ? { ...t, status: 'completed' as const, paymentDate: new Date().toISOString() }
+              ? { ...t, status: 'completed' as const, date: paymentDate || new Date().toISOString().split('T')[0] }
               : t
           ));
         }
-        return { ...p, status };
+
+        return updatedPayment;
       }
       return p;
     }));
+  };
+
+  const processPayment = (payment: Payment) => {
+    const currentDate = new Date().toISOString().split('T')[0];
+    
+    // Atualizar status do pagamento
+    updatePaymentStatus(payment.id, 'completed', currentDate);
+
+    // Criar transação de despesa se não existir
+    const existingTransaction = transactions.find(t => 
+      t.description.includes(payment.description) && t.amount === payment.amount
+    );
+
+    if (!existingTransaction) {
+      const paymentTransaction = {
+        type: 'expense' as const,
+        category: 'service_payment' as const,
+        amount: payment.amount,
+        description: `Pagamento realizado: ${payment.description}`,
+        date: currentDate,
+        method: 'transfer' as const,
+        status: 'completed' as const,
+        userId: '1',
+        userName: 'Sistema - Pagamento Manual'
+      };
+
+      addTransaction(paymentTransaction);
+    }
+
+    console.log('Payment processed:', payment.id, 'Amount:', payment.amount);
+  };
+
+  const processExpenseApproval = (expenseId: string, amount: number, description: string) => {
+    console.log('Expense approved:', expenseId, 'Amount:', amount);
+    // Lógica adicional para aprovação pode ser adicionada aqui
+  };
+
+  const processExpenseReimbursement = (expenseId: string, amount: number, description: string, employeeName: string) => {
+    const currentDate = new Date().toISOString().split('T')[0];
+    
+    // Criar transação de reembolso
+    const reimbursementTransaction = {
+      type: 'expense' as const,
+      category: 'other' as const,
+      amount: amount,
+      description: `Reembolso para ${employeeName}: ${description}`,
+      date: currentDate,
+      method: 'transfer' as const,
+      status: 'completed' as const,
+      userId: '1',
+      userName: 'Sistema - Reembolso'
+    };
+
+    addTransaction(reimbursementTransaction);
+    console.log('Expense reimbursed:', expenseId, 'Amount:', amount, 'Employee:', employeeName);
+  };
+
+  const cancelPayment = (paymentId: string) => {
+    setPayments(prev => prev.map(p => 
+      p.id === paymentId ? { ...p, status: 'cancelled' as const } : p
+    ));
+
+    // Cancelar transação relacionada
+    setTransactions(prev => prev.map(t => 
+      t.description.includes('Pagamento agendado') && t.status === 'pending'
+        ? { ...t, status: 'cancelled' as const }
+        : t
+    ));
+
+    console.log('Payment cancelled:', paymentId);
   };
 
   const getRecentTransactions = (limit = 5) => {
@@ -181,6 +261,10 @@ export const FinancialProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     addTransaction,
     addPayment,
     updatePaymentStatus,
+    processPayment,
+    processExpenseApproval,
+    processExpenseReimbursement,
+    cancelPayment,
     getRecentTransactions,
     getCashFlowProjections
   };

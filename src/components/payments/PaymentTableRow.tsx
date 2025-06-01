@@ -1,4 +1,3 @@
-
 import { useState } from 'react';
 import { TableCell, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
@@ -8,6 +7,7 @@ import { Payment } from '@/types/payment';
 import { PaymentViewModal } from './PaymentViewModal';
 import { PaymentEditModal } from './PaymentEditModal';
 import { useToastFeedback } from '@/hooks/useToastFeedback';
+import { useFinancial } from '@/contexts/FinancialContext';
 
 interface PaymentTableRowProps {
   payment: Payment;
@@ -17,6 +17,7 @@ export const PaymentTableRow = ({ payment }: PaymentTableRowProps) => {
   const [isViewModalOpen, setIsViewModalOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const { showSuccess } = useToastFeedback();
+  const { processPayment } = useFinancial();
 
   const getStatusColor = (status: string) => {
     const colors = {
@@ -80,8 +81,13 @@ export const PaymentTableRow = ({ payment }: PaymentTableRowProps) => {
   };
 
   const handleMarkAsPaid = (payment: Payment) => {
-    console.log('Mark as paid:', payment);
-    showSuccess('Pagamento Confirmado', `Pagamento de ${payment.providerName} marcado como pago!`);
+    // Integrar com o sistema financeiro
+    processPayment(payment);
+    
+    showSuccess(
+      'Pagamento Confirmado', 
+      `Pagamento de R$ ${payment.amount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} para ${payment.providerName} foi processado e registrado no sistema financeiro!`
+    );
   };
 
   const handleEditFromView = (payment: Payment) => {

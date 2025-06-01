@@ -70,7 +70,7 @@ export const PaymentModal = ({ isOpen, onClose, provider }: PaymentModalProps) =
 
       const currentDate = new Date().toISOString().split('T')[0];
 
-      // Registrar como transação de despesa
+      // Registrar como transação de despesa no sistema financeiro
       const transactionData = {
         type: 'expense' as const,
         category: 'service_payment' as const,
@@ -81,7 +81,7 @@ export const PaymentModal = ({ isOpen, onClose, provider }: PaymentModalProps) =
         status: 'completed' as const,
         userId: '1',
         userName: 'Sistema - Pagamento Manual',
-        notes: formData.notes
+        tags: ['payment', 'manual']
       };
 
       addTransaction(transactionData);
@@ -92,6 +92,7 @@ export const PaymentModal = ({ isOpen, onClose, provider }: PaymentModalProps) =
         providerName: provider.name,
         amount: amount,
         dueDate: currentDate,
+        paymentDate: currentDate,
         status: 'completed' as const,
         type: 'full' as const,
         description: formData.description,
@@ -101,8 +102,8 @@ export const PaymentModal = ({ isOpen, onClose, provider }: PaymentModalProps) =
       addPayment(paymentData);
 
       showSuccess(
-        'Pagamento Registrado', 
-        `Pagamento de R$ ${amount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} para ${provider.name} registrado com sucesso!`
+        'Pagamento Processado com Sucesso!', 
+        `Pagamento de R$ ${amount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} para ${provider.name} foi registrado e impactou o saldo da empresa. O sistema financeiro foi atualizado automaticamente.`
       );
       
       resetForm();

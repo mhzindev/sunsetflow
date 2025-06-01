@@ -4,8 +4,9 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
-import { MapPin, User, Calendar, DollarSign, FileText, Edit, Receipt, AlertTriangle, Clock } from 'lucide-react';
+import { MapPin, User, Calendar, DollarSign, FileText, Edit, Receipt, AlertTriangle, Clock, CheckCircle } from 'lucide-react';
 import { useToastFeedback } from '@/hooks/useToastFeedback';
+import { useFinancial } from '@/contexts/FinancialContext';
 
 interface Expense {
   id: string;
@@ -29,6 +30,7 @@ interface ExpenseViewModalProps {
 
 export const ExpenseViewModal = ({ isOpen, onClose, expense, onEdit, onApprove }: ExpenseViewModalProps) => {
   const { showSuccess } = useToastFeedback();
+  const { processExpenseApproval, processExpenseReimbursement } = useFinancial();
 
   if (!expense) return null;
 
@@ -80,8 +82,25 @@ export const ExpenseViewModal = ({ isOpen, onClose, expense, onEdit, onApprove }
   };
 
   const handleApprove = () => {
+    // Integrar com o sistema financeiro
+    processExpenseApproval(expense.id, expense.amount, expense.description);
     onApprove?.(expense);
-    showSuccess('Despesa Aprovada', `Despesa de ${expense.employee} foi aprovada com sucesso`);
+    
+    showSuccess(
+      'Despesa Aprovada', 
+      `Despesa de R$ ${expense.amount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} de ${expense.employee} foi aprovada e registrada no sistema!`
+    );
+    onClose();
+  };
+
+  const handleReimburse = () => {
+    // Integrar com o sistema financeiro para criar transação de reembolso
+    processExpenseReimbursement(expense.id, expense.amount, expense.description, expense.employee);
+    
+    showSuccess(
+      'Reembolso Processado', 
+      `Reembolso de R$ ${expense.amount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} para ${expense.employee} foi processado e registrado no sistema financeiro!`
+    );
     onClose();
   };
 
@@ -91,6 +110,7 @@ export const ExpenseViewModal = ({ isOpen, onClose, expense, onEdit, onApprove }
 
   const isHighValue = expense.amount > 500;
   const isPending = expense.status === 'pending';
+  const isApproved = expense.status === 'approved';
   const isOld = new Date().getTime() - new Date(expense.date).getTime() > 30 * 24 * 60 * 60 * 1000; // 30 dias
 
   return (
@@ -229,8 +249,14 @@ export const ExpenseViewModal = ({ isOpen, onClose, expense, onEdit, onApprove }
           <div className="flex flex-wrap gap-2">
             {expense.status === 'pending' && (
               <Button onClick={handleApprove} className="bg-green-600 hover:bg-green-700">
-                <DollarSign className="w-4 h-4 mr-2" />
+                <CheckCircle className="w-4 h-4 mr-2" />
                 Aprovar Despesa
+              </Button>
+            )}
+            {isApproved && (
+              <Button onClick={handleReimburse} className="bg-blue-600 hover:bg-blue-700">
+                <DollarSign className="w-4 h-4 mr-2" />
+                Processar Reembolso
               </Button>
             )}
             <Button variant="outline" onClick={handleEditClick}>
