@@ -1,4 +1,3 @@
-
 import { useState } from 'react';
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -14,7 +13,7 @@ import { exportToCSV, exportToPDF, exportToExcel, ExportOptions } from '@/utils/
 import { useToastFeedback } from '@/hooks/useToastFeedback';
 import { useFinancial } from '@/contexts/FinancialContext';
 
-interface Expense {
+interface ExpenseListItem {
   id: string;
   mission: {
     title?: string;
@@ -42,7 +41,7 @@ export const ExpenseList = () => {
   const [isExportModalOpen, setIsExportModalOpen] = useState(false);
   const [isViewModalOpen, setIsViewModalOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
-  const [selectedExpense, setSelectedExpense] = useState<Expense | null>(null);
+  const [selectedExpense, setSelectedExpense] = useState<ExpenseListItem | null>(null);
   
   const [activeFilters, setActiveFilters] = useState<FilterConfig>({
     dateRange: { start: null, end: null },
@@ -56,7 +55,7 @@ export const ExpenseList = () => {
   const { data, updateExpenseStatus } = useFinancial();
 
   // Usar dados reais do contexto financeiro
-  const expenses = data.expenses.map(expense => ({
+  const expenses: ExpenseListItem[] = data.expenses.map(expense => ({
     id: expense.id,
     mission: expense.missions ? {
       title: expense.missions.title || `Missão ${expense.missionId?.slice(0, 8)}`,
@@ -74,7 +73,7 @@ export const ExpenseList = () => {
     employee_role: expense.employee_role || 'Funcionário'
   }));
 
-  const applyFilters = (expenses: Expense[]) => {
+  const applyFilters = (expenses: ExpenseListItem[]) => {
     return expenses.filter(expense => {
       const missionTitle = typeof expense.mission === 'object' ? expense.mission.title : expense.mission;
       const searchMatch = !activeFilters.search || 
@@ -109,22 +108,22 @@ export const ExpenseList = () => {
       (missionTitle && missionTitle.toLowerCase().includes(searchTerm.toLowerCase()));
   }));
 
-  const handleViewExpense = (expense: Expense) => {
+  const handleViewExpense = (expense: ExpenseListItem) => {
     setSelectedExpense(expense);
     setIsViewModalOpen(true);
   };
 
-  const handleEditExpense = (expense: Expense) => {
+  const handleEditExpense = (expense: ExpenseListItem) => {
     setSelectedExpense(expense);
     setIsEditModalOpen(true);
   };
 
-  const handleSaveExpense = (updatedExpense: Expense) => {
+  const handleSaveExpense = (updatedExpense: ExpenseListItem) => {
     updateExpenseStatus(updatedExpense.id, updatedExpense.status as any);
     showSuccess('Despesa Atualizada', 'As alterações foram salvas e impactaram o sistema financeiro');
   };
 
-  const handleApproveExpense = (expense: Expense) => {
+  const handleApproveExpense = (expense: ExpenseListItem) => {
     updateExpenseStatus(expense.id, 'approved');
     showSuccess(
       'Despesa Aprovada', 
@@ -399,19 +398,8 @@ export const ExpenseList = () => {
         onOpenChange={setIsFilterModalOpen}
         filters={activeFilters}
         onFiltersChange={setActiveFilters}
-        availableStatuses={[
-          { value: 'pending', label: 'Pendente' },
-          { value: 'approved', label: 'Aprovado' },
-          { value: 'reimbursed', label: 'Reembolsado' }
-        ]}
-        availableCategories={[
-          { value: 'fuel', label: 'Combustível' },
-          { value: 'accommodation', label: 'Hospedagem' },
-          { value: 'meals', label: 'Alimentação' },
-          { value: 'transportation', label: 'Transporte' },
-          { value: 'materials', label: 'Materiais' },
-          { value: 'other', label: 'Outros' }
-        ]}
+        availableStatuses={availableStatuses}
+        availableCategories={availableCategories}
         title="Filtros Avançados - Despesas"
       />
 
