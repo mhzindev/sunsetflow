@@ -65,6 +65,12 @@ interface FinancialData {
   totalExpenses: number;
   balance: number;
   pendingPayments: number;
+  // Propriedades adicionais necessárias pelos componentes
+  totalBalance: number;
+  monthlyIncome: number;
+  monthlyExpenses: number;
+  pendingExpenses: number;
+  approvedExpenses: number;
 }
 
 interface FinancialContextType {
@@ -78,6 +84,14 @@ interface FinancialContextType {
   getRecentTransactions: (limit?: number) => Transaction[];
   getExpensesByCategory: () => Record<string, number>;
   getCashFlowData: () => { month: string; income: number; expenses: number }[];
+  // Métodos adicionais necessários pelos componentes
+  getCashFlowProjections: () => any[];
+  addPayment: (payment: Omit<Payment, 'id'>) => Promise<void>;
+  updatePayment: (paymentId: string, updates: Partial<Payment>) => Promise<void>;
+  updatePaymentStatus: (paymentId: string, status: string, paymentDate?: string) => Promise<void>;
+  processPayment: (paymentId: string) => Promise<void>;
+  processExpenseApproval: (expenseId: string, approved: boolean) => Promise<void>;
+  processExpenseReimbursement: (expenseId: string) => Promise<void>;
 }
 
 const FinancialContext = createContext<FinancialContextType | undefined>(undefined);
@@ -92,7 +106,12 @@ export const FinancialProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     totalIncome: 0,
     totalExpenses: 0,
     balance: 0,
-    pendingPayments: 0
+    pendingPayments: 0,
+    totalBalance: 0,
+    monthlyIncome: 0,
+    monthlyExpenses: 0,
+    pendingExpenses: 0,
+    approvedExpenses: 0
   });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -173,14 +192,46 @@ export const FinancialProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         .filter(p => p.status === 'pending' || p.status === 'overdue')
         .reduce((sum, p) => sum + p.amount, 0);
 
+      // Calcular dados mensais (últimos 30 dias)
+      const thirtyDaysAgo = new Date();
+      thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+
+      const monthlyTransactions = mappedTransactions.filter(t => 
+        new Date(t.date) >= thirtyDaysAgo && t.status === 'completed'
+      );
+
+      const monthlyIncome = monthlyTransactions
+        .filter(t => t.type === 'income')
+        .reduce((sum, t) => sum + t.amount, 0);
+
+      const monthlyExpenses = monthlyTransactions
+        .filter(t => t.type === 'expense')
+        .reduce((sum, t) => sum + t.amount, 0);
+
+      // Calcular despesas pendentes e aprovadas
+      const pendingExpenses = mappedExpenses
+        .filter(e => e.status === 'pending')
+        .reduce((sum, e) => sum + e.amount, 0);
+
+      const approvedExpenses = mappedExpenses
+        .filter(e => e.status === 'approved')
+        .reduce((sum, e) => sum + e.amount, 0);
+
+      const totalBalance = totalIncome - totalExpenses;
+
       setData({
         transactions: mappedTransactions,
         expenses: mappedExpenses,
         payments: mappedPayments,
         totalIncome,
         totalExpenses,
-        balance: totalIncome - totalExpenses,
-        pendingPayments
+        balance: totalBalance,
+        pendingPayments,
+        totalBalance,
+        monthlyIncome,
+        monthlyExpenses,
+        pendingExpenses,
+        approvedExpenses
       });
     } catch (err) {
       console.error('Erro ao carregar dados financeiros:', err);
@@ -240,6 +291,40 @@ export const FinancialProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     await refreshData();
   };
 
+  // Métodos adicionais necessários
+  const addPayment = async (payment: Omit<Payment, 'id'>) => {
+    console.log('Adding payment:', payment);
+    // Simular por enquanto - implementar com Supabase depois
+    await refreshData();
+  };
+
+  const updatePayment = async (paymentId: string, updates: Partial<Payment>) => {
+    console.log('Updating payment:', paymentId, updates);
+    // Simular por enquanto - implementar com Supabase depois
+    await refreshData();
+  };
+
+  const updatePaymentStatus = async (paymentId: string, status: string, paymentDate?: string) => {
+    console.log('Updating payment status:', paymentId, status, paymentDate);
+    // Simular por enquanto - implementar com Supabase depois
+    await refreshData();
+  };
+
+  const processPayment = async (paymentId: string) => {
+    console.log('Processing payment:', paymentId);
+    // Simular por enquanto - implementar com Supabase depois
+    await refreshData();
+  };
+
+  const processExpenseApproval = async (expenseId: string, approved: boolean) => {
+    const status = approved ? 'approved' : 'pending';
+    await updateExpenseStatus(expenseId, status);
+  };
+
+  const processExpenseReimbursement = async (expenseId: string) => {
+    await updateExpenseStatus(expenseId, 'reimbursed');
+  };
+
   const getRecentTransactions = (limit = 5) => {
     return data.transactions
       .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
@@ -281,6 +366,26 @@ export const FinancialProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     });
   };
 
+  const getCashFlowProjections = () => {
+    // Projeções básicas baseadas nos dados atuais
+    return [
+      {
+        period: 'Próximos 7 dias',
+        expectedIncome: data.monthlyIncome * 0.25,
+        expectedExpenses: data.monthlyExpenses * 0.25,
+        netFlow: (data.monthlyIncome * 0.25) - (data.monthlyExpenses * 0.25),
+        status: 'positive'
+      },
+      {
+        period: 'Próximos 30 dias',
+        expectedIncome: data.monthlyIncome,
+        expectedExpenses: data.monthlyExpenses,
+        netFlow: data.monthlyIncome - data.monthlyExpenses,
+        status: data.monthlyIncome > data.monthlyExpenses ? 'positive' : 'negative'
+      }
+    ];
+  };
+
   useEffect(() => {
     if (user) {
       refreshData();
@@ -299,7 +404,14 @@ export const FinancialProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         updateExpenseStatus,
         getRecentTransactions,
         getExpensesByCategory,
-        getCashFlowData
+        getCashFlowData,
+        getCashFlowProjections,
+        addPayment,
+        updatePayment,
+        updatePaymentStatus,
+        processPayment,
+        processExpenseApproval,
+        processExpenseReimbursement
       }}
     >
       {children}

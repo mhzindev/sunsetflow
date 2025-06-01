@@ -186,6 +186,54 @@ export const useSupabaseData = () => {
     }
   };
 
+  // Função para inserir pagamento
+  const insertPayment = async (payment: {
+    provider_id?: string;
+    provider_name: string;
+    amount: number;
+    due_date: string;
+    payment_date?: string;
+    status: string;
+    type: string;
+    description: string;
+    installments?: number;
+    current_installment?: number;
+    tags?: string[];
+    notes?: string;
+  }) => {
+    try {
+      const { data, error } = await supabase
+        .from('payments')
+        .insert(payment)
+        .select()
+        .single();
+
+      if (error) throw error;
+      return { data, error: null };
+    } catch (err) {
+      console.error('Erro ao inserir pagamento:', err);
+      return { data: null, error: err instanceof Error ? err.message : 'Erro desconhecido' };
+    }
+  };
+
+  // Função para atualizar pagamento
+  const updatePayment = async (paymentId: string, updates: any) => {
+    try {
+      const { data, error } = await supabase
+        .from('payments')
+        .update(updates)
+        .eq('id', paymentId)
+        .select()
+        .single();
+
+      if (error) throw error;
+      return { data, error: null };
+    } catch (err) {
+      console.error('Erro ao atualizar pagamento:', err);
+      return { data: null, error: err instanceof Error ? err.message : 'Erro desconhecido' };
+    }
+  };
+
   return {
     loading,
     error,
@@ -196,6 +244,8 @@ export const useSupabaseData = () => {
     fetchServiceProviders,
     insertTransaction,
     insertExpense,
-    updateExpenseStatus
+    updateExpenseStatus,
+    insertPayment,
+    updatePayment
   };
 };
