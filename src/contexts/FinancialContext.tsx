@@ -1,12 +1,12 @@
-
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { useSupabaseData } from '@/hooks/useSupabaseData';
 import { useAuth } from '@/contexts/AuthContext';
+import { TransactionCategory } from '@/types/transaction';
 
 interface Transaction {
   id: string;
   type: 'income' | 'expense';
-  category: string;
+  category: TransactionCategory; // Use the proper enum type
   amount: number;
   description: string;
   date: string;
@@ -37,7 +37,7 @@ interface Expense {
 
 interface Payment {
   id: string;
-  providerId?: string;
+  providerId: string; // Make this required to match the type expectations
   providerName: string;
   amount: number;
   dueDate: string;
@@ -133,7 +133,7 @@ export const FinancialProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       const mappedTransactions: Transaction[] = transactions.map(t => ({
         id: t.id,
         type: t.type as 'income' | 'expense',
-        category: t.category,
+        category: t.category as TransactionCategory, // Cast to proper type
         amount: Number(t.amount),
         description: t.description,
         date: t.date,
@@ -164,7 +164,7 @@ export const FinancialProvider: React.FC<{ children: React.ReactNode }> = ({ chi
 
       const mappedPayments: Payment[] = payments.map(p => ({
         id: p.id,
-        providerId: p.provider_id,
+        providerId: p.provider_id || '', // Provide default empty string if null
         providerName: p.provider_name,
         amount: Number(p.amount),
         dueDate: p.due_date,

@@ -85,8 +85,8 @@ export const PaymentTableRow = ({ payment }: PaymentTableRowProps) => {
   const handleMarkAsPaid = (payment: Payment) => {
     console.log('Processing payment via button:', payment.id);
     
-    // Processar o pagamento através do contexto financeiro
-    processPayment(payment);
+    // Fix: Pass payment ID string instead of payment object
+    processPayment(payment.id);
     
     showSuccess(
       'Pagamento Confirmado', 

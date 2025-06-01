@@ -82,8 +82,8 @@ export const ExpenseViewModal = ({ isOpen, onClose, expense, onEdit, onApprove }
   };
 
   const handleApprove = () => {
-    // Integrar com o sistema financeiro
-    processExpenseApproval(expense.id, expense.amount, expense.description);
+    // Fix: Call with correct arguments (expenseId, approved)
+    processExpenseApproval(expense.id, true);
     onApprove?.(expense);
     
     showSuccess(
@@ -94,8 +94,8 @@ export const ExpenseViewModal = ({ isOpen, onClose, expense, onEdit, onApprove }
   };
 
   const handleReimburse = () => {
-    // Integrar com o sistema financeiro para criar transação de reembolso
-    processExpenseReimbursement(expense.id, expense.amount, expense.description, expense.employee);
+    // Fix: Call with correct arguments (expenseId only)
+    processExpenseReimbursement(expense.id);
     
     showSuccess(
       'Reembolso Processado', 
