@@ -9,7 +9,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Users, Plus, Key, Copy, Eye, EyeOff, Trash2, UserPlus } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { User } from "@/types/user";
+import { Profile } from "@/types/database";
 
 export const UserManagement = () => {
   const { toast } = useToast();
@@ -17,23 +17,23 @@ export const UserManagement = () => {
   const [showAccessCodes, setShowAccessCodes] = useState(false);
   
   // Mock data - em produção viria de um contexto ou API
-  const [employees] = useState<User[]>([
+  const [employees] = useState<Profile[]>([
     {
       id: '2',
       name: 'Carlos Santos',
       email: 'carlos@sunsettrack.com',
-      role: 'employee',
+      role: 'user',
       active: true,
-      createdAt: '2024-01-15',
+      created_at: '2024-01-15',
       phone: '(11) 98765-4321'
     },
     {
       id: '3',
       name: 'João Oliveira',
       email: 'joao@sunsettrack.com',
-      role: 'employee',
+      role: 'user',
       active: true,
-      createdAt: '2024-02-01',
+      created_at: '2024-02-01',
       phone: '(11) 97654-3210'
     }
   ]);

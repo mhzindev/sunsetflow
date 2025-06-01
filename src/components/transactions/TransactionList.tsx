@@ -81,7 +81,7 @@ export const TransactionList = ({
                     <Button variant="ghost" size="icon" onClick={() => onView(transaction.id)}>
                       <Eye className="h-4 w-4" />
                     </Button>
-                    {profile?.role === 'owner' && (
+                    {profile?.role === 'admin' && (
                       <>
                         <Button variant="ghost" size="icon" onClick={() => onEdit(transaction.id)}>
                           <Edit className="h-4 w-4" />

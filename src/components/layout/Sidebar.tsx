@@ -33,7 +33,7 @@ export const Sidebar = ({ activeSection, setActiveSection, isOpen }: SidebarProp
       }
     ];
 
-    if (profile?.role === 'owner') {
+    if (profile?.role === 'admin') {
       return [
         ...baseItems,
         {
@@ -104,7 +104,7 @@ export const Sidebar = ({ activeSection, setActiveSection, isOpen }: SidebarProp
               <p className="text-xs text-slate-400">Gestão Financeira</p>
               {profile && (
                 <p className="text-xs text-blue-400 mt-1">
-                  {profile.name} ({profile.role === 'owner' ? 'Proprietário' : 'Funcionário'})
+                  {profile.name} ({profile.role === 'admin' ? 'Administrador' : 'Funcionário'})
                 </p>
               )}
             </div>
