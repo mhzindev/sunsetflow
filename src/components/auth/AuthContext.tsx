@@ -20,6 +20,67 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [supabaseUser, setSupabaseUser] = useState<SupabaseUser | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
+  const loadUserProfile = async (authUser: SupabaseUser) => {
+    try {
+      // Buscar perfil do usuário
+      const { data: profile, error } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', authUser.id)
+        .single();
+
+      if (error) {
+        console.error('Erro ao carregar perfil:', error);
+        // Se não encontrou o perfil, criar um baseado nos metadados
+        const roleFromMeta = authUser.user_metadata?.role || 'employee';
+        const nameFromMeta = authUser.user_metadata?.name || authUser.email;
+        
+        const { error: insertError } = await supabase
+          .from('profiles')
+          .insert({
+            id: authUser.id,
+            email: authUser.email || '',
+            name: nameFromMeta,
+            role: roleFromMeta
+          });
+
+        if (insertError) {
+          console.error('Erro ao criar perfil:', insertError);
+          return;
+        }
+
+        // Buscar o perfil recém-criado
+        const { data: newProfile } = await supabase
+          .from('profiles')
+          .select('*')
+          .eq('id', authUser.id)
+          .single();
+
+        if (newProfile) {
+          setUser({
+            id: newProfile.id,
+            name: newProfile.name,
+            email: newProfile.email,
+            role: newProfile.role as 'owner' | 'employee',
+            active: true,
+            createdAt: newProfile.created_at
+          });
+        }
+      } else {
+        setUser({
+          id: profile.id,
+          name: profile.name,
+          email: profile.email,
+          role: profile.role as 'owner' | 'employee',
+          active: true,
+          createdAt: profile.created_at
+        });
+      }
+    } catch (error) {
+      console.error('Erro inesperado ao carregar perfil:', error);
+    }
+  };
+
   useEffect(() => {
     // Buscar usuário atual
     const getUser = async () => {
@@ -27,24 +88,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       
       if (authUser) {
         setSupabaseUser(authUser);
-        
-        // Buscar perfil do usuário
-        const { data: profile } = await supabase
-          .from('profiles')
-          .select('*')
-          .eq('id', authUser.id)
-          .single();
-
-        if (profile) {
-          setUser({
-            id: profile.id,
-            name: profile.name,
-            email: profile.email,
-            role: profile.role as 'owner' | 'employee',
-            active: true,
-            createdAt: profile.created_at
-          });
-        }
+        await loadUserProfile(authUser);
       }
       
       setIsLoading(false);
@@ -57,24 +101,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       async (event, session) => {
         if (session?.user) {
           setSupabaseUser(session.user);
-          
-          // Buscar perfil atualizado
-          const { data: profile } = await supabase
-            .from('profiles')
-            .select('*')
-            .eq('id', session.user.id)
-            .single();
-
-          if (profile) {
-            setUser({
-              id: profile.id,
-              name: profile.name,
-              email: profile.email,
-              role: profile.role as 'owner' | 'employee',
-              active: true,
-              createdAt: profile.created_at
-            });
-          }
+          await loadUserProfile(session.user);
         } else {
           setUser(null);
           setSupabaseUser(null);
