@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -6,6 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Eye, Edit2, Trash2, Filter, ArrowUpDown } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
+import { formatDateForDisplay } from "@/utils/dateUtils";
 
 interface Transaction {
   id: string;
@@ -58,7 +58,10 @@ export const TransactionList = ({ transactions, onView, onEdit, onDelete }: Tran
   };
 
   const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('pt-BR');
+    console.log('TransactionList - formatDate - dateString:', dateString);
+    const formatted = formatDateForDisplay(dateString);
+    console.log('TransactionList - formatDate - formatted:', formatted);
+    return formatted;
   };
 
   return (

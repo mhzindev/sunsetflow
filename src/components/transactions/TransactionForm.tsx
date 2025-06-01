@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -81,6 +82,18 @@ export const TransactionForm: React.FC<TransactionFormProps> = ({ onClose }) => 
       return;
     }
 
+    console.log('TransactionForm - Data selecionada:', date);
+    console.log('TransactionForm - Data local info:', {
+      fullYear: date.getFullYear(),
+      month: date.getMonth(),
+      date: date.getDate(),
+      day: date.getDay(),
+      timeZoneOffset: date.getTimezoneOffset()
+    });
+
+    const formattedDate = formatDateForDatabase(date);
+    console.log('TransactionForm - Data formatada para banco:', formattedDate);
+
     setLoading(true);
     
     try {
@@ -89,7 +102,7 @@ export const TransactionForm: React.FC<TransactionFormProps> = ({ onClose }) => 
         category: formData.category as TransactionCategory,
         amount: parseFloat(formData.amount),
         description: formData.description,
-        date: formatDateForDatabase(date),
+        date: formattedDate,
         method: formData.method as PaymentMethod,
         status: formData.status as TransactionStatus,
         receipt: formData.receipt || undefined,
@@ -203,7 +216,12 @@ export const TransactionForm: React.FC<TransactionFormProps> = ({ onClose }) => 
                   <Calendar
                     mode="single"
                     selected={date}
-                    onSelect={(date) => date && setDate(date)}
+                    onSelect={(date) => {
+                      if (date) {
+                        console.log('Calendar - Data selecionada:', date);
+                        setDate(date);
+                      }
+                    }}
                     disabled={(date) => date > new Date() || date < new Date("1900-01-01")}
                     initialFocus
                   />
