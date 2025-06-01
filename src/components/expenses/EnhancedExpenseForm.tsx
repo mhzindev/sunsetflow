@@ -107,6 +107,15 @@ export const EnhancedExpenseForm: React.FC<EnhancedExpenseFormProps> = ({ onSave
   const showDetailedAmounts = selectedCategory?.hasDetails;
 
   const handleAccountChange = (value: string) => {
+    if (value === 'none') {
+      setFormData({
+        ...formData,
+        accountId: '',
+        accountType: ''
+      });
+      return;
+    }
+    
     const selectedAccount = accounts.find(acc => acc.id === value);
     if (selectedAccount) {
       setFormData({
@@ -216,7 +225,7 @@ export const EnhancedExpenseForm: React.FC<EnhancedExpenseFormProps> = ({ onSave
                 <SelectValue placeholder="Selecione uma missão" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">Nenhuma missão</SelectItem>
+                <SelectItem value="none">Nenhuma missão</SelectItem>
                 {missions.map((mission) => (
                   <SelectItem key={mission.id} value={mission.id}>
                     {mission.title} - {mission.location}
@@ -353,12 +362,12 @@ export const EnhancedExpenseForm: React.FC<EnhancedExpenseFormProps> = ({ onSave
           {/* Conta/Cartão para Pagamento */}
           <div>
             <Label htmlFor="account">Conta/Cartão Utilizado</Label>
-            <Select value={formData.accountId} onValueChange={handleAccountChange}>
+            <Select value={formData.accountId || 'none'} onValueChange={handleAccountChange}>
               <SelectTrigger>
                 <SelectValue placeholder="Selecione conta ou cartão" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">Não informado</SelectItem>
+                <SelectItem value="none">Não informado</SelectItem>
                 {accounts.map((account) => (
                   <SelectItem key={account.id} value={account.id}>
                     <div className="flex items-center gap-2">
