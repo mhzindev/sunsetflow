@@ -6,8 +6,10 @@ import { Transaction, Expense, Payment } from '@/types/transaction';
 
 interface FinancialData {
   transactions: Transaction[];
-  expenses: Expense[];
+  expenses: any[];
   payments: Payment[];
+  missions: any[];
+  clients: any[];
   totalBalance: number;
   monthlyIncome: number;
   monthlyExpenses: number;
@@ -17,7 +19,7 @@ interface FinancialData {
   bankBalance: number;
   creditAvailable: number;
   creditUsed: number;
-  totalResources: number; // Saldo em conta + limite disponível
+  totalResources: number;
 }
 
 interface FinancialContextType {
@@ -35,6 +37,9 @@ interface FinancialContextType {
   updateExpenseStatus: (expenseId: string, status: 'pending' | 'approved' | 'reimbursed') => Promise<any>;
   processExpenseApproval: (expenseId: string) => Promise<any>;
   processExpenseReimbursement: (expenseId: string) => Promise<any>;
+  addMission: (mission: any) => Promise<any>;
+  updateMission: (missionId: string, updates: any) => Promise<any>;
+  addClient: (client: any) => Promise<any>;
 }
 
 const FinancialContext = createContext<FinancialContextType | undefined>(undefined);
@@ -58,6 +63,8 @@ export const FinancialProvider = ({ children }: FinancialProviderProps) => {
     transactions: [],
     expenses: [],
     payments: [],
+    missions: [],
+    clients: [],
     totalBalance: 0,
     monthlyIncome: 0,
     monthlyExpenses: 0,
@@ -76,6 +83,8 @@ export const FinancialProvider = ({ children }: FinancialProviderProps) => {
     transactions: any[], 
     expenses: any[], 
     payments: any[], 
+    missions: any[],
+    clients: any[],
     accountSummary: any
   ): FinancialData => {
     const now = new Date();
@@ -139,13 +148,15 @@ export const FinancialProvider = ({ children }: FinancialProviderProps) => {
         id: e.id,
         missionId: e.mission_id,
         employeeName: e.employee_name,
+        employee_role: e.employee_role,
         category: e.category,
         description: e.description,
         amount: parseFloat(e.amount) || 0,
         date: e.date,
         isAdvanced: e.is_advanced,
         status: e.status,
-        accommodationDetails: e.accommodation_details
+        accommodationDetails: e.accommodation_details,
+        missions: e.missions
       })),
       payments: payments.map(p => ({
         id: p.id,
@@ -162,6 +173,8 @@ export const FinancialProvider = ({ children }: FinancialProviderProps) => {
         tags: p.tags,
         notes: p.notes
       })),
+      missions,
+      clients,
       totalBalance,
       monthlyIncome,
       monthlyExpenses,
@@ -183,10 +196,12 @@ export const FinancialProvider = ({ children }: FinancialProviderProps) => {
       // Primeiro atualizar as contas para ter dados atualizados
       await refreshAccounts();
 
-      const [transactions, expenses, payments] = await Promise.all([
+      const [transactions, expenses, payments, missions, clients] = await Promise.all([
         supabaseData.fetchTransactions(),
         supabaseData.fetchExpenses(),
-        supabaseData.fetchPayments()
+        supabaseData.fetchPayments(),
+        supabaseData.fetchMissions(),
+        supabaseData.fetchClients()
       ]);
 
       const accountSummary = getAccountSummary();
@@ -195,6 +210,8 @@ export const FinancialProvider = ({ children }: FinancialProviderProps) => {
         transactions, 
         expenses, 
         payments, 
+        missions,
+        clients,
         accountSummary
       );
 
@@ -286,6 +303,45 @@ export const FinancialProvider = ({ children }: FinancialProviderProps) => {
     return updateExpenseStatus(expenseId, 'reimbursed');
   };
 
+  const addMission = async (mission: any) => {
+    try {
+      const result = await supabaseData.insertMission(mission);
+      if (!result.error) {
+        await refreshData();
+      }
+      return result;
+    } catch (err) {
+      console.error('Erro ao adicionar missão:', err);
+      return { data: null, error: 'Erro ao adicionar missão' };
+    }
+  };
+
+  const updateMission = async (missionId: string, updates: any) => {
+    try {
+      const result = await supabaseData.updateMission(missionId, updates);
+      if (!result.error) {
+        await refreshData();
+      }
+      return result;
+    } catch (err) {
+      console.error('Erro ao atualizar missão:', err);
+      return { data: null, error: 'Erro ao atualizar missão' };
+    }
+  };
+
+  const addClient = async (client: any) => {
+    try {
+      const result = await supabaseData.insertClient(client);
+      if (!result.error) {
+        await refreshData();
+      }
+      return result;
+    } catch (err) {
+      console.error('Erro ao adicionar cliente:', err);
+      return { data: null, error: 'Erro ao adicionar cliente' };
+    }
+  };
+
   useEffect(() => {
     refreshData();
   }, [accountsLoading]); // Recarrega quando as contas terminam de carregar
@@ -304,7 +360,10 @@ export const FinancialProvider = ({ children }: FinancialProviderProps) => {
     processPayment,
     updateExpenseStatus,
     processExpenseApproval,
-    processExpenseReimbursement
+    processExpenseReimbursement,
+    addMission,
+    updateMission,
+    addClient
   };
 
   return (

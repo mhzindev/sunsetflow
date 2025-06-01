@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
@@ -24,14 +25,23 @@ export const useSupabaseData = () => {
     }
   };
 
-  // Função para buscar despesas
+  // Função para buscar despesas com dados de missões
   const fetchExpenses = async () => {
     try {
       const { data, error } = await supabase
         .from('expenses')
         .select(`
           *,
-          missions:mission_id(title, location)
+          missions:mission_id(
+            title, 
+            location, 
+            client_name,
+            employee_names,
+            start_date,
+            end_date,
+            budget,
+            total_expenses
+          )
         `)
         .order('created_at', { ascending: false });
 
@@ -64,7 +74,7 @@ export const useSupabaseData = () => {
     }
   };
 
-  // Função para buscar missões
+  // Função para buscar missões com dados completos
   const fetchMissions = async () => {
     try {
       const { data, error } = await supabase
@@ -95,6 +105,24 @@ export const useSupabaseData = () => {
     } catch (err) {
       console.error('Erro ao buscar fornecedores:', err);
       setError('Erro ao buscar fornecedores');
+      return [];
+    }
+  };
+
+  // Função para buscar clientes
+  const fetchClients = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('clients')
+        .select('*')
+        .eq('active', true)
+        .order('name', { ascending: true });
+
+      if (error) throw error;
+      return data || [];
+    } catch (err) {
+      console.error('Erro ao buscar clientes:', err);
+      setError('Erro ao buscar clientes');
       return [];
     }
   };
@@ -182,6 +210,7 @@ export const useSupabaseData = () => {
     is_advanced?: boolean;
     receipt?: string;
     accommodation_details?: any;
+    employee_role?: string;
   }) => {
     try {
       if (!user) throw new Error('Usuário não autenticado');
@@ -192,6 +221,7 @@ export const useSupabaseData = () => {
           ...expense,
           employee_id: user.id,
           employee_name: user.user_metadata?.name || user.email?.split('@')[0] || 'Usuário',
+          employee_role: expense.employee_role || 'Funcionário',
           status: 'pending'
         })
         .select()
@@ -273,6 +303,82 @@ export const useSupabaseData = () => {
     }
   };
 
+  // Função para inserir missão
+  const insertMission = async (mission: {
+    title: string;
+    description?: string;
+    location: string;
+    start_date: string;
+    end_date?: string;
+    budget?: number;
+    client_name?: string;
+    client_id?: string;
+    assigned_employees?: string[];
+    employee_names?: string[];
+    status?: string;
+  }) => {
+    try {
+      if (!user) throw new Error('Usuário não autenticado');
+
+      const { data, error } = await supabase
+        .from('missions')
+        .insert({
+          ...mission,
+          created_by: user.id,
+          status: mission.status || 'planning'
+        })
+        .select()
+        .single();
+
+      if (error) throw error;
+      return { data, error: null };
+    } catch (err) {
+      console.error('Erro ao inserir missão:', err);
+      return { data: null, error: err instanceof Error ? err.message : 'Erro desconhecido' };
+    }
+  };
+
+  // Função para atualizar missão
+  const updateMission = async (missionId: string, updates: any) => {
+    try {
+      const { data, error } = await supabase
+        .from('missions')
+        .update(updates)
+        .eq('id', missionId)
+        .select()
+        .single();
+
+      if (error) throw error;
+      return { data, error: null };
+    } catch (err) {
+      console.error('Erro ao atualizar missão:', err);
+      return { data: null, error: err instanceof Error ? err.message : 'Erro desconhecido' };
+    }
+  };
+
+  // Função para inserir cliente
+  const insertClient = async (client: {
+    name: string;
+    company_name?: string;
+    email?: string;
+    phone?: string;
+    address?: string;
+  }) => {
+    try {
+      const { data, error } = await supabase
+        .from('clients')
+        .insert(client)
+        .select()
+        .single();
+
+      if (error) throw error;
+      return { data, error: null };
+    } catch (err) {
+      console.error('Erro ao inserir cliente:', err);
+      return { data: null, error: err instanceof Error ? err.message : 'Erro desconhecido' };
+    }
+  };
+
   return {
     loading,
     error,
@@ -281,12 +387,16 @@ export const useSupabaseData = () => {
     fetchPayments,
     fetchMissions,
     fetchServiceProviders,
+    fetchClients,
     fetchBankAccounts,
     fetchCreditCards,
     insertTransaction,
     insertExpense,
     updateExpenseStatus,
     insertPayment,
-    updatePayment
+    updatePayment,
+    insertMission,
+    updateMission,
+    insertClient
   };
 };

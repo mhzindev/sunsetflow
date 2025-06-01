@@ -1,3 +1,4 @@
+
 import { useState } from 'react';
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -15,7 +16,11 @@ import { useFinancial } from '@/contexts/FinancialContext';
 
 interface Expense {
   id: string;
-  mission: string;
+  mission: {
+    title?: string;
+    location?: string;
+    client_name?: string;
+  } | string;
   employee: string;
   category: string;
   description: string;
@@ -28,6 +33,7 @@ interface Expense {
     reimbursementAmount: number;
     netAmount: number;
   };
+  employee_role?: string;
 }
 
 export const ExpenseList = () => {
@@ -49,10 +55,14 @@ export const ExpenseList = () => {
   const { showSuccess, showError } = useToastFeedback();
   const { data, updateExpenseStatus } = useFinancial();
 
-  // Usar dados do contexto financeiro em vez de mock data
+  // Usar dados reais do contexto financeiro
   const expenses = data.expenses.map(expense => ({
     id: expense.id,
-    mission: `Missão ${expense.missionId}`,
+    mission: expense.missions ? {
+      title: expense.missions.title || `Missão ${expense.missionId?.slice(0, 8)}`,
+      location: expense.missions.location,
+      client_name: expense.missions.client_name
+    } : `Missão ${expense.missionId?.slice(0, 8) || 'N/A'}`,
     employee: expense.employeeName,
     category: expense.category,
     description: expense.description,
@@ -60,15 +70,17 @@ export const ExpenseList = () => {
     date: expense.date,
     isAdvanced: expense.isAdvanced,
     status: expense.status,
-    accommodationDetails: expense.accommodationDetails // Adicionar detalhes de hospedagem
+    accommodationDetails: expense.accommodationDetails,
+    employee_role: expense.employee_role || 'Funcionário'
   }));
 
   const applyFilters = (expenses: Expense[]) => {
     return expenses.filter(expense => {
+      const missionTitle = typeof expense.mission === 'object' ? expense.mission.title : expense.mission;
       const searchMatch = !activeFilters.search || 
         expense.employee.toLowerCase().includes(activeFilters.search.toLowerCase()) ||
         expense.description.toLowerCase().includes(activeFilters.search.toLowerCase()) ||
-        expense.mission.toLowerCase().includes(activeFilters.search.toLowerCase());
+        (missionTitle && missionTitle.toLowerCase().includes(activeFilters.search.toLowerCase()));
 
       const statusMatch = !activeFilters.status?.length || 
         activeFilters.status.includes(expense.status);
@@ -88,12 +100,14 @@ export const ExpenseList = () => {
     });
   };
 
-  const filteredExpenses = applyFilters(expenses.filter(expense => 
-    !searchTerm || 
-    expense.employee.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    expense.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    expense.mission.toLowerCase().includes(searchTerm.toLowerCase())
-  ));
+  const filteredExpenses = applyFilters(expenses.filter(expense => {
+    if (!searchTerm) return true;
+    
+    const missionTitle = typeof expense.mission === 'object' ? expense.mission.title : expense.mission;
+    return expense.employee.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      expense.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (missionTitle && missionTitle.toLowerCase().includes(searchTerm.toLowerCase()));
+  }));
 
   const handleViewExpense = (expense: Expense) => {
     setSelectedExpense(expense);
@@ -106,13 +120,11 @@ export const ExpenseList = () => {
   };
 
   const handleSaveExpense = (updatedExpense: Expense) => {
-    // Atualizar no contexto financeiro
     updateExpenseStatus(updatedExpense.id, updatedExpense.status as any);
     showSuccess('Despesa Atualizada', 'As alterações foram salvas e impactaram o sistema financeiro');
   };
 
   const handleApproveExpense = (expense: Expense) => {
-    // Atualizar status no contexto financeiro
     updateExpenseStatus(expense.id, 'approved');
     showSuccess(
       'Despesa Aprovada', 
@@ -122,17 +134,22 @@ export const ExpenseList = () => {
 
   const handleExport = (options: ExportOptions) => {
     try {
-      const headers = ['Missão', 'Funcionário', 'Categoria', 'Descrição', 'Valor', 'Data', 'Tipo', 'Status'];
-      const exportData = filteredExpenses.map(expense => ({
-        missao: expense.mission,
-        funcionario: expense.employee,
-        categoria: getCategoryLabel(expense.category),
-        descricao: expense.description,
-        valor: expense.amount,
-        data: new Date(expense.date).toLocaleDateString('pt-BR'),
-        tipo: expense.isAdvanced ? 'Adiantamento' : 'Reembolso',
-        status: getStatusLabel(expense.status)
-      }));
+      const headers = ['Missão', 'Cliente', 'Funcionário', 'Cargo', 'Categoria', 'Descrição', 'Valor', 'Data', 'Tipo', 'Status'];
+      const exportData = filteredExpenses.map(expense => {
+        const mission = typeof expense.mission === 'object' ? expense.mission : { title: expense.mission };
+        return {
+          missao: mission.title || 'N/A',
+          cliente: mission.client_name || 'N/A',
+          funcionario: expense.employee,
+          cargo: expense.employee_role,
+          categoria: getCategoryLabel(expense.category),
+          descricao: expense.description,
+          valor: expense.amount,
+          data: new Date(expense.date).toLocaleDateString('pt-BR'),
+          tipo: expense.isAdvanced ? 'Adiantamento' : 'Reembolso',
+          status: getStatusLabel(expense.status)
+        };
+      });
 
       const filename = options.filename || `despesas_${new Date().toISOString().split('T')[0]}`;
 
@@ -248,7 +265,7 @@ export const ExpenseList = () => {
       <Table>
         <TableHeader>
           <TableRow>
-            <TableHead>Missão</TableHead>
+            <TableHead>Missão/Cliente</TableHead>
             <TableHead>Funcionário</TableHead>
             <TableHead>Categoria</TableHead>
             <TableHead>Descrição</TableHead>
@@ -260,74 +277,92 @@ export const ExpenseList = () => {
           </TableRow>
         </TableHeader>
         <TableBody>
-          {filteredExpenses.map((expense) => (
-            <TableRow key={expense.id}>
-              <TableCell className="font-medium">{expense.mission}</TableCell>
-              <TableCell>{expense.employee}</TableCell>
-              <TableCell>
-                <Badge className={getCategoryColor(expense.category)}>
-                  {getCategoryLabel(expense.category)}
-                </Badge>
-              </TableCell>
-              <TableCell>
-                <div>
-                  <div>{expense.description}</div>
-                  {expense.accommodationDetails && (
-                    <div className="text-xs text-gray-600 mt-1">
-                      <div>Gasto: R$ {expense.accommodationDetails.actualCost.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</div>
-                      <div>Ressarcimento: R$ {expense.accommodationDetails.reimbursementAmount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</div>
-                      <div className={`font-medium ${expense.accommodationDetails.netAmount >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+          {filteredExpenses.map((expense) => {
+            const mission = typeof expense.mission === 'object' ? expense.mission : { title: expense.mission };
+            return (
+              <TableRow key={expense.id}>
+                <TableCell className="font-medium">
+                  <div>
+                    <div className="font-semibold">{mission.title || 'N/A'}</div>
+                    {mission.client_name && (
+                      <div className="text-xs text-gray-600">Cliente: {mission.client_name}</div>
+                    )}
+                    {mission.location && (
+                      <div className="text-xs text-gray-500">{mission.location}</div>
+                    )}
+                  </div>
+                </TableCell>
+                <TableCell>
+                  <div>
+                    <div className="font-medium">{expense.employee}</div>
+                    <div className="text-xs text-gray-600">{expense.employee_role}</div>
+                  </div>
+                </TableCell>
+                <TableCell>
+                  <Badge className={getCategoryColor(expense.category)}>
+                    {getCategoryLabel(expense.category)}
+                  </Badge>
+                </TableCell>
+                <TableCell>
+                  <div>
+                    <div>{expense.description}</div>
+                    {expense.accommodationDetails && (
+                      <div className="text-xs text-gray-600 mt-1">
+                        <div>Gasto: R$ {expense.accommodationDetails.actualCost.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</div>
+                        <div>Ressarcimento: R$ {expense.accommodationDetails.reimbursementAmount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</div>
+                        <div className={`font-medium ${expense.accommodationDetails.netAmount >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                          Líquido: {expense.accommodationDetails.netAmount >= 0 ? '+' : ''}R$ {expense.accommodationDetails.netAmount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </TableCell>
+                <TableCell className="font-semibold">
+                  {expense.accommodationDetails ? (
+                    <div>
+                      <div className="text-red-600">R$ {expense.amount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</div>
+                      <div className="text-xs text-gray-500">
                         Líquido: {expense.accommodationDetails.netAmount >= 0 ? '+' : ''}R$ {expense.accommodationDetails.netAmount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                       </div>
                     </div>
+                  ) : (
+                    `R$ ${expense.amount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`
                   )}
-                </div>
-              </TableCell>
-              <TableCell className="font-semibold">
-                {expense.accommodationDetails ? (
-                  <div>
-                    <div className="text-red-600">R$ {expense.amount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</div>
-                    <div className="text-xs text-gray-500">
-                      Líquido: {expense.accommodationDetails.netAmount >= 0 ? '+' : ''}R$ {expense.accommodationDetails.netAmount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                    </div>
+                </TableCell>
+                <TableCell>{new Date(expense.date).toLocaleDateString('pt-BR')}</TableCell>
+                <TableCell>
+                  <Badge variant={expense.isAdvanced ? 'default' : 'secondary'}>
+                    {expense.category === 'accommodation' ? 'Hospedagem' : (expense.isAdvanced ? 'Adiantamento' : 'Reembolso')}
+                  </Badge>
+                </TableCell>
+                <TableCell>
+                  <Badge className={getStatusColor(expense.status)}>
+                    {getStatusLabel(expense.status)}
+                  </Badge>
+                </TableCell>
+                <TableCell>
+                  <div className="flex space-x-1">
+                    <Button 
+                      variant="outline" 
+                      size="sm"
+                      onClick={() => handleViewExpense(expense)}
+                      title="Visualizar despesa"
+                    >
+                      <Eye className="w-4 h-4" />
+                    </Button>
+                    <Button 
+                      variant="outline" 
+                      size="sm"
+                      onClick={() => handleEditExpense(expense)}
+                      title="Editar despesa"
+                    >
+                      <Edit className="w-4 h-4" />
+                    </Button>
                   </div>
-                ) : (
-                  `R$ ${expense.amount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`
-                )}
-              </TableCell>
-              <TableCell>{new Date(expense.date).toLocaleDateString('pt-BR')}</TableCell>
-              <TableCell>
-                <Badge variant={expense.isAdvanced ? 'default' : 'secondary'}>
-                  {expense.category === 'accommodation' ? 'Hospedagem' : (expense.isAdvanced ? 'Adiantamento' : 'Reembolso')}
-                </Badge>
-              </TableCell>
-              <TableCell>
-                <Badge className={getStatusColor(expense.status)}>
-                  {getStatusLabel(expense.status)}
-                </Badge>
-              </TableCell>
-              <TableCell>
-                <div className="flex space-x-1">
-                  <Button 
-                    variant="outline" 
-                    size="sm"
-                    onClick={() => handleViewExpense(expense)}
-                    title="Visualizar despesa"
-                  >
-                    <Eye className="w-4 h-4" />
-                  </Button>
-                  <Button 
-                    variant="outline" 
-                    size="sm"
-                    onClick={() => handleEditExpense(expense)}
-                    title="Editar despesa"
-                  >
-                    <Edit className="w-4 h-4" />
-                  </Button>
-                </div>
-              </TableCell>
-            </TableRow>
-          ))}
+                </TableCell>
+              </TableRow>
+            );
+          })}
         </TableBody>
       </Table>
 
@@ -364,8 +399,19 @@ export const ExpenseList = () => {
         onOpenChange={setIsFilterModalOpen}
         filters={activeFilters}
         onFiltersChange={setActiveFilters}
-        availableStatuses={availableStatuses}
-        availableCategories={availableCategories}
+        availableStatuses={[
+          { value: 'pending', label: 'Pendente' },
+          { value: 'approved', label: 'Aprovado' },
+          { value: 'reimbursed', label: 'Reembolsado' }
+        ]}
+        availableCategories={[
+          { value: 'fuel', label: 'Combustível' },
+          { value: 'accommodation', label: 'Hospedagem' },
+          { value: 'meals', label: 'Alimentação' },
+          { value: 'transportation', label: 'Transporte' },
+          { value: 'materials', label: 'Materiais' },
+          { value: 'other', label: 'Outros' }
+        ]}
         title="Filtros Avançados - Despesas"
       />
 

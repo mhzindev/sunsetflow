@@ -51,6 +51,42 @@ export type Database = {
         }
         Relationships: []
       }
+      clients: {
+        Row: {
+          active: boolean
+          address: string | null
+          company_name: string | null
+          created_at: string
+          email: string | null
+          id: string
+          name: string
+          phone: string | null
+          updated_at: string
+        }
+        Insert: {
+          active?: boolean
+          address?: string | null
+          company_name?: string | null
+          created_at?: string
+          email?: string | null
+          id?: string
+          name: string
+          phone?: string | null
+          updated_at?: string
+        }
+        Update: {
+          active?: boolean
+          address?: string | null
+          company_name?: string | null
+          created_at?: string
+          email?: string | null
+          id?: string
+          name?: string
+          phone?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       companies: {
         Row: {
           address: string | null
@@ -203,6 +239,7 @@ export type Database = {
           description: string
           employee_id: string | null
           employee_name: string
+          employee_role: string | null
           id: string
           is_advanced: boolean | null
           mission_id: string | null
@@ -219,6 +256,7 @@ export type Database = {
           description: string
           employee_id?: string | null
           employee_name: string
+          employee_role?: string | null
           id?: string
           is_advanced?: boolean | null
           mission_id?: string | null
@@ -235,6 +273,7 @@ export type Database = {
           description?: string
           employee_id?: string | null
           employee_name?: string
+          employee_role?: string | null
           id?: string
           is_advanced?: boolean | null
           mission_id?: string | null
@@ -263,43 +302,55 @@ export type Database = {
         Row: {
           assigned_employees: string[] | null
           budget: number | null
+          client_id: string | null
+          client_name: string | null
           created_at: string | null
           created_by: string | null
           description: string | null
+          employee_names: string[] | null
           end_date: string | null
           id: string
           location: string
           start_date: string
           status: string
           title: string
+          total_expenses: number | null
           updated_at: string | null
         }
         Insert: {
           assigned_employees?: string[] | null
           budget?: number | null
+          client_id?: string | null
+          client_name?: string | null
           created_at?: string | null
           created_by?: string | null
           description?: string | null
+          employee_names?: string[] | null
           end_date?: string | null
           id?: string
           location: string
           start_date: string
           status?: string
           title: string
+          total_expenses?: number | null
           updated_at?: string | null
         }
         Update: {
           assigned_employees?: string[] | null
           budget?: number | null
+          client_id?: string | null
+          client_name?: string | null
           created_at?: string | null
           created_by?: string | null
           description?: string | null
+          employee_names?: string[] | null
           end_date?: string | null
           id?: string
           location?: string
           start_date?: string
           status?: string
           title?: string
+          total_expenses?: number | null
           updated_at?: string | null
         }
         Relationships: [
