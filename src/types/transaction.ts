@@ -17,14 +17,21 @@ export interface Transaction {
 
 export interface Expense {
   id: string;
-  mission: string;
-  employee: string;
+  missionId: string;
+  employeeName: string;
   category: string;
   description: string;
   amount: number;
   date: string;
   isAdvanced: boolean;
   status: string;
+  accommodationDetails?: {
+    actualCost: number;
+    reimbursementAmount: number;
+    netAmount: number;
+    outsourcingCompany?: string;
+    invoiceNumber?: string;
+  };
 }
 
 export interface Payment {
