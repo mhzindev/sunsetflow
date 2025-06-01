@@ -54,7 +54,7 @@ export const TransactionCategories = () => {
       }, {});
 
       // Calcular total e percentuais
-      const totalExpenses = Object.values(employeeExpenses).reduce((sum: number, amount: unknown) => {
+      const totalExpenses: number = Object.values(employeeExpenses).reduce((sum: number, amount: unknown) => {
         const numAmount = typeof amount === 'number' ? amount : parseFloat(String(amount)) || 0;
         return sum + numAmount;
       }, 0);
