@@ -81,6 +81,12 @@ export const PaymentViewModal = ({ isOpen, onClose, payment, onEdit, onMarkAsPai
     showSuccess('Comprovante Gerado', `Comprovante do pagamento para ${payment.providerName} está sendo preparado para download`);
   };
 
+  // Safe formatter for currency values
+  const formatCurrency = (value: number | undefined | null) => {
+    const safeValue = value || 0;
+    return safeValue.toLocaleString('pt-BR', { minimumFractionDigits: 2 });
+  };
+
   // Safe calculation functions for installments
   const getInstallmentValue = () => {
     if (!payment.amount || !payment.installments || payment.installments === 0) return 0;
@@ -91,12 +97,6 @@ export const PaymentViewModal = ({ isOpen, onClose, payment, onEdit, onMarkAsPai
     if (!payment.amount || !payment.installments || !payment.currentInstallment) return payment.amount || 0;
     const remaining = payment.installments - payment.currentInstallment;
     return (payment.amount * remaining) / payment.installments;
-  };
-
-  // Safe formatter for currency values
-  const formatCurrency = (value: number | undefined | null) => {
-    const safeValue = value || 0;
-    return safeValue.toLocaleString('pt-BR', { minimumFractionDigits: 2 });
   };
 
   const daysUntilDue = getDaysUntilDue();
