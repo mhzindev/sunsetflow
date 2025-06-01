@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -27,7 +26,7 @@ interface SidebarProps {
 }
 
 export const Sidebar = ({ activeSection, setActiveSection, isOpen, setIsOpen }: SidebarProps) => {
-  const { logout } = useAuth();
+  const { signOut } = useAuth();
 
   const menuItems = [
     {
@@ -81,7 +80,7 @@ export const Sidebar = ({ activeSection, setActiveSection, isOpen, setIsOpen }: 
   ];
 
   const handleLogout = async () => {
-    await logout();
+    await signOut();
   };
 
   return (
