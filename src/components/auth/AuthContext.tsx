@@ -22,51 +22,83 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
   const loadUserProfile = async (authUser: SupabaseUser) => {
     try {
-      // Buscar perfil do usuário
-      const { data: profile, error } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('id', authUser.id)
-        .single();
-
-      if (error) {
-        console.error('Erro ao carregar perfil:', error);
-        // Se não encontrou o perfil, criar um baseado nos metadados
-        const roleFromMeta = authUser.user_metadata?.role || 'employee';
-        const nameFromMeta = authUser.user_metadata?.name || authUser.email;
+      console.log('Carregando perfil do usuário:', authUser.id);
+      console.log('Metadados do usuário:', authUser.user_metadata);
+      
+      // Aguardar um pouco para garantir que o trigger foi executado
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      
+      // Buscar perfil do usuário com retry
+      let profile = null;
+      let attempts = 0;
+      const maxAttempts = 3;
+      
+      while (!profile && attempts < maxAttempts) {
+        attempts++;
+        console.log(`Tentativa ${attempts} de buscar perfil...`);
         
-        const { error: insertError } = await supabase
+        const { data, error } = await supabase
+          .from('profiles')
+          .select('*')
+          .eq('id', authUser.id)
+          .maybeSingle();
+
+        if (error) {
+          console.error(`Erro na tentativa ${attempts}:`, error);
+          if (attempts < maxAttempts) {
+            await new Promise(resolve => setTimeout(resolve, 1000));
+            continue;
+          }
+        } else {
+          profile = data;
+        }
+      }
+
+      if (!profile) {
+        console.log('Perfil não encontrado, criando um novo...');
+        // Se não encontrou o perfil após várias tentativas, criar um baseado nos metadados
+        const roleFromMeta = authUser.user_metadata?.role || 'employee';
+        const nameFromMeta = authUser.user_metadata?.name || authUser.email?.split('@')[0] || 'Usuário';
+        
+        console.log('Dados para criar perfil:', {
+          id: authUser.id,
+          email: authUser.email,
+          name: nameFromMeta,
+          role: roleFromMeta
+        });
+        
+        const { data: newProfile, error: insertError } = await supabase
           .from('profiles')
           .insert({
             id: authUser.id,
             email: authUser.email || '',
             name: nameFromMeta,
             role: roleFromMeta
-          });
+          })
+          .select()
+          .single();
 
         if (insertError) {
           console.error('Erro ao criar perfil:', insertError);
-          return;
+          // Tentar buscar novamente caso já tenha sido criado pelo trigger
+          const { data: existingProfile } = await supabase
+            .from('profiles')
+            .select('*')
+            .eq('id', authUser.id)
+            .maybeSingle();
+          
+          if (existingProfile) {
+            profile = existingProfile;
+          } else {
+            return;
+          }
+        } else {
+          profile = newProfile;
         }
+      }
 
-        // Buscar o perfil recém-criado
-        const { data: newProfile } = await supabase
-          .from('profiles')
-          .select('*')
-          .eq('id', authUser.id)
-          .single();
-
-        if (newProfile) {
-          setUser({
-            id: newProfile.id,
-            name: newProfile.name,
-            email: newProfile.email,
-            role: newProfile.role as 'owner' | 'employee',
-            active: true,
-            createdAt: newProfile.created_at
-          });
-        }
-      } else {
+      if (profile) {
+        console.log('Perfil carregado com sucesso:', profile);
         setUser({
           id: profile.id,
           name: profile.name,
@@ -99,6 +131,8 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     // Escutar mudanças de autenticação
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
+        console.log('Auth state changed:', event, session?.user?.id);
+        
         if (session?.user) {
           setSupabaseUser(session.user);
           await loadUserProfile(session.user);

@@ -26,12 +26,15 @@ export const LoginPage = ({ onLoginSuccess }: LoginPageProps) => {
     setIsLoading(true);
 
     try {
+      console.log('Tentando fazer login com:', email);
+      
       const { data, error } = await supabase.auth.signInWithPassword({
         email,
         password,
       });
 
       if (error) {
+        console.error('Erro no login:', error);
         if (error.message.includes('email_not_confirmed') || error.message.includes('Email not confirmed')) {
           showError('Email não confirmado', 'Verifique sua caixa de entrada e clique no link de confirmação enviado por email. Se não recebeu, tente cadastrar-se novamente.');
         } else if (error.message.includes('Invalid login credentials')) {
@@ -43,6 +46,7 @@ export const LoginPage = ({ onLoginSuccess }: LoginPageProps) => {
       }
 
       if (data.user) {
+        console.log('Login bem-sucedido, usuário:', data.user.id);
         showSuccess('Login realizado', 'Bem-vindo ao sistema!');
         onLoginSuccess();
       }
@@ -58,6 +62,8 @@ export const LoginPage = ({ onLoginSuccess }: LoginPageProps) => {
     setIsLoading(true);
 
     try {
+      console.log('Tentando criar conta com:', { email, name, role });
+      
       const { data, error } = await supabase.auth.signUp({
         email,
         password,
@@ -70,9 +76,16 @@ export const LoginPage = ({ onLoginSuccess }: LoginPageProps) => {
         }
       });
 
+      console.log('Resultado do signUp:', { data, error });
+
       if (error) {
+        console.error('Erro detalhado no cadastro:', error);
+        
         if (error.message.includes('User already registered')) {
           showError('Usuário já cadastrado', 'Este email já está cadastrado. Tente fazer login ou recuperar a senha.');
+        } else if (error.message.includes('Database error saving new user')) {
+          showError('Erro no banco de dados', 'Houve um problema ao criar sua conta. Tente novamente em alguns instantes.');
+          console.error('Erro de banco de dados - verifique os logs do Supabase');
         } else {
           showError('Erro no cadastro', error.message);
         }
@@ -80,8 +93,14 @@ export const LoginPage = ({ onLoginSuccess }: LoginPageProps) => {
       }
 
       if (data.user) {
-        showSuccess('Conta criada', 'Verifique seu email para confirmar a conta antes de fazer login');
-        setIsSignUp(false);
+        console.log('Usuário criado com sucesso:', data.user.id);
+        if (data.user.email_confirmed_at) {
+          showSuccess('Conta criada', 'Conta criada com sucesso! Fazendo login...');
+          onLoginSuccess();
+        } else {
+          showSuccess('Conta criada', 'Verifique seu email para confirmar a conta antes de fazer login');
+          setIsSignUp(false);
+        }
       }
     } catch (error: any) {
       console.error('Erro no cadastro:', error);
