@@ -578,12 +578,31 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      cash_flow_projections: {
+        Row: {
+          amount: number | null
+          description: string | null
+          month: string | null
+          type: string | null
+        }
+        Relationships: []
+      }
     }
     Functions: {
       get_current_user_role: {
         Args: Record<PropertyKey, never>
         Returns: string
+      }
+      get_financial_summary: {
+        Args: Record<PropertyKey, never>
+        Returns: {
+          total_income: number
+          total_expenses: number
+          pending_payments: number
+          pending_expenses: number
+          monthly_income: number
+          monthly_expenses: number
+        }[]
       }
       use_access_code: {
         Args: { access_code: string }

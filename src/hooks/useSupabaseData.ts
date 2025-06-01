@@ -181,18 +181,25 @@ export const useSupabaseData = () => {
     try {
       if (!user) throw new Error('Usuário não autenticado');
 
+      console.log('Inserindo transação:', transaction);
+
       const { data, error } = await supabase
         .from('transactions')
         .insert({
           ...transaction,
           user_id: user.id,
           user_name: user.user_metadata?.name || user.email?.split('@')[0] || 'Usuário',
-          status: transaction.status || 'pending'
+          status: transaction.status || 'completed'
         })
         .select()
         .single();
 
-      if (error) throw error;
+      if (error) {
+        console.error('Erro SQL ao inserir transação:', error);
+        throw error;
+      }
+
+      console.log('Transação inserida com sucesso:', data);
       return { data, error: null };
     } catch (err) {
       console.error('Erro ao inserir transação:', err);
@@ -215,6 +222,8 @@ export const useSupabaseData = () => {
     try {
       if (!user) throw new Error('Usuário não autenticado');
 
+      console.log('Inserindo despesa:', expense);
+
       const { data, error } = await supabase
         .from('expenses')
         .insert({
@@ -227,7 +236,12 @@ export const useSupabaseData = () => {
         .select()
         .single();
 
-      if (error) throw error;
+      if (error) {
+        console.error('Erro SQL ao inserir despesa:', error);
+        throw error;
+      }
+
+      console.log('Despesa inserida com sucesso:', data);
       return { data, error: null };
     } catch (err) {
       console.error('Erro ao inserir despesa:', err);
@@ -238,6 +252,8 @@ export const useSupabaseData = () => {
   // Função para atualizar status de despesa
   const updateExpenseStatus = async (expenseId: string, status: 'pending' | 'approved' | 'reimbursed') => {
     try {
+      console.log('Atualizando status da despesa:', expenseId, status);
+
       const { data, error } = await supabase
         .from('expenses')
         .update({ status })
@@ -245,7 +261,12 @@ export const useSupabaseData = () => {
         .select()
         .single();
 
-      if (error) throw error;
+      if (error) {
+        console.error('Erro SQL ao atualizar status da despesa:', error);
+        throw error;
+      }
+
+      console.log('Status da despesa atualizado com sucesso:', data);
       return { data, error: null };
     } catch (err) {
       console.error('Erro ao atualizar status da despesa:', err);
@@ -271,13 +292,20 @@ export const useSupabaseData = () => {
     account_type?: 'bank_account' | 'credit_card';
   }) => {
     try {
+      console.log('Inserindo pagamento:', payment);
+
       const { data, error } = await supabase
         .from('payments')
         .insert(payment)
         .select()
         .single();
 
-      if (error) throw error;
+      if (error) {
+        console.error('Erro SQL ao inserir pagamento:', error);
+        throw error;
+      }
+
+      console.log('Pagamento inserido com sucesso:', data);
       return { data, error: null };
     } catch (err) {
       console.error('Erro ao inserir pagamento:', err);
@@ -288,6 +316,8 @@ export const useSupabaseData = () => {
   // Função para atualizar pagamento
   const updatePayment = async (paymentId: string, updates: any) => {
     try {
+      console.log('Atualizando pagamento:', paymentId, updates);
+
       const { data, error } = await supabase
         .from('payments')
         .update(updates)
@@ -295,7 +325,12 @@ export const useSupabaseData = () => {
         .select()
         .single();
 
-      if (error) throw error;
+      if (error) {
+        console.error('Erro SQL ao atualizar pagamento:', error);
+        throw error;
+      }
+
+      console.log('Pagamento atualizado com sucesso:', data);
       return { data, error: null };
     } catch (err) {
       console.error('Erro ao atualizar pagamento:', err);
@@ -320,6 +355,8 @@ export const useSupabaseData = () => {
     try {
       if (!user) throw new Error('Usuário não autenticado');
 
+      console.log('Inserindo missão:', mission);
+
       const { data, error } = await supabase
         .from('missions')
         .insert({
@@ -330,7 +367,12 @@ export const useSupabaseData = () => {
         .select()
         .single();
 
-      if (error) throw error;
+      if (error) {
+        console.error('Erro SQL ao inserir missão:', error);
+        throw error;
+      }
+
+      console.log('Missão inserida com sucesso:', data);
       return { data, error: null };
     } catch (err) {
       console.error('Erro ao inserir missão:', err);
@@ -341,6 +383,8 @@ export const useSupabaseData = () => {
   // Função para atualizar missão
   const updateMission = async (missionId: string, updates: any) => {
     try {
+      console.log('Atualizando missão:', missionId, updates);
+
       const { data, error } = await supabase
         .from('missions')
         .update(updates)
@@ -348,7 +392,12 @@ export const useSupabaseData = () => {
         .select()
         .single();
 
-      if (error) throw error;
+      if (error) {
+        console.error('Erro SQL ao atualizar missão:', error);
+        throw error;
+      }
+
+      console.log('Missão atualizada com sucesso:', data);
       return { data, error: null };
     } catch (err) {
       console.error('Erro ao atualizar missão:', err);
@@ -365,16 +414,56 @@ export const useSupabaseData = () => {
     address?: string;
   }) => {
     try {
+      console.log('Inserindo cliente:', client);
+
       const { data, error } = await supabase
         .from('clients')
         .insert(client)
         .select()
         .single();
 
-      if (error) throw error;
+      if (error) {
+        console.error('Erro SQL ao inserir cliente:', error);
+        throw error;
+      }
+
+      console.log('Cliente inserido com sucesso:', data);
       return { data, error: null };
     } catch (err) {
       console.error('Erro ao inserir cliente:', err);
+      return { data: null, error: err instanceof Error ? err.message : 'Erro desconhecido' };
+    }
+  };
+
+  // Função para inserir fornecedor
+  const insertServiceProvider = async (provider: {
+    name: string;
+    email: string;
+    phone: string;
+    service: string;
+    payment_method: string;
+  }) => {
+    try {
+      console.log('Inserindo fornecedor:', provider);
+
+      const { data, error } = await supabase
+        .from('service_providers')
+        .insert({
+          ...provider,
+          active: true
+        })
+        .select()
+        .single();
+
+      if (error) {
+        console.error('Erro SQL ao inserir fornecedor:', error);
+        throw error;
+      }
+
+      console.log('Fornecedor inserido com sucesso:', data);
+      return { data, error: null };
+    } catch (err) {
+      console.error('Erro ao inserir fornecedor:', err);
       return { data: null, error: err instanceof Error ? err.message : 'Erro desconhecido' };
     }
   };
@@ -397,6 +486,7 @@ export const useSupabaseData = () => {
     updatePayment,
     insertMission,
     updateMission,
-    insertClient
+    insertClient,
+    insertServiceProvider
   };
 };
