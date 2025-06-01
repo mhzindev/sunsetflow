@@ -10,13 +10,12 @@ import { CashFlow } from "@/components/cashflow/CashFlow";
 import { Reports } from "@/components/reports/Reports";
 import { ExpenseManager } from "@/components/expenses/ExpenseManager";
 import { Settings } from "@/components/settings/Settings";
-import { AuthProvider } from "@/contexts/AuthContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { FinancialProvider } from "@/contexts/FinancialContext";
 
 export type PageSection = 'dashboard' | 'transactions' | 'payments' | 'expenses' | 'cashflow' | 'reports' | 'settings';
 
-const IndexContent = () => {
+const Index = () => {
   const { isAuthenticated, loading } = useAuth();
   const navigate = useNavigate();
   const [activeSection, setActiveSection] = useState<PageSection>('dashboard');
@@ -93,14 +92,6 @@ const IndexContent = () => {
         </div>
       </div>
     </FinancialProvider>
-  );
-};
-
-const Index = () => {
-  return (
-    <AuthProvider>
-      <IndexContent />
-    </AuthProvider>
   );
 };
 
