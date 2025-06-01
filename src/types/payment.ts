@@ -16,7 +16,7 @@ export interface Payment {
 }
 
 export type PaymentStatus = 'pending' | 'partial' | 'completed' | 'overdue' | 'cancelled';
-export type PaymentType = 'full' | 'installment' | 'advance';
+export type PaymentType = 'full' | 'installment' | 'advance' | 'partial';
 export type PaymentMethod = 'pix' | 'transfer' | 'credit_card' | 'debit_card' | 'cash';
 
 export interface ServiceProvider {

@@ -1,20 +1,7 @@
 
 import React, { createContext, useState, useContext } from 'react';
-
-interface Transaction {
-  id: string;
-  type: 'income' | 'expense';
-  category: string;
-  description: string;
-  amount: number;
-  date: string;
-  isRecurring: boolean;
-  status: 'pending' | 'completed' | 'cancelled';
-  tags: string[];
-  createdAt: string;
-  userId: string;
-  userName: string;
-}
+import { Transaction } from '@/types/transaction';
+import { Payment, PaymentStatus } from '@/types/payment';
 
 interface Receivable {
   id: string;
@@ -27,19 +14,6 @@ interface Receivable {
   userId: string;
   userName: string;
   status: 'pending' | 'completed' | 'overdue';
-}
-
-interface Payment {
-  id: string;
-  providerId: string;
-  providerName: string;
-  amount: number;
-  dueDate: string;
-  paymentDate?: string;
-  status: 'pending' | 'partial' | 'completed' | 'overdue' | 'cancelled';
-  type: 'full' | 'installment' | 'advance' | 'partial';
-  description: string;
-  notes?: string;
 }
 
 interface FinancialContextProps {
@@ -70,7 +44,7 @@ interface FinancialContextProps {
   updateExpenseStatus: (id: string, status: string) => void;
   processPayment: (paymentId: string) => void;
   updatePayment: (id: string, data: Partial<Payment>) => void;
-  updatePaymentStatus: (id: string, status: Payment['status']) => void;
+  updatePaymentStatus: (id: string, status: PaymentStatus) => void;
   getCashFlowProjections: () => any[];
 }
 
@@ -80,10 +54,11 @@ const mockTransactions: Transaction[] = [
   {
     id: '1',
     type: 'income',
-    category: 'Consulting',
+    category: 'client_payment',
     description: 'Consulting services for Client A',
     amount: 5000,
     date: '2024-01-15',
+    method: 'pix',
     isRecurring: false,
     status: 'completed',
     tags: ['consulting', 'clientA'],
@@ -94,10 +69,11 @@ const mockTransactions: Transaction[] = [
   {
     id: '2',
     type: 'expense',
-    category: 'Marketing',
+    category: 'fuel',
     description: 'Facebook Ads campaign',
     amount: 1500,
     date: '2024-01-20',
+    method: 'credit_card',
     isRecurring: false,
     status: 'completed',
     tags: ['ads', 'facebook', 'marketing'],
@@ -245,7 +221,7 @@ export const FinancialProvider = ({ children }: { children: React.ReactNode }) =
     );
   };
 
-  const updatePaymentStatus = (id: string, status: Payment['status']) => {
+  const updatePaymentStatus = (id: string, status: PaymentStatus) => {
     setPayments(prev =>
       prev.map(payment =>
         payment.id === id ? { ...payment, status } : payment
@@ -272,10 +248,11 @@ export const FinancialProvider = ({ children }: { children: React.ReactNode }) =
     // Criar uma transação de despesa
     const transaction: Omit<Transaction, 'id'> = {
       type: 'expense',
-      category: 'expenses',
+      category: 'other',
       description: `Aprovação - ${description}`,
       amount: amount,
       date: new Date().toISOString().split('T')[0],
+      method: 'pix',
       isRecurring: false,
       status: 'completed',
       tags: ['despesa', 'aprovada'],
@@ -291,10 +268,11 @@ export const FinancialProvider = ({ children }: { children: React.ReactNode }) =
     // Criar uma transação de despesa
     const transaction: Omit<Transaction, 'id'> = {
       type: 'expense',
-      category: 'reimbursement',
+      category: 'other',
       description: `Reembolso - ${description} para ${employeeName}`,
       amount: amount,
       date: new Date().toISOString().split('T')[0],
+      method: 'pix',
       isRecurring: false,
       status: 'completed',
       tags: ['despesa', 'reembolso'],
@@ -327,10 +305,11 @@ export const FinancialProvider = ({ children }: { children: React.ReactNode }) =
     if (expenseData.isAdvanced) {
       const transaction = {
         type: 'expense' as const,
-        category: 'expenses',
+        category: 'other' as const,
         description: `Adiantamento - ${expenseData.description}`,
         amount: expenseData.amount,
         date: expenseData.date,
+        method: 'pix' as const,
         isRecurring: false,
         status: 'completed' as const,
         tags: ['despesa', 'adiantamento', expenseData.category],
