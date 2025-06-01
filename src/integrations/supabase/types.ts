@@ -9,90 +9,9 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
-      companies: {
-        Row: {
-          address: string | null
-          cnpj: string
-          created_at: string
-          email: string
-          id: string
-          legal_name: string
-          name: string
-          owner_id: string
-          phone: string | null
-        }
-        Insert: {
-          address?: string | null
-          cnpj: string
-          created_at?: string
-          email: string
-          id?: string
-          legal_name: string
-          name: string
-          owner_id: string
-          phone?: string | null
-        }
-        Update: {
-          address?: string | null
-          cnpj?: string
-          created_at?: string
-          email?: string
-          id?: string
-          legal_name?: string
-          name?: string
-          owner_id?: string
-          phone?: string | null
-        }
-        Relationships: []
-      }
-      employee_access_codes: {
-        Row: {
-          code: string
-          company_id: string
-          created_at: string
-          employee_email: string
-          employee_name: string
-          expires_at: string
-          id: string
-          is_used: boolean
-          used_at: string | null
-        }
-        Insert: {
-          code: string
-          company_id: string
-          created_at?: string
-          employee_email: string
-          employee_name: string
-          expires_at?: string
-          id?: string
-          is_used?: boolean
-          used_at?: string | null
-        }
-        Update: {
-          code?: string
-          company_id?: string
-          created_at?: string
-          employee_email?: string
-          employee_name?: string
-          expires_at?: string
-          id?: string
-          is_used?: boolean
-          used_at?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "employee_access_codes_company_id_fkey"
-            columns: ["company_id"]
-            isOneToOne: false
-            referencedRelation: "companies"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       profiles: {
         Row: {
           active: boolean
-          company_id: string | null
           created_at: string
           email: string
           id: string
@@ -102,7 +21,6 @@ export type Database = {
         }
         Insert: {
           active?: boolean
-          company_id?: string | null
           created_at?: string
           email: string
           id: string
@@ -112,7 +30,6 @@ export type Database = {
         }
         Update: {
           active?: boolean
-          company_id?: string | null
           created_at?: string
           email?: string
           id?: string
@@ -120,33 +37,14 @@ export type Database = {
           phone?: string | null
           role?: Database["public"]["Enums"]["user_role"]
         }
-        Relationships: [
-          {
-            foreignKeyName: "profiles_company_id_fkey"
-            columns: ["company_id"]
-            isOneToOne: false
-            referencedRelation: "companies"
-            referencedColumns: ["id"]
-          },
-        ]
+        Relationships: []
       }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
-      generate_access_code: {
-        Args: Record<PropertyKey, never>
-        Returns: string
-      }
-      get_user_company_id: {
-        Args: { user_id: string }
-        Returns: string
-      }
-      is_company_owner: {
-        Args: { user_id: string; company_id: string }
-        Returns: boolean
-      }
+      [_ in never]: never
     }
     Enums: {
       expense_status: "pending" | "approved" | "reimbursed"
@@ -169,7 +67,7 @@ export type Database = {
         | "office_expense"
         | "other"
       transaction_status: "pending" | "completed" | "cancelled"
-      user_role: "owner" | "employee"
+      user_role: "admin" | "user"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -307,7 +205,7 @@ export const Constants = {
         "other",
       ],
       transaction_status: ["pending", "completed", "cancelled"],
-      user_role: ["owner", "employee"],
+      user_role: ["admin", "user"],
     },
   },
 } as const

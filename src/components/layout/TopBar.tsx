@@ -26,10 +26,10 @@ export const TopBar = ({ activeSection, sidebarOpen, setSidebarOpen }: TopBarPro
   const { profile, signOut } = useAuth();
 
   const getSectionTitle = () => {
-    if (activeSection === 'transactions' && profile?.role === 'employee') {
+    if (activeSection === 'transactions' && profile?.role === 'user') {
       return 'Minhas Despesas';
     }
-    if (activeSection === 'expenses' && profile?.role === 'employee') {
+    if (activeSection === 'expenses' && profile?.role === 'user') {
       return 'Nova Despesa';
     }
     return sectionTitles[activeSection];
@@ -80,7 +80,7 @@ export const TopBar = ({ activeSection, sidebarOpen, setSidebarOpen }: TopBarPro
             <div className="text-right">
               <p className="text-sm font-medium text-slate-800">{profile?.name}</p>
               <p className="text-xs text-slate-500">
-                {profile?.role === 'owner' ? 'Proprietário' : 'Funcionário'}
+                {profile?.role === 'admin' ? 'Administrador' : 'Usuário'}
               </p>
             </div>
             

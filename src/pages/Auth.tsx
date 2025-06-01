@@ -8,7 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from "@/hooks/use-toast";
-import { Building2, User, Eye, EyeOff } from "lucide-react";
+import { Eye, EyeOff } from "lucide-react";
 
 const Auth = () => {
   const { signUp, signIn, loading } = useAuth();
@@ -22,21 +22,12 @@ const Auth = () => {
     password: ''
   });
 
-  // Company signup form state
-  const [companyForm, setCompanyForm] = useState({
+  // Signup form state
+  const [signupForm, setSignupForm] = useState({
     name: '',
     email: '',
     password: '',
     confirmPassword: ''
-  });
-
-  // Employee signup form state
-  const [employeeForm, setEmployeeForm] = useState({
-    name: '',
-    email: '',
-    password: '',
-    confirmPassword: '',
-    accessCode: ''
   });
 
   const handleLogin = async (e: React.FormEvent) => {
@@ -68,10 +59,10 @@ const Auth = () => {
     }
   };
 
-  const handleCompanySignup = async (e: React.FormEvent) => {
+  const handleSignup = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!companyForm.name || !companyForm.email || !companyForm.password) {
+    if (!signupForm.name || !signupForm.email || !signupForm.password) {
       toast({
         title: "Erro",
         description: "Todos os campos são obrigatórios",
@@ -80,7 +71,7 @@ const Auth = () => {
       return;
     }
 
-    if (companyForm.password !== companyForm.confirmPassword) {
+    if (signupForm.password !== signupForm.confirmPassword) {
       toast({
         title: "Erro",
         description: "As senhas não conferem",
@@ -89,10 +80,16 @@ const Auth = () => {
       return;
     }
 
-    const { error } = await signUp(companyForm.email, companyForm.password, {
-      name: companyForm.name,
-      role: 'owner'
-    });
+    if (signupForm.password.length < 6) {
+      toast({
+        title: "Erro",
+        description: "A senha deve ter pelo menos 6 caracteres",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    const { error } = await signUp(signupForm.email, signupForm.password, signupForm.name);
 
     if (error) {
       toast({
@@ -103,51 +100,15 @@ const Auth = () => {
     } else {
       toast({
         title: "Cadastro realizado",
-        description: "Verifique seu email para confirmar a conta"
+        description: "Verifique seu email para confirmar a conta ou faça login diretamente"
       });
-      navigate('/');
-    }
-  };
-
-  const handleEmployeeSignup = async (e: React.FormEvent) => {
-    e.preventDefault();
-
-    if (!employeeForm.name || !employeeForm.email || !employeeForm.password || !employeeForm.accessCode) {
-      toast({
-        title: "Erro",
-        description: "Todos os campos são obrigatórios",
-        variant: "destructive"
+      // Limpar formulário após sucesso
+      setSignupForm({
+        name: '',
+        email: '',
+        password: '',
+        confirmPassword: ''
       });
-      return;
-    }
-
-    if (employeeForm.password !== employeeForm.confirmPassword) {
-      toast({
-        title: "Erro",
-        description: "As senhas não conferem",
-        variant: "destructive"
-      });
-      return;
-    }
-
-    const { error } = await signUp(employeeForm.email, employeeForm.password, {
-      name: employeeForm.name,
-      role: 'employee',
-      access_code: employeeForm.accessCode
-    });
-
-    if (error) {
-      toast({
-        title: "Erro no cadastro",
-        description: error.message,
-        variant: "destructive"
-      });
-    } else {
-      toast({
-        title: "Cadastro realizado",
-        description: "Bem-vindo à equipe!"
-      });
-      navigate('/');
     }
   };
 
@@ -162,10 +123,9 @@ const Auth = () => {
         </CardHeader>
         <CardContent>
           <Tabs defaultValue="login" className="w-full">
-            <TabsList className="grid w-full grid-cols-3">
-              <TabsTrigger value="login">Login</TabsTrigger>
-              <TabsTrigger value="company">Empresa</TabsTrigger>
-              <TabsTrigger value="employee">Funcionário</TabsTrigger>
+            <TabsList className="grid w-full grid-cols-2">
+              <TabsTrigger value="login">Entrar</TabsTrigger>
+              <TabsTrigger value="signup">Cadastrar</TabsTrigger>
             </TabsList>
 
             <TabsContent value="login" className="mt-6">
@@ -178,6 +138,7 @@ const Auth = () => {
                     value={loginForm.email}
                     onChange={(e) => setLoginForm({...loginForm, email: e.target.value})}
                     placeholder="seu@email.com"
+                    required
                   />
                 </div>
                 <div>
@@ -189,6 +150,7 @@ const Auth = () => {
                       value={loginForm.password}
                       onChange={(e) => setLoginForm({...loginForm, password: e.target.value})}
                       placeholder="••••••••"
+                      required
                     />
                     <Button
                       type="button"
@@ -202,121 +164,64 @@ const Auth = () => {
                   </div>
                 </div>
                 <Button type="submit" className="w-full" disabled={loading}>
-                  Entrar
+                  {loading ? "Entrando..." : "Entrar"}
                 </Button>
               </form>
             </TabsContent>
 
-            <TabsContent value="company" className="mt-6">
-              <form onSubmit={handleCompanySignup} className="space-y-4">
-                <div className="flex items-center gap-2 mb-4">
-                  <Building2 className="h-5 w-5 text-blue-600" />
-                  <span className="text-sm text-slate-600">Cadastro de Empresa</span>
-                </div>
-                <div>
-                  <Label htmlFor="company-name">Nome da Empresa</Label>
-                  <Input
-                    id="company-name"
-                    value={companyForm.name}
-                    onChange={(e) => setCompanyForm({...companyForm, name: e.target.value})}
-                    placeholder="Nome da sua empresa"
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="company-email">E-mail</Label>
-                  <Input
-                    id="company-email"
-                    type="email"
-                    value={companyForm.email}
-                    onChange={(e) => setCompanyForm({...companyForm, email: e.target.value})}
-                    placeholder="contato@empresa.com"
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="company-password">Senha</Label>
-                  <Input
-                    id="company-password"
-                    type="password"
-                    value={companyForm.password}
-                    onChange={(e) => setCompanyForm({...companyForm, password: e.target.value})}
-                    placeholder="••••••••"
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="company-confirm-password">Confirmar Senha</Label>
-                  <Input
-                    id="company-confirm-password"
-                    type="password"
-                    value={companyForm.confirmPassword}
-                    onChange={(e) => setCompanyForm({...companyForm, confirmPassword: e.target.value})}
-                    placeholder="••••••••"
-                  />
-                </div>
-                <Button type="submit" className="w-full" disabled={loading}>
-                  Cadastrar Empresa
-                </Button>
-              </form>
-            </TabsContent>
-
-            <TabsContent value="employee" className="mt-6">
-              <form onSubmit={handleEmployeeSignup} className="space-y-4">
-                <div className="flex items-center gap-2 mb-4">
-                  <User className="h-5 w-5 text-green-600" />
-                  <span className="text-sm text-slate-600">Cadastro de Funcionário</span>
-                </div>
-                <div>
-                  <Label htmlFor="employee-code">Código de Acesso</Label>
-                  <Input
-                    id="employee-code"
-                    value={employeeForm.accessCode}
-                    onChange={(e) => setEmployeeForm({...employeeForm, accessCode: e.target.value})}
-                    placeholder="STRACK-2024-XXXXXX"
-                  />
-                  <p className="text-xs text-slate-500 mt-1">
-                    Solicite o código com o responsável da empresa
+            <TabsContent value="signup" className="mt-6">
+              <form onSubmit={handleSignup} className="space-y-4">
+                <div className="text-center mb-4">
+                  <p className="text-sm text-slate-600">
+                    O primeiro usuário cadastrado se torna automaticamente o administrador
                   </p>
                 </div>
                 <div>
-                  <Label htmlFor="employee-name">Nome Completo</Label>
+                  <Label htmlFor="signup-name">Nome Completo</Label>
                   <Input
-                    id="employee-name"
-                    value={employeeForm.name}
-                    onChange={(e) => setEmployeeForm({...employeeForm, name: e.target.value})}
+                    id="signup-name"
+                    value={signupForm.name}
+                    onChange={(e) => setSignupForm({...signupForm, name: e.target.value})}
                     placeholder="Seu nome completo"
+                    required
                   />
                 </div>
                 <div>
-                  <Label htmlFor="employee-email">E-mail</Label>
+                  <Label htmlFor="signup-email">E-mail</Label>
                   <Input
-                    id="employee-email"
+                    id="signup-email"
                     type="email"
-                    value={employeeForm.email}
-                    onChange={(e) => setEmployeeForm({...employeeForm, email: e.target.value})}
+                    value={signupForm.email}
+                    onChange={(e) => setSignupForm({...signupForm, email: e.target.value})}
                     placeholder="seu@email.com"
+                    required
                   />
                 </div>
                 <div>
-                  <Label htmlFor="employee-password">Senha</Label>
+                  <Label htmlFor="signup-password">Senha</Label>
                   <Input
-                    id="employee-password"
+                    id="signup-password"
                     type="password"
-                    value={employeeForm.password}
-                    onChange={(e) => setEmployeeForm({...employeeForm, password: e.target.value})}
+                    value={signupForm.password}
+                    onChange={(e) => setSignupForm({...signupForm, password: e.target.value})}
                     placeholder="••••••••"
+                    minLength={6}
+                    required
                   />
                 </div>
                 <div>
-                  <Label htmlFor="employee-confirm-password">Confirmar Senha</Label>
+                  <Label htmlFor="signup-confirm-password">Confirmar Senha</Label>
                   <Input
-                    id="employee-confirm-password"
+                    id="signup-confirm-password"
                     type="password"
-                    value={employeeForm.confirmPassword}
-                    onChange={(e) => setEmployeeForm({...employeeForm, confirmPassword: e.target.value})}
+                    value={signupForm.confirmPassword}
+                    onChange={(e) => setSignupForm({...signupForm, confirmPassword: e.target.value})}
                     placeholder="••••••••"
+                    required
                   />
                 </div>
                 <Button type="submit" className="w-full" disabled={loading}>
-                  Cadastrar Funcionário
+                  {loading ? "Cadastrando..." : "Cadastrar"}
                 </Button>
               </form>
             </TabsContent>

@@ -7,10 +7,10 @@ import { TransactionList } from './TransactionList';
 import { TransactionForm } from './TransactionForm';
 import { TransactionCategories } from './TransactionCategories';
 import { useAuth } from "@/contexts/AuthContext";
-import { Plus, Receipt, TrendingUp, Filter } from "lucide-react";
+import { Plus } from "lucide-react";
 
 export const TransactionManager = () => {
-  const { user } = useAuth();
+  const { profile } = useAuth();
   const [activeTab, setActiveTab] = useState('list');
 
   const handleNewTransaction = () => {
@@ -30,7 +30,7 @@ export const TransactionManager = () => {
               Gerenciador de Transações
             </h3>
             <p className="text-slate-600">
-              {user?.role === 'owner' 
+              {profile?.role === 'admin' 
                 ? 'Visualize e gerencie todas as transações da empresa, incluindo entradas via PIX, cartões de crédito e outras formas de pagamento.'
                 : 'Registre suas despesas de viagem e visualize seus lançamentos.'
               }
@@ -46,10 +46,10 @@ export const TransactionManager = () => {
         </div>
 
         <Tabs value={activeTab} onValueChange={setActiveTab}>
-          <TabsList className={`grid w-full ${user?.role === 'owner' ? 'grid-cols-3' : 'grid-cols-2'}`}>
+          <TabsList className={`grid w-full ${profile?.role === 'admin' ? 'grid-cols-3' : 'grid-cols-2'}`}>
             <TabsTrigger value="list">Transações</TabsTrigger>
             <TabsTrigger value="new">Nova Transação</TabsTrigger>
-            {user?.role === 'owner' && (
+            {profile?.role === 'admin' && (
               <TabsTrigger value="categories">Categorias</TabsTrigger>
             )}
           </TabsList>
@@ -67,7 +67,7 @@ export const TransactionManager = () => {
             <TransactionForm onClose={handleTransactionSubmitted} />
           </TabsContent>
 
-          {user?.role === 'owner' && (
+          {profile?.role === 'admin' && (
             <TabsContent value="categories" className="mt-6">
               <TransactionCategories />
             </TabsContent>
