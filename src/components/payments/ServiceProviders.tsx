@@ -131,14 +131,27 @@ export const ServiceProviders = () => {
     <div className="space-y-6">
       <Card className="p-6">
         <div className="flex items-center justify-between mb-4">
-          <h4 className="text-lg font-semibold text-slate-800">Prestadores de Serviço</h4>
-          <Button 
-            className="bg-blue-600 hover:bg-blue-700"
-            onClick={handleNewProvider}
-          >
-            <UserPlus className="w-4 h-4 mr-2" />
-            Novo Prestador
-          </Button>
+          <div>
+            <h4 className="text-lg font-semibold text-slate-800">Prestadores de Serviço</h4>
+            <p className="text-sm text-slate-600">
+              Gerencie pagamentos e visualize informações dos prestadores
+            </p>
+          </div>
+          <div className="flex gap-2">
+            <Button 
+              variant="outline"
+              onClick={() => {/* Navegar para gestão completa */}}
+            >
+              Gerenciar Prestadores
+            </Button>
+            <Button 
+              className="bg-blue-600 hover:bg-blue-700"
+              onClick={handleNewProvider}
+            >
+              <UserPlus className="w-4 h-4 mr-2" />
+              Novo Prestador
+            </Button>
+          </div>
         </div>
 
         <Table>

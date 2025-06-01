@@ -232,6 +232,9 @@ export type Database = {
       expenses: {
         Row: {
           accommodation_details: Json | null
+          account_id: string | null
+          account_type: string | null
+          actual_amount: number | null
           amount: number
           category: string
           created_at: string | null
@@ -244,11 +247,15 @@ export type Database = {
           is_advanced: boolean | null
           mission_id: string | null
           receipt: string | null
+          receipt_amount: number | null
           status: Database["public"]["Enums"]["expense_status"]
           updated_at: string | null
         }
         Insert: {
           accommodation_details?: Json | null
+          account_id?: string | null
+          account_type?: string | null
+          actual_amount?: number | null
           amount: number
           category: string
           created_at?: string | null
@@ -261,11 +268,15 @@ export type Database = {
           is_advanced?: boolean | null
           mission_id?: string | null
           receipt?: string | null
+          receipt_amount?: number | null
           status?: Database["public"]["Enums"]["expense_status"]
           updated_at?: string | null
         }
         Update: {
           accommodation_details?: Json | null
+          account_id?: string | null
+          account_type?: string | null
+          actual_amount?: number | null
           amount?: number
           category?: string
           created_at?: string | null
@@ -278,6 +289,7 @@ export type Database = {
           is_advanced?: boolean | null
           mission_id?: string | null
           receipt?: string | null
+          receipt_amount?: number | null
           status?: Database["public"]["Enums"]["expense_status"]
           updated_at?: string | null
         }
@@ -472,38 +484,97 @@ export type Database = {
           },
         ]
       }
+      service_provider_access: {
+        Row: {
+          access_code: string
+          created_at: string | null
+          email: string
+          id: string
+          is_active: boolean | null
+          last_login: string | null
+          password_hash: string
+          permissions: Json | null
+          provider_id: string | null
+        }
+        Insert: {
+          access_code: string
+          created_at?: string | null
+          email: string
+          id?: string
+          is_active?: boolean | null
+          last_login?: string | null
+          password_hash: string
+          permissions?: Json | null
+          provider_id?: string | null
+        }
+        Update: {
+          access_code?: string
+          created_at?: string | null
+          email?: string
+          id?: string
+          is_active?: boolean | null
+          last_login?: string | null
+          password_hash?: string
+          permissions?: Json | null
+          provider_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "service_provider_access_provider_id_fkey"
+            columns: ["provider_id"]
+            isOneToOne: false
+            referencedRelation: "service_providers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       service_providers: {
         Row: {
           active: boolean | null
+          address: string | null
+          cpf_cnpj: string | null
           created_at: string | null
           email: string
+          has_system_access: boolean | null
+          hourly_rate: number | null
           id: string
           name: string
           payment_method: Database["public"]["Enums"]["payment_method"]
           phone: string
           service: string
+          specialties: string[] | null
           updated_at: string | null
         }
         Insert: {
           active?: boolean | null
+          address?: string | null
+          cpf_cnpj?: string | null
           created_at?: string | null
           email: string
+          has_system_access?: boolean | null
+          hourly_rate?: number | null
           id?: string
           name: string
           payment_method: Database["public"]["Enums"]["payment_method"]
           phone: string
           service: string
+          specialties?: string[] | null
           updated_at?: string | null
         }
         Update: {
           active?: boolean | null
+          address?: string | null
+          cpf_cnpj?: string | null
           created_at?: string | null
           email?: string
+          has_system_access?: boolean | null
+          hourly_rate?: number | null
           id?: string
           name?: string
           payment_method?: Database["public"]["Enums"]["payment_method"]
           phone?: string
           service?: string
+          specialties?: string[] | null
           updated_at?: string | null
         }
         Relationships: []

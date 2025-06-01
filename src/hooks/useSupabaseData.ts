@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
@@ -468,6 +467,97 @@ export const useSupabaseData = () => {
     }
   };
 
+  // Função para inserir prestador com acesso
+  const insertServiceProviderWithAccess = async (provider: {
+    name: string;
+    email: string;
+    phone: string;
+    service: string;
+    payment_method: string;
+    cpf_cnpj?: string;
+    address?: string;
+    specialties?: string[];
+    hourly_rate?: number;
+  }, accessData?: {
+    access_email: string;
+    password: string;
+    permissions: any;
+  }) => {
+    try {
+      console.log('Inserindo prestador com acesso:', { provider, accessData });
+
+      // Primeiro inserir o prestador
+      const { data: providerData, error: providerError } = await supabase
+        .from('service_providers')
+        .insert({
+          ...provider,
+          has_system_access: !!accessData,
+          active: true
+        })
+        .select()
+        .single();
+
+      if (providerError) {
+        console.error('Erro SQL ao inserir prestador:', providerError);
+        throw providerError;
+      }
+
+      // Se há dados de acesso, criar o acesso
+      if (accessData && providerData) {
+        const accessCode = Math.random().toString(36).substr(2, 12).toUpperCase();
+        
+        const { data: accessResult, error: accessError } = await supabase
+          .from('service_provider_access')
+          .insert({
+            provider_id: providerData.id,
+            email: accessData.access_email,
+            password_hash: btoa(accessData.password), // Em produção, usar hash apropriado
+            access_code: accessCode,
+            permissions: accessData.permissions,
+            is_active: true
+          })
+          .select()
+          .single();
+
+        if (accessError) {
+          console.error('Erro ao criar acesso:', accessError);
+          // Em caso de erro, remover o prestador criado
+          await supabase.from('service_providers').delete().eq('id', providerData.id);
+          throw accessError;
+        }
+
+        console.log('Prestador e acesso criados com sucesso:', { providerData, accessResult });
+        return { data: { provider: providerData, access: accessResult }, error: null };
+      }
+
+      console.log('Prestador criado com sucesso:', providerData);
+      return { data: { provider: providerData }, error: null };
+    } catch (err) {
+      console.error('Erro ao inserir prestador:', err);
+      return { data: null, error: err instanceof Error ? err.message : 'Erro desconhecido' };
+    }
+  };
+
+  // Função para buscar acessos de prestadores
+  const fetchProviderAccess = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('service_provider_access')
+        .select(`
+          *,
+          service_providers:provider_id(name, email, phone, service)
+        `)
+        .eq('is_active', true)
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+      return data || [];
+    } catch (err) {
+      console.error('Erro ao buscar acessos de prestadores:', err);
+      return [];
+    }
+  };
+
   return {
     loading,
     error,
@@ -487,6 +577,8 @@ export const useSupabaseData = () => {
     insertMission,
     updateMission,
     insertClient,
-    insertServiceProvider
+    insertServiceProvider,
+    insertServiceProviderWithAccess,
+    fetchProviderAccess
   };
 };
