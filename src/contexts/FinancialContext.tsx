@@ -251,6 +251,15 @@ export const FinancialProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     console.log('Transaction added to financial system:', newTransaction);
   };
 
+  const addPayment = (paymentData: Omit<Payment, 'id'>) => {
+    const newPayment: Payment = {
+      ...paymentData,
+      id: Date.now().toString() + Math.random().toString(36).substr(2, 9),
+    };
+    setPayments(prev => [newPayment, ...prev]);
+    console.log('Payment added to financial system:', newPayment);
+  };
+
   const addExpense = (expenseData: Omit<Expense, 'id'>) => {
     const newExpense: Expense = {
       ...expenseData,

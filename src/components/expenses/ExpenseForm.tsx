@@ -1,4 +1,3 @@
-
 import { useState } from 'react';
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -108,7 +107,8 @@ export const ExpenseForm = ({ onExpenseSubmitted }: ExpenseFormProps) => {
         amount: amount,
         date: formData.date,
         isAdvanced: formData.isAdvanced,
-        status: 'pending' as const
+        status: 'pending' as const,
+        submittedAt: new Date().toISOString()
       };
       
       // Adicionar despesa ao contexto financeiro
