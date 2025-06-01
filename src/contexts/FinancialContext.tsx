@@ -1,3 +1,4 @@
+
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { useSupabaseData } from '@/hooks/useSupabaseData';
 import { useAccounts } from '@/hooks/useAccounts';
@@ -52,7 +53,7 @@ interface FinancialProviderProps {
 
 export const FinancialProvider = ({ children }: FinancialProviderProps) => {
   const supabaseData = useSupabaseData();
-  const { getAccountSummary, loading: accountsLoading } = useAccounts();
+  const { getAccountSummary, loading: accountsLoading, refreshAccounts } = useAccounts();
   const [data, setData] = useState<FinancialData>({
     transactions: [],
     expenses: [],
@@ -88,26 +89,26 @@ export const FinancialProvider = ({ children }: FinancialProviderProps) => {
     // Calcular receitas e despesas do mês
     const monthlyIncome = recentTransactions
       .filter(t => t.type === 'income' && t.status === 'completed')
-      .reduce((sum, t) => sum + t.amount, 0);
+      .reduce((sum, t) => sum + (parseFloat(t.amount) || 0), 0);
 
     const monthlyExpenses = recentTransactions
       .filter(t => t.type === 'expense' && t.status === 'completed')
-      .reduce((sum, t) => sum + t.amount, 0);
+      .reduce((sum, t) => sum + (parseFloat(t.amount) || 0), 0);
 
     // Calcular pagamentos e despesas pendentes
     const pendingPayments = payments
       .filter(p => p.status === 'pending')
-      .reduce((sum, p) => sum + p.amount, 0);
+      .reduce((sum, p) => sum + (parseFloat(p.amount) || 0), 0);
 
     const pendingExpenses = expenses
       .filter(e => e.status === 'pending')
-      .reduce((sum, e) => sum + e.amount, 0);
+      .reduce((sum, e) => sum + (parseFloat(e.amount) || 0), 0);
 
     const approvedExpenses = expenses
       .filter(e => e.status === 'approved')
-      .reduce((sum, e) => sum + e.amount, 0);
+      .reduce((sum, e) => sum + (parseFloat(e.amount) || 0), 0);
 
-    // Dados das contas
+    // Dados das contas - agora vem do hook useAccounts com dados reais
     const bankBalance = accountSummary.totalBankBalance || 0;
     const creditAvailable = accountSummary.totalCreditAvailable || 0;
     const creditUsed = accountSummary.totalCreditUsed || 0;
@@ -119,9 +120,48 @@ export const FinancialProvider = ({ children }: FinancialProviderProps) => {
     const totalBalance = bankBalance - creditUsed;
 
     return {
-      transactions,
-      expenses,
-      payments,
+      transactions: transactions.map(t => ({
+        id: t.id,
+        type: t.type,
+        category: t.category,
+        amount: parseFloat(t.amount) || 0,
+        description: t.description,
+        date: t.date,
+        method: t.method,
+        status: t.status,
+        userId: t.user_id,
+        userName: t.user_name,
+        receipt: t.receipt,
+        tags: t.tags,
+        missionId: t.mission_id
+      })),
+      expenses: expenses.map(e => ({
+        id: e.id,
+        missionId: e.mission_id,
+        employeeName: e.employee_name,
+        category: e.category,
+        description: e.description,
+        amount: parseFloat(e.amount) || 0,
+        date: e.date,
+        isAdvanced: e.is_advanced,
+        status: e.status,
+        accommodationDetails: e.accommodation_details
+      })),
+      payments: payments.map(p => ({
+        id: p.id,
+        providerId: p.provider_id,
+        providerName: p.provider_name,
+        amount: parseFloat(p.amount) || 0,
+        dueDate: p.due_date,
+        paymentDate: p.payment_date,
+        status: p.status,
+        type: p.type,
+        description: p.description,
+        installments: p.installments,
+        currentInstallment: p.current_installment,
+        tags: p.tags,
+        notes: p.notes
+      })),
       totalBalance,
       monthlyIncome,
       monthlyExpenses,
@@ -139,6 +179,9 @@ export const FinancialProvider = ({ children }: FinancialProviderProps) => {
     try {
       setLoading(true);
       setError(null);
+
+      // Primeiro atualizar as contas para ter dados atualizados
+      await refreshAccounts();
 
       const [transactions, expenses, payments] = await Promise.all([
         supabaseData.fetchTransactions(),
@@ -171,13 +214,10 @@ export const FinancialProvider = ({ children }: FinancialProviderProps) => {
       .slice(0, limit);
   };
 
-  // Função para obter projeções de fluxo de caixa
   const getCashFlowProjections = () => {
-    // Implementação básica de projeções
     return [];
   };
 
-  // Função para adicionar transação
   const addTransaction = async (transaction: any) => {
     try {
       const result = await supabaseData.insertTransaction(transaction);
@@ -191,7 +231,6 @@ export const FinancialProvider = ({ children }: FinancialProviderProps) => {
     }
   };
 
-  // Função para adicionar pagamento
   const addPayment = async (payment: any) => {
     try {
       const result = await supabaseData.insertPayment(payment);
@@ -205,7 +244,6 @@ export const FinancialProvider = ({ children }: FinancialProviderProps) => {
     }
   };
 
-  // Função para atualizar pagamento
   const updatePayment = async (paymentId: string, updates: any) => {
     try {
       const result = await supabaseData.updatePayment(paymentId, updates);
@@ -219,17 +257,14 @@ export const FinancialProvider = ({ children }: FinancialProviderProps) => {
     }
   };
 
-  // Função para atualizar status do pagamento
   const updatePaymentStatus = async (paymentId: string, status: string) => {
     return updatePayment(paymentId, { status });
   };
 
-  // Função para processar pagamento
   const processPayment = async (paymentId: string) => {
     return updatePaymentStatus(paymentId, 'completed');
   };
 
-  // Função para atualizar status da despesa
   const updateExpenseStatus = async (expenseId: string, status: 'pending' | 'approved' | 'reimbursed') => {
     try {
       const result = await supabaseData.updateExpenseStatus(expenseId, status);
@@ -243,12 +278,10 @@ export const FinancialProvider = ({ children }: FinancialProviderProps) => {
     }
   };
 
-  // Função para aprovar despesa
   const processExpenseApproval = async (expenseId: string) => {
     return updateExpenseStatus(expenseId, 'approved');
   };
 
-  // Função para reembolsar despesa
   const processExpenseReimbursement = async (expenseId: string) => {
     return updateExpenseStatus(expenseId, 'reimbursed');
   };

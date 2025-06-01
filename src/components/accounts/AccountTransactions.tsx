@@ -1,40 +1,72 @@
 
+import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { ArrowUpDown, Filter, Download } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { ArrowUpDown, Filter, Download, Search } from "lucide-react";
+import { useSupabaseData } from '@/hooks/useSupabaseData';
+import { useAuth } from '@/contexts/AuthContext';
+
+interface AccountTransaction {
+  id: string;
+  date: string;
+  description: string;
+  type: 'income' | 'expense' | 'transfer';
+  amount: number;
+  account: string;
+  category: string;
+  status: string;
+  account_type?: string;
+}
 
 export const AccountTransactions = () => {
-  // Dados mockados para demonstração
-  const mockTransactions = [
-    {
-      id: '1',
-      date: '2024-02-01',
-      description: 'Recebimento Cliente ABC',
-      type: 'income',
-      amount: 15000.00,
-      account: 'Conta Corrente Empresa',
-      category: 'Vendas'
-    },
-    {
-      id: '2',
-      date: '2024-01-30',
-      description: 'Pagamento Fornecedor XYZ',
-      type: 'expense',
-      amount: -5000.00,
-      account: 'Cartão Empresarial',
-      category: 'Materiais'
-    },
-    {
-      id: '3',
-      date: '2024-01-28',
-      description: 'Transferência entre contas',
-      type: 'transfer',
-      amount: 10000.00,
-      account: 'Conta Poupança → Conta Corrente',
-      category: 'Transferência'
+  const { user } = useAuth();
+  const supabaseData = useSupabaseData();
+  const [transactions, setTransactions] = useState<AccountTransaction[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [searchTerm, setSearchTerm] = useState('');
+
+  useEffect(() => {
+    loadTransactions();
+  }, [user]);
+
+  const loadTransactions = async () => {
+    if (!user) return;
+    
+    try {
+      setLoading(true);
+      const data = await supabaseData.fetchTransactions();
+      
+      // Filtrar apenas transações que têm account_id (movimentações de contas)
+      const accountTransactions = data
+        .filter(t => t.account_id)
+        .map(t => ({
+          id: t.id,
+          date: t.date,
+          description: t.description,
+          type: t.type as 'income' | 'expense' | 'transfer',
+          amount: t.amount,
+          account: `${t.account_type === 'credit_card' ? 'Cartão' : 'Conta'} - ID: ${t.account_id?.slice(-8)}`,
+          category: t.category,
+          status: t.status,
+          account_type: t.account_type
+        }));
+      
+      setTransactions(accountTransactions);
+    } catch (error) {
+      console.error('Erro ao carregar transações de contas:', error);
+    } finally {
+      setLoading(false);
     }
-  ];
+  };
+
+  const filteredTransactions = transactions.filter(transaction =>
+    !searchTerm || 
+    transaction.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    transaction.account.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    transaction.category.toLowerCase().includes(searchTerm.toLowerCase())
+  );
 
   const getTypeColor = (type: string) => {
     const colors = {
@@ -54,28 +86,71 @@ export const AccountTransactions = () => {
     return labels[type as keyof typeof labels] || type;
   };
 
+  const getCategoryLabel = (category: string) => {
+    const labels = {
+      client_payment: 'Cliente',
+      fuel: 'Combustível',
+      accommodation: 'Hospedagem',
+      meals: 'Alimentação',
+      materials: 'Materiais',
+      service_payment: 'Serviços',
+      maintenance: 'Manutenção',
+      office_expense: 'Escritório',
+      other: 'Outros'
+    };
+    return labels[category as keyof typeof labels] || category;
+  };
+
+  const formatCurrency = (amount: number) => {
+    return amount.toLocaleString('pt-BR', {
+      style: 'currency',
+      currency: 'BRL'
+    });
+  };
+
+  if (loading) {
+    return (
+      <Card>
+        <CardContent className="text-center py-12">
+          <p className="text-slate-600">Carregando movimentações...</p>
+        </CardContent>
+      </Card>
+    );
+  }
+
   return (
     <div className="space-y-6">
       {/* Filtros e Ações */}
       <Card>
         <CardHeader>
-          <div className="flex justify-between items-center">
+          <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
             <CardTitle className="text-lg text-slate-800">
-              Movimentações das Contas
+              Movimentações das Contas ({filteredTransactions.length})
             </CardTitle>
-            <div className="flex gap-2">
-              <Button variant="outline" size="sm">
-                <Filter className="w-4 h-4 mr-2" />
-                Filtros
-              </Button>
-              <Button variant="outline" size="sm">
-                <ArrowUpDown className="w-4 h-4 mr-2" />
-                Ordenar
-              </Button>
-              <Button variant="outline" size="sm">
-                <Download className="w-4 h-4 mr-2" />
-                Exportar
-              </Button>
+            <div className="flex flex-col md:flex-row gap-2 w-full md:w-auto">
+              <div className="relative flex-1 md:w-64">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+                <Input
+                  placeholder="Buscar movimentações..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="pl-10"
+                />
+              </div>
+              <div className="flex gap-2">
+                <Button variant="outline" size="sm">
+                  <Filter className="w-4 h-4 mr-2" />
+                  Filtros
+                </Button>
+                <Button variant="outline" size="sm">
+                  <ArrowUpDown className="w-4 h-4 mr-2" />
+                  Ordenar
+                </Button>
+                <Button variant="outline" size="sm">
+                  <Download className="w-4 h-4 mr-2" />
+                  Exportar
+                </Button>
+              </div>
             </div>
           </div>
         </CardHeader>
@@ -85,49 +160,60 @@ export const AccountTransactions = () => {
       <Card>
         <CardContent className="p-0">
           <div className="divide-y">
-            {mockTransactions.map((transaction) => (
-              <div key={transaction.id} className="p-6 hover:bg-slate-50 transition-colors">
-                <div className="flex justify-between items-start">
-                  <div className="flex-1">
-                    <div className="flex items-center gap-3 mb-2">
-                      <Badge className={getTypeColor(transaction.type)}>
-                        {getTypeLabel(transaction.type)}
-                      </Badge>
-                      <span className="text-sm text-slate-600">
-                        {new Date(transaction.date).toLocaleDateString('pt-BR')}
-                      </span>
+            {filteredTransactions.length > 0 ? (
+              filteredTransactions.map((transaction) => (
+                <div key={transaction.id} className="p-6 hover:bg-slate-50 transition-colors">
+                  <div className="flex justify-between items-start">
+                    <div className="flex-1">
+                      <div className="flex items-center gap-3 mb-2">
+                        <Badge className={getTypeColor(transaction.type)}>
+                          {getTypeLabel(transaction.type)}
+                        </Badge>
+                        <Badge variant="outline">
+                          {getCategoryLabel(transaction.category)}
+                        </Badge>
+                        <span className="text-sm text-slate-600">
+                          {new Date(transaction.date).toLocaleDateString('pt-BR')}
+                        </span>
+                      </div>
+                      
+                      <h4 className="font-semibold text-slate-800 mb-1">
+                        {transaction.description}
+                      </h4>
+                      
+                      <div className="flex items-center gap-4 text-sm text-slate-600">
+                        <span>Conta: {transaction.account}</span>
+                        <span>Status: {transaction.status}</span>
+                      </div>
                     </div>
                     
-                    <h4 className="font-semibold text-slate-800 mb-1">
-                      {transaction.description}
-                    </h4>
-                    
-                    <div className="flex items-center gap-4 text-sm text-slate-600">
-                      <span>Conta: {transaction.account}</span>
-                      <span>Categoria: {transaction.category}</span>
-                    </div>
-                  </div>
-                  
-                  <div className="text-right">
-                    <div className={`text-lg font-bold ${
-                      transaction.amount >= 0 ? 'text-green-600' : 'text-red-600'
-                    }`}>
-                      {transaction.amount >= 0 ? '+' : ''}R$ {Math.abs(transaction.amount).toLocaleString('pt-BR')}
+                    <div className="text-right">
+                      <div className={`text-lg font-bold ${
+                        transaction.type === 'income' ? 'text-green-600' : 'text-red-600'
+                      }`}>
+                        {transaction.type === 'income' ? '+' : '-'}{formatCurrency(Math.abs(transaction.amount))}
+                      </div>
                     </div>
                   </div>
                 </div>
+              ))
+            ) : (
+              <div className="text-center py-12">
+                <p className="text-slate-600 mb-2">
+                  {transactions.length === 0 
+                    ? 'Nenhuma movimentação encontrada'
+                    : 'Nenhuma movimentação corresponde aos filtros aplicados'
+                  }
+                </p>
+                <p className="text-sm text-slate-500">
+                  {transactions.length === 0 
+                    ? 'As movimentações das suas contas aparecerão aqui conforme você registrar transações.'
+                    : 'Tente ajustar os filtros de busca.'
+                  }
+                </p>
               </div>
-            ))}
+            )}
           </div>
-          
-          {mockTransactions.length === 0 && (
-            <div className="text-center py-12">
-              <p className="text-slate-600 mb-2">Nenhuma movimentação encontrada</p>
-              <p className="text-sm text-slate-500">
-                As movimentações das suas contas aparecerão aqui.
-              </p>
-            </div>
-          )}
         </CardContent>
       </Card>
     </div>

@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { useSupabaseData } from './useSupabaseData';
 import { BankAccount, CreditCard, AccountTransaction, AccountSummary } from '@/types/account';
@@ -25,7 +24,20 @@ export const useAccounts = () => {
         .order('created_at', { ascending: false });
 
       if (error) throw error;
-      return data || [];
+      
+      // Mapear os dados do banco para o formato esperado
+      return (data || []).map(account => ({
+        id: account.id,
+        name: account.name,
+        bank: account.bank,
+        accountType: account.account_type,
+        accountNumber: account.account_number,
+        agency: account.agency,
+        balance: parseFloat(account.balance?.toString() || '0'),
+        isActive: account.is_active,
+        createdAt: account.created_at,
+        updatedAt: account.updated_at
+      }));
     } catch (err) {
       console.error('Erro ao buscar contas bancárias:', err);
       throw err;
@@ -43,7 +55,23 @@ export const useAccounts = () => {
         .order('created_at', { ascending: false });
 
       if (error) throw error;
-      return data || [];
+      
+      // Mapear os dados do banco para o formato esperado
+      return (data || []).map(card => ({
+        id: card.id,
+        name: card.name,
+        bank: card.bank,
+        cardNumber: card.card_number,
+        brand: card.brand,
+        limit: parseFloat(card.credit_limit?.toString() || '0'),
+        availableLimit: parseFloat(card.available_limit?.toString() || '0'),
+        usedLimit: parseFloat(card.used_limit?.toString() || '0'),
+        dueDate: card.due_date,
+        closingDate: card.closing_date,
+        isActive: card.is_active,
+        createdAt: card.created_at,
+        updatedAt: card.updated_at
+      }));
     } catch (err) {
       console.error('Erro ao buscar cartões de crédito:', err);
       throw err;
@@ -165,18 +193,29 @@ export const useAccounts = () => {
 
   const updateCreditCard = async (id: string, updates: Partial<CreditCard>) => {
     try {
+      const updateData: any = {
+        name: updates.name,
+        bank: updates.bank,
+        card_number: updates.cardNumber,
+        brand: updates.brand,
+        due_date: updates.dueDate,
+        closing_date: updates.closingDate,
+        is_active: updates.isActive
+      };
+
+      // Só atualizar o limite se fornecido
+      if (updates.limit !== undefined) {
+        updateData.credit_limit = updates.limit;
+        // Recalcular available_limit se o limite mudou
+        const currentCard = creditCards.find(c => c.id === id);
+        if (currentCard) {
+          updateData.available_limit = updates.limit - currentCard.usedLimit;
+        }
+      }
+
       const { error } = await supabase
         .from('credit_cards')
-        .update({
-          name: updates.name,
-          bank: updates.bank,
-          card_number: updates.cardNumber,
-          brand: updates.brand,
-          credit_limit: updates.limit,
-          due_date: updates.dueDate,
-          closing_date: updates.closingDate,
-          is_active: updates.isActive
-        })
+        .update(updateData)
         .eq('id', id);
 
       if (error) throw error;
@@ -192,19 +231,19 @@ export const useAccounts = () => {
   const getAccountSummary = (): AccountSummary => {
     const totalBankBalance = bankAccounts
       .filter(account => account.isActive)
-      .reduce((sum, account) => sum + account.balance, 0);
+      .reduce((sum, account) => sum + (account.balance || 0), 0);
 
     const totalCreditLimit = creditCards
       .filter(card => card.isActive)
-      .reduce((sum, card) => sum + card.limit, 0);
+      .reduce((sum, card) => sum + (card.limit || 0), 0);
 
     const totalCreditUsed = creditCards
       .filter(card => card.isActive)
-      .reduce((sum, card) => sum + card.usedLimit, 0);
+      .reduce((sum, card) => sum + (card.usedLimit || 0), 0);
 
     const totalCreditAvailable = creditCards
       .filter(card => card.isActive)
-      .reduce((sum, card) => sum + card.availableLimit, 0);
+      .reduce((sum, card) => sum + (card.availableLimit || 0), 0);
 
     return {
       totalBankBalance,
