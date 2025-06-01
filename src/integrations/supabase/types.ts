@@ -9,6 +9,278 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
+      companies: {
+        Row: {
+          address: string | null
+          cnpj: string
+          created_at: string | null
+          email: string
+          id: string
+          legal_name: string
+          name: string
+          owner_id: string | null
+          phone: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          address?: string | null
+          cnpj: string
+          created_at?: string | null
+          email: string
+          id?: string
+          legal_name: string
+          name: string
+          owner_id?: string | null
+          phone?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          address?: string | null
+          cnpj?: string
+          created_at?: string | null
+          email?: string
+          id?: string
+          legal_name?: string
+          name?: string
+          owner_id?: string | null
+          phone?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "companies_owner_id_fkey"
+            columns: ["owner_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      employee_access_codes: {
+        Row: {
+          code: string
+          company_id: string | null
+          created_at: string | null
+          employee_email: string
+          employee_name: string
+          expires_at: string | null
+          id: string
+          is_used: boolean | null
+          used_at: string | null
+        }
+        Insert: {
+          code: string
+          company_id?: string | null
+          created_at?: string | null
+          employee_email: string
+          employee_name: string
+          expires_at?: string | null
+          id?: string
+          is_used?: boolean | null
+          used_at?: string | null
+        }
+        Update: {
+          code?: string
+          company_id?: string | null
+          created_at?: string | null
+          employee_email?: string
+          employee_name?: string
+          expires_at?: string | null
+          id?: string
+          is_used?: boolean | null
+          used_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "employee_access_codes_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      expenses: {
+        Row: {
+          accommodation_details: Json | null
+          amount: number
+          category: string
+          created_at: string | null
+          date: string
+          description: string
+          employee_id: string | null
+          employee_name: string
+          id: string
+          is_advanced: boolean | null
+          mission_id: string | null
+          receipt: string | null
+          status: Database["public"]["Enums"]["expense_status"]
+          updated_at: string | null
+        }
+        Insert: {
+          accommodation_details?: Json | null
+          amount: number
+          category: string
+          created_at?: string | null
+          date: string
+          description: string
+          employee_id?: string | null
+          employee_name: string
+          id?: string
+          is_advanced?: boolean | null
+          mission_id?: string | null
+          receipt?: string | null
+          status?: Database["public"]["Enums"]["expense_status"]
+          updated_at?: string | null
+        }
+        Update: {
+          accommodation_details?: Json | null
+          amount?: number
+          category?: string
+          created_at?: string | null
+          date?: string
+          description?: string
+          employee_id?: string | null
+          employee_name?: string
+          id?: string
+          is_advanced?: boolean | null
+          mission_id?: string | null
+          receipt?: string | null
+          status?: Database["public"]["Enums"]["expense_status"]
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "expenses_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "expenses_mission_id_fkey"
+            columns: ["mission_id"]
+            isOneToOne: false
+            referencedRelation: "missions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      missions: {
+        Row: {
+          assigned_employees: string[] | null
+          budget: number | null
+          created_at: string | null
+          created_by: string | null
+          description: string | null
+          end_date: string | null
+          id: string
+          location: string
+          start_date: string
+          status: string
+          title: string
+          updated_at: string | null
+        }
+        Insert: {
+          assigned_employees?: string[] | null
+          budget?: number | null
+          created_at?: string | null
+          created_by?: string | null
+          description?: string | null
+          end_date?: string | null
+          id?: string
+          location: string
+          start_date: string
+          status?: string
+          title: string
+          updated_at?: string | null
+        }
+        Update: {
+          assigned_employees?: string[] | null
+          budget?: number | null
+          created_at?: string | null
+          created_by?: string | null
+          description?: string | null
+          end_date?: string | null
+          id?: string
+          location?: string
+          start_date?: string
+          status?: string
+          title?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "missions_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      payments: {
+        Row: {
+          amount: number
+          created_at: string | null
+          current_installment: number | null
+          description: string
+          due_date: string
+          id: string
+          installments: number | null
+          notes: string | null
+          payment_date: string | null
+          provider_id: string | null
+          provider_name: string
+          status: Database["public"]["Enums"]["payment_status"]
+          tags: string[] | null
+          type: Database["public"]["Enums"]["payment_type"]
+          updated_at: string | null
+        }
+        Insert: {
+          amount: number
+          created_at?: string | null
+          current_installment?: number | null
+          description: string
+          due_date: string
+          id?: string
+          installments?: number | null
+          notes?: string | null
+          payment_date?: string | null
+          provider_id?: string | null
+          provider_name: string
+          status?: Database["public"]["Enums"]["payment_status"]
+          tags?: string[] | null
+          type?: Database["public"]["Enums"]["payment_type"]
+          updated_at?: string | null
+        }
+        Update: {
+          amount?: number
+          created_at?: string | null
+          current_installment?: number | null
+          description?: string
+          due_date?: string
+          id?: string
+          installments?: number | null
+          notes?: string | null
+          payment_date?: string | null
+          provider_id?: string | null
+          provider_name?: string
+          status?: Database["public"]["Enums"]["payment_status"]
+          tags?: string[] | null
+          type?: Database["public"]["Enums"]["payment_type"]
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "payments_provider_id_fkey"
+            columns: ["provider_id"]
+            isOneToOne: false
+            referencedRelation: "service_providers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       profiles: {
         Row: {
           active: boolean
@@ -39,12 +311,113 @@ export type Database = {
         }
         Relationships: []
       }
+      service_providers: {
+        Row: {
+          active: boolean | null
+          created_at: string | null
+          email: string
+          id: string
+          name: string
+          payment_method: Database["public"]["Enums"]["payment_method"]
+          phone: string
+          service: string
+          updated_at: string | null
+        }
+        Insert: {
+          active?: boolean | null
+          created_at?: string | null
+          email: string
+          id?: string
+          name: string
+          payment_method: Database["public"]["Enums"]["payment_method"]
+          phone: string
+          service: string
+          updated_at?: string | null
+        }
+        Update: {
+          active?: boolean | null
+          created_at?: string | null
+          email?: string
+          id?: string
+          name?: string
+          payment_method?: Database["public"]["Enums"]["payment_method"]
+          phone?: string
+          service?: string
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
+      transactions: {
+        Row: {
+          amount: number
+          category: Database["public"]["Enums"]["transaction_category"]
+          created_at: string | null
+          date: string
+          description: string
+          id: string
+          method: Database["public"]["Enums"]["payment_method"]
+          mission_id: string | null
+          receipt: string | null
+          status: Database["public"]["Enums"]["transaction_status"]
+          tags: string[] | null
+          type: string
+          updated_at: string | null
+          user_id: string | null
+          user_name: string
+        }
+        Insert: {
+          amount: number
+          category: Database["public"]["Enums"]["transaction_category"]
+          created_at?: string | null
+          date: string
+          description: string
+          id?: string
+          method: Database["public"]["Enums"]["payment_method"]
+          mission_id?: string | null
+          receipt?: string | null
+          status?: Database["public"]["Enums"]["transaction_status"]
+          tags?: string[] | null
+          type: string
+          updated_at?: string | null
+          user_id?: string | null
+          user_name: string
+        }
+        Update: {
+          amount?: number
+          category?: Database["public"]["Enums"]["transaction_category"]
+          created_at?: string | null
+          date?: string
+          description?: string
+          id?: string
+          method?: Database["public"]["Enums"]["payment_method"]
+          mission_id?: string | null
+          receipt?: string | null
+          status?: Database["public"]["Enums"]["transaction_status"]
+          tags?: string[] | null
+          type?: string
+          updated_at?: string | null
+          user_id?: string | null
+          user_name?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "transactions_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      get_current_user_role: {
+        Args: Record<PropertyKey, never>
+        Returns: string
+      }
     }
     Enums: {
       expense_status: "pending" | "approved" | "reimbursed"
