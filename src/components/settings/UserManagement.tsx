@@ -7,9 +7,10 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Users, Plus, Key, Copy, Eye, EyeOff, Trash2, UserPlus } from "lucide-react";
+import { Users, Plus, Key, Copy, Eye, EyeOff, Trash2, UserPlus, CheckCircle, Clock, AlertCircle } from "lucide-react";
 import { useEmployeeManagement } from "@/hooks/useEmployeeManagement";
 import { useAuth } from "@/contexts/AuthContext";
+import { formatDateForDisplay } from "@/utils/dateUtils";
 
 export const UserManagement = () => {
   const { profile } = useAuth();
@@ -45,6 +46,36 @@ export const UserManagement = () => {
     if (window.confirm(`Tem certeza que deseja desativar ${employeeName}?`)) {
       await deactivateEmployee(employeeId);
     }
+  };
+
+  const getCodeStatusBadge = (code: any) => {
+    if (code.isUsed) {
+      return (
+        <Badge variant="secondary" className="bg-green-100 text-green-800">
+          <CheckCircle className="w-3 h-3 mr-1" />
+          Usado
+        </Badge>
+      );
+    }
+    
+    const now = new Date();
+    const expiresAt = new Date(code.expires_at);
+    
+    if (expiresAt < now) {
+      return (
+        <Badge variant="destructive">
+          <AlertCircle className="w-3 h-3 mr-1" />
+          Expirado
+        </Badge>
+      );
+    }
+    
+    return (
+      <Badge variant="default" className="bg-blue-100 text-blue-800">
+        <Clock className="w-3 h-3 mr-1" />
+        Pendente
+      </Badge>
+    );
   };
 
   if (loading) {
@@ -99,6 +130,15 @@ export const UserManagement = () => {
                   <DialogTitle>Criar Código de Acesso</DialogTitle>
                 </DialogHeader>
                 <div className="space-y-4">
+                  <div className="bg-blue-50 p-4 rounded-lg border">
+                    <h4 className="font-medium text-blue-900 mb-2">Como funciona:</h4>
+                    <ol className="text-sm text-blue-800 space-y-1 list-decimal list-inside">
+                      <li>Crie um código para o novo funcionário</li>
+                      <li>O funcionário deve se cadastrar no sistema normalmente</li>
+                      <li>Após o cadastro, ele usará o código para se vincular à empresa</li>
+                      <li>O código expira em 7 dias se não for usado</li>
+                    </ol>
+                  </div>
                   <div>
                     <Label htmlFor="employeeName">Nome do Funcionário</Label>
                     <Input
@@ -149,7 +189,10 @@ export const UserManagement = () => {
           {employees.length === 0 ? (
             <div className="text-center py-8">
               <Users className="h-12 w-12 text-slate-400 mx-auto mb-4" />
-              <p className="text-slate-600">Nenhum funcionário encontrado.</p>
+              <p className="text-slate-600 mb-2">Nenhum funcionário encontrado.</p>
+              <p className="text-sm text-slate-400">
+                Crie códigos de acesso para convidar funcionários para sua empresa.
+              </p>
             </div>
           ) : (
             <Table>
@@ -160,6 +203,7 @@ export const UserManagement = () => {
                   <TableHead>Telefone</TableHead>
                   <TableHead>Função</TableHead>
                   <TableHead>Status</TableHead>
+                  <TableHead>Cadastrado em</TableHead>
                   <TableHead>Ações</TableHead>
                 </TableRow>
               </TableHeader>
@@ -171,13 +215,16 @@ export const UserManagement = () => {
                     <TableCell>{employee.phone || '-'}</TableCell>
                     <TableCell>
                       <Badge variant={employee.role === 'admin' ? "default" : "secondary"}>
-                        {employee.role === 'admin' ? 'Admin' : 'Usuário'}
+                        {employee.role === 'admin' ? 'Admin' : 'Funcionário'}
                       </Badge>
                     </TableCell>
                     <TableCell>
                       <Badge variant={employee.active ? "default" : "secondary"}>
                         {employee.active ? "Ativo" : "Inativo"}
                       </Badge>
+                    </TableCell>
+                    <TableCell>
+                      {formatDateForDisplay(employee.created_at.split('T')[0])}
                     </TableCell>
                     <TableCell>
                       {employee.role !== 'admin' && (
@@ -222,8 +269,8 @@ export const UserManagement = () => {
                 <h4 className="font-medium text-blue-900 mb-2">Como usar os códigos de acesso:</h4>
                 <ol className="text-sm text-blue-800 space-y-1 list-decimal list-inside">
                   <li>Compartilhe o código com o novo funcionário</li>
-                  <li>O funcionário deve acessar o sistema e usar o código na tela de login</li>
-                  <li>Após o primeiro uso, o código será invalidado automaticamente</li>
+                  <li>O funcionário deve criar uma conta no sistema primeiro</li>
+                  <li>Após o cadastro, uma tela aparecerá solicitando o código de acesso</li>
                   <li>Códigos não utilizados expiram em 7 dias</li>
                 </ol>
               </div>
@@ -249,17 +296,19 @@ export const UserManagement = () => {
                   <TableBody>
                     {accessCodes.map((code) => (
                       <TableRow key={code.id}>
-                        <TableCell className="font-mono text-sm">{code.code}</TableCell>
+                        <TableCell className="font-mono text-sm bg-slate-50 rounded px-2 py-1">
+                          {code.code}
+                        </TableCell>
                         <TableCell>{code.employeeName}</TableCell>
                         <TableCell>{code.employeeEmail}</TableCell>
                         <TableCell>
-                          <Badge variant={code.isUsed ? "secondary" : "default"}>
-                            {code.isUsed ? "Usado" : "Pendente"}
-                          </Badge>
+                          {getCodeStatusBadge(code)}
                         </TableCell>
-                        <TableCell>{new Date(code.createdAt).toLocaleDateString('pt-BR')}</TableCell>
                         <TableCell>
-                          {code.expires_at ? new Date(code.expires_at).toLocaleDateString('pt-BR') : '-'}
+                          {formatDateForDisplay(code.createdAt.split('T')[0])}
+                        </TableCell>
+                        <TableCell>
+                          {code.expires_at ? formatDateForDisplay(code.expires_at.split('T')[0]) : '-'}
                         </TableCell>
                         <TableCell>
                           <Button
@@ -267,6 +316,7 @@ export const UserManagement = () => {
                             size="sm"
                             onClick={() => copyToClipboard(code.code)}
                             disabled={code.isUsed}
+                            className="h-8 w-8 p-0"
                           >
                             <Copy className="w-4 h-4" />
                           </Button>

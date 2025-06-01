@@ -1,27 +1,35 @@
 
-import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import React, { createContext, useContext, useEffect, useState } from 'react';
 import { User, Session } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
 import { Profile } from '@/types/database';
 
 interface AuthContextType {
   user: User | null;
-  profile: Profile | null;
   session: Session | null;
+  profile: Profile | null;
   loading: boolean;
-  signUp: (email: string, password: string, name: string) => Promise<{ error: any }>;
-  signIn: (email: string, password: string) => Promise<{ error: any }>;
+  needsAccessCode: boolean;
   signOut: () => Promise<void>;
-  isAuthenticated: boolean;
+  refreshProfile: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-export const AuthProvider = ({ children }: { children: ReactNode }) => {
+export const useAuth = () => {
+  const context = useContext(AuthContext);
+  if (context === undefined) {
+    throw new Error('useAuth must be used within an AuthProvider');
+  }
+  return context;
+};
+
+export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [user, setUser] = useState<User | null>(null);
-  const [profile, setProfile] = useState<Profile | null>(null);
   const [session, setSession] = useState<Session | null>(null);
+  const [profile, setProfile] = useState<Profile | null>(null);
   const [loading, setLoading] = useState(true);
+  const [needsAccessCode, setNeedsAccessCode] = useState(false);
 
   const fetchProfile = async (userId: string) => {
     try {
@@ -37,9 +45,30 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       }
 
       return data;
-    } catch (error) {
-      console.error('Erro ao buscar perfil:', error);
+    } catch (err) {
+      console.error('Erro inesperado ao buscar perfil:', err);
       return null;
+    }
+  };
+
+  const refreshProfile = async () => {
+    if (user) {
+      const profileData = await fetchProfile(user.id);
+      setProfile(profileData);
+      
+      // Verificar se usuário precisa de código de acesso
+      // Se é um usuário comum (não admin) e não tem company_id
+      const needsCode = profileData && 
+                       profileData.role === 'user' && 
+                       !profileData.company_id;
+      setNeedsAccessCode(!!needsCode);
+    }
+  };
+
+  const signOut = async () => {
+    const { error } = await supabase.auth.signOut();
+    if (error) {
+      console.error('Erro ao fazer logout:', error);
     }
   };
 
@@ -47,33 +76,45 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     // Set up auth state listener
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
-        console.log('Auth state changed:', event, session);
+        console.log('Auth state changed:', event, session?.user?.email);
+        
         setSession(session);
         setUser(session?.user ?? null);
         
         if (session?.user) {
-          // Fetch user profile when authenticated
+          // Fetch profile after authentication
           setTimeout(async () => {
-            const userProfile = await fetchProfile(session.user.id);
-            setProfile(userProfile);
+            const profileData = await fetchProfile(session.user.id);
+            setProfile(profileData);
+            
+            // Verificar se usuário precisa de código de acesso
+            const needsCode = profileData && 
+                             profileData.role === 'user' && 
+                             !profileData.company_id;
+            setNeedsAccessCode(!!needsCode);
             setLoading(false);
           }, 0);
         } else {
           setProfile(null);
+          setNeedsAccessCode(false);
           setLoading(false);
         }
       }
     );
 
-    // Check for existing session
+    // Check for existing session on mount
     supabase.auth.getSession().then(({ data: { session } }) => {
-      console.log('Initial session:', session);
-      setSession(session);
-      setUser(session?.user ?? null);
-      
-      if (session?.user) {
-        fetchProfile(session.user.id).then((userProfile) => {
-          setProfile(userProfile);
+      if (session) {
+        setSession(session);
+        setUser(session.user);
+        
+        fetchProfile(session.user.id).then(profileData => {
+          setProfile(profileData);
+          
+          const needsCode = profileData && 
+                           profileData.role === 'user' && 
+                           !profileData.company_id;
+          setNeedsAccessCode(!!needsCode);
           setLoading(false);
         });
       } else {
@@ -84,67 +125,19 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     return () => subscription.unsubscribe();
   }, []);
 
-  const signUp = async (email: string, password: string, name: string) => {
-    try {
-      const { error } = await supabase.auth.signUp({
-        email,
-        password,
-        options: {
-          data: { name },
-          emailRedirectTo: `${window.location.origin}/`
-        }
-      });
-
-      return { error };
-    } catch (error) {
-      return { error };
-    }
-  };
-
-  const signIn = async (email: string, password: string) => {
-    try {
-      const { error } = await supabase.auth.signInWithPassword({
-        email,
-        password
-      });
-
-      return { error };
-    } catch (error) {
-      return { error };
-    }
-  };
-
-  const signOut = async () => {
-    await supabase.auth.signOut();
-    setUser(null);
-    setProfile(null);
-    setSession(null);
-  };
-
   const value = {
     user,
-    profile,
     session,
+    profile,
     loading,
-    signUp,
-    signIn,
+    needsAccessCode,
     signOut,
-    isAuthenticated: !!user
+    refreshProfile
   };
-
-  console.log('AuthProvider rendering with:', { user: !!user, profile: !!profile, loading, isAuthenticated: !!user });
 
   return (
     <AuthContext.Provider value={value}>
       {children}
     </AuthContext.Provider>
   );
-};
-
-export const useAuth = () => {
-  const context = useContext(AuthContext);
-  if (!context) {
-    throw new Error('useAuth must be used within an AuthProvider');
-  }
-  return context;
 };
