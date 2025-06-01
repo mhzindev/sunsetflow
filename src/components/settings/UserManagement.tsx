@@ -1,4 +1,3 @@
-
 import { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -82,7 +81,6 @@ export const UserManagement = () => {
 
     const newCode = generateAccessCode();
     
-    // Aqui seria a integração com o backend para criar o código
     toast({
       title: "Código de acesso criado",
       description: `Código ${newCode} criado para ${newUserForm.name}`,
@@ -101,7 +99,6 @@ export const UserManagement = () => {
   };
 
   const deactivateEmployee = (employeeId: string, employeeName: string) => {
-    // Aqui seria a integração com o backend para desativar o funcionário
     toast({
       title: "Funcionário desativado",
       description: `${employeeName} foi desativado do sistema.`,
