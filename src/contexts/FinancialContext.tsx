@@ -52,12 +52,18 @@ interface FinancialContextProps {
   processExpenseReimbursement: (expenseId: string, amount: number, description: string, employeeName: string) => void;
   expenses: any[];
   addExpense: (expenseData: any) => void;
-  // Missing properties that other components need
   data: {
     transactions: Transaction[];
     receivables: Receivable[];
     expenses: any[];
     payments: Payment[];
+    // Computed properties
+    totalBalance: number;
+    monthlyIncome: number;
+    monthlyExpenses: number;
+    pendingPayments: number;
+    pendingExpenses: number;
+    approvedExpenses: number;
   };
   getRecentTransactions: (limit?: number) => Transaction[];
   addPayment: (payment: Omit<Payment, 'id'>) => void;
@@ -140,6 +146,60 @@ export const FinancialProvider = ({ children }: { children: React.ReactNode }) =
   const [receivables, setReceivables] = useState<Receivable[]>(mockReceivables);
   const [expenses, setExpenses] = useState<any[]>([]);
   const [payments, setPayments] = useState<Payment[]>(mockPayments);
+
+  // Calculate financial metrics
+  const calculateFinancialMetrics = () => {
+    const now = new Date();
+    const thirtyDaysAgo = new Date(now.getTime() - (30 * 24 * 60 * 60 * 1000));
+
+    // Monthly income and expenses (last 30 days)
+    const recentTransactions = transactions.filter(t => {
+      const transactionDate = new Date(t.date);
+      return transactionDate >= thirtyDaysAgo && t.status === 'completed';
+    });
+
+    const monthlyIncome = recentTransactions
+      .filter(t => t.type === 'income')
+      .reduce((sum, t) => sum + t.amount, 0);
+
+    const monthlyExpenses = recentTransactions
+      .filter(t => t.type === 'expense')
+      .reduce((sum, t) => sum + t.amount, 0);
+
+    // Total balance (all completed income - all completed expenses)
+    const totalIncome = transactions
+      .filter(t => t.type === 'income' && t.status === 'completed')
+      .reduce((sum, t) => sum + t.amount, 0);
+
+    const totalExpenses = transactions
+      .filter(t => t.type === 'expense' && t.status === 'completed')
+      .reduce((sum, t) => sum + t.amount, 0);
+
+    const totalBalance = totalIncome - totalExpenses;
+
+    // Pending payments
+    const pendingPayments = payments
+      .filter(p => p.status === 'pending')
+      .reduce((sum, p) => sum + p.amount, 0);
+
+    // Pending and approved expenses
+    const pendingExpenses = expenses
+      .filter(e => e.status === 'pending')
+      .reduce((sum, e) => sum + e.amount, 0);
+
+    const approvedExpenses = expenses
+      .filter(e => e.status === 'approved')
+      .reduce((sum, e) => sum + e.amount, 0);
+
+    return {
+      totalBalance,
+      monthlyIncome,
+      monthlyExpenses,
+      pendingPayments,
+      pendingExpenses,
+      approvedExpenses
+    };
+  };
 
   const addTransaction = (transaction: Omit<Transaction, 'id'>) => {
     const newTransaction = {
@@ -300,11 +360,15 @@ export const FinancialProvider = ({ children }: { children: React.ReactNode }) =
     }
   };
 
+  // Calculate current financial metrics
+  const financialMetrics = calculateFinancialMetrics();
+
   const data = {
     transactions,
     receivables,
     expenses,
-    payments
+    payments,
+    ...financialMetrics
   };
 
   const value: FinancialContextProps = {
