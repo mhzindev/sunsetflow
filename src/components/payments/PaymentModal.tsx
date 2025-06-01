@@ -7,6 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { PaymentMethod } from '@/types/payment';
+import { TransactionCategory } from '@/types/transaction';
 import { useFinancial } from '@/contexts/FinancialContext';
 import { useToastFeedback } from '@/hooks/useToastFeedback';
 
@@ -73,7 +74,7 @@ export const PaymentModal = ({ isOpen, onClose, provider }: PaymentModalProps) =
       // Registrar como transação de despesa no sistema financeiro
       const transactionData = {
         type: 'expense' as const,
-        category: 'service_payment',
+        category: 'service_payment' as TransactionCategory,
         amount: amount,
         description: formData.description,
         date: currentDate,
@@ -82,7 +83,6 @@ export const PaymentModal = ({ isOpen, onClose, provider }: PaymentModalProps) =
         userId: '1',
         userName: 'Sistema - Pagamento Manual',
         tags: ['payment', 'manual'],
-        // Add required fields
         isRecurring: false,
         createdAt: new Date().toISOString()
       };
