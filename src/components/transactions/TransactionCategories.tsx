@@ -25,7 +25,7 @@ export const TransactionCategories = () => {
 
       // Processar transações por categoria
       const transactionCategories = transactions.reduce((acc: any, transaction: any) => {
-        const category = getCategoryLabel(transaction.category);
+        const category = getCategoryLabel(String(transaction.category || 'other'));
         if (!acc[category]) {
           acc[category] = 0;
         }
@@ -55,17 +55,18 @@ export const TransactionCategories = () => {
       }, {});
 
       // Calcular total e percentuais
-      const totalExpenses = Object.values(employeeExpenses).reduce((sum: number, amount: any) => {
-        const numAmount = typeof amount === 'number' ? amount : parseFloat(amount) || 0;
+      const totalExpenses = Object.values(employeeExpenses).reduce((sum: number, amount: unknown) => {
+        const numAmount = typeof amount === 'number' ? amount : parseFloat(String(amount)) || 0;
         return sum + numAmount;
       }, 0);
       
       const employeeArray = Object.entries(employeeExpenses).map(([employee, amount]) => {
-        const numAmount = typeof amount === 'number' ? amount : parseFloat(amount) || 0;
+        const numAmount = typeof amount === 'number' ? amount : parseFloat(String(amount)) || 0;
+        const percentage = totalExpenses > 0 ? Math.round((numAmount / totalExpenses) * 100) : 0;
         return {
           employee,
           amount: numAmount,
-          percentage: totalExpenses > 0 ? Math.round((numAmount / totalExpenses) * 100) : 0
+          percentage
         };
       });
 
