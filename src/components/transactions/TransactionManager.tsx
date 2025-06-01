@@ -1,13 +1,12 @@
-
-import { useState } from 'react';
-import { Card } from "@/components/ui/card";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import React, { useState } from 'react';
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Plus } from 'lucide-react';
-import { TransactionForm } from './TransactionForm';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { TransactionList } from './TransactionList';
+import { TransactionForm } from './TransactionForm';
 import { TransactionCategories } from './TransactionCategories';
-import { useAuth } from '@/components/auth/AuthContext';
+import { useAuth } from "@/contexts/AuthContext";
+import { Plus, Receipt, TrendingUp, Filter } from "lucide-react";
 
 export const TransactionManager = () => {
   const { user } = useAuth();

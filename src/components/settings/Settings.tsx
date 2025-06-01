@@ -4,12 +4,12 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { CompanySettings } from "./CompanySettings";
 import { UserManagement } from "./UserManagement";
 import { AccountSettings } from "./AccountSettings";
-import { useAuth } from "@/components/auth/AuthContext";
+import { useAuth } from "@/contexts/AuthContext";
 
 export const Settings = () => {
-  const { user } = useAuth();
+  const { profile } = useAuth();
 
-  if (user?.role !== 'owner') {
+  if (profile?.role !== 'owner') {
     return (
       <Card className="p-6">
         <h3 className="text-lg font-semibold text-slate-800 mb-4">Acesso Negado</h3>

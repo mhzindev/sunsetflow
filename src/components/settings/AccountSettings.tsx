@@ -4,20 +4,20 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { useAuth } from "@/components/auth/AuthContext";
+import { useAuth } from "@/contexts/AuthContext";
 import { Eye, EyeOff, Save, User } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
 export const AccountSettings = () => {
-  const { user } = useAuth();
+  const { profile } = useAuth();
   const { toast } = useToast();
   const [showPassword, setShowPassword] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   
   const [formData, setFormData] = useState({
-    name: user?.name || '',
-    email: user?.email || '',
-    phone: user?.phone || '',
+    name: profile?.name || '',
+    email: profile?.email || '',
+    phone: profile?.phone || '',
     currentPassword: '',
     newPassword: '',
     confirmPassword: ''
