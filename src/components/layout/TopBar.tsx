@@ -1,17 +1,16 @@
 
 import { Button } from "@/components/ui/button";
-import { PageSection } from "@/pages/Index";
 import { useFinancial } from "@/contexts/FinancialContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { LogOut } from "lucide-react";
 
 interface TopBarProps {
-  activeSection: PageSection;
+  activeSection: string;
   sidebarOpen: boolean;
   setSidebarOpen: (open: boolean) => void;
 }
 
-const sectionTitles = {
+const sectionTitles: Record<string, string> = {
   dashboard: 'Dashboard',
   transactions: 'Transações',
   payments: 'Pagamentos',
@@ -32,7 +31,7 @@ export const TopBar = ({ activeSection, sidebarOpen, setSidebarOpen }: TopBarPro
     if (activeSection === 'expenses' && profile?.role === 'user') {
       return 'Nova Despesa';
     }
-    return sectionTitles[activeSection];
+    return sectionTitles[activeSection] || 'Dashboard';
   };
 
   const formatCurrency = (value: number) => {
@@ -72,7 +71,7 @@ export const TopBar = ({ activeSection, sidebarOpen, setSidebarOpen }: TopBarPro
           <div className="text-right">
             <p className="text-sm text-slate-600">Saldo Atual</p>
             <p className="font-bold text-lg text-slate-800">
-              {formatCurrency(data.totalBalance)}
+              {formatCurrency(data?.totalBalance || 0)}
             </p>
           </div>
           

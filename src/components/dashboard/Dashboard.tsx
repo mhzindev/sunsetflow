@@ -16,10 +16,16 @@ import { CashFlow } from '@/components/cashflow/CashFlow';
 import { Reports } from '@/components/reports/Reports';
 import { Settings } from '@/components/settings/Settings';
 import { useAuth } from '@/contexts/AuthContext';
+import { FinancialProvider } from '@/contexts/FinancialContext';
 
 export const Dashboard = () => {
   const [activeSection, setActiveSection] = useState('dashboard');
+  const [sidebarOpen, setSidebarOpen] = useState(true);
   const { profile } = useAuth();
+
+  const handleNavigate = (section: string) => {
+    setActiveSection(section);
+  };
 
   const renderContent = () => {
     // Se é funcionário (role = 'user'), mostrar dashboard simplificado
@@ -46,7 +52,7 @@ export const Dashboard = () => {
               <div className="lg:col-span-2">
                 <CashFlowChart />
               </div>
-              <QuickActions />
+              <QuickActions onNavigate={handleNavigate} />
             </div>
             <RecentTransactions />
           </div>
@@ -75,7 +81,7 @@ export const Dashboard = () => {
               <div className="lg:col-span-2">
                 <CashFlowChart />
               </div>
-              <QuickActions />
+              <QuickActions onNavigate={handleNavigate} />
             </div>
             <RecentTransactions />
           </div>
@@ -84,18 +90,24 @@ export const Dashboard = () => {
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 flex">
-      <Sidebar 
-        activeSection={activeSection} 
-        onSectionChange={setActiveSection}
-        userRole={profile?.role || 'user'} 
-      />
-      <div className="flex-1 flex flex-col">
-        <TopBar />
-        <main className="flex-1 p-6 overflow-auto">
-          {renderContent()}
-        </main>
+    <FinancialProvider>
+      <div className="min-h-screen bg-slate-50 flex">
+        <Sidebar 
+          activeSection={activeSection} 
+          onSectionChange={setActiveSection}
+          userRole={profile?.role || 'user'} 
+        />
+        <div className="flex-1 flex flex-col">
+          <TopBar 
+            activeSection={activeSection}
+            sidebarOpen={sidebarOpen}
+            setSidebarOpen={setSidebarOpen}
+          />
+          <main className="flex-1 p-6 overflow-auto">
+            {renderContent()}
+          </main>
+        </div>
       </div>
-    </div>
+    </FinancialProvider>
   );
 };
