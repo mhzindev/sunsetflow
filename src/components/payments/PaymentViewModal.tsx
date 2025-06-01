@@ -81,6 +81,18 @@ export const PaymentViewModal = ({ isOpen, onClose, payment, onEdit, onMarkAsPai
     showSuccess('Comprovante Gerado', `Comprovante do pagamento para ${payment.providerName} está sendo preparado para download`);
   };
 
+  // Safe calculation functions for installments
+  const getInstallmentValue = () => {
+    if (!payment.installments || payment.installments === 0) return 0;
+    return payment.amount / payment.installments;
+  };
+
+  const getRemainingAmount = () => {
+    if (!payment.installments || !payment.currentInstallment) return payment.amount;
+    const remaining = payment.installments - payment.currentInstallment;
+    return (payment.amount * remaining) / payment.installments;
+  };
+
   const daysUntilDue = getDaysUntilDue();
 
   return (
@@ -176,7 +188,7 @@ export const PaymentViewModal = ({ isOpen, onClose, payment, onEdit, onMarkAsPai
           </Card>
 
           {/* Informações de Parcelamento */}
-          {payment.type === 'installment' && payment.installments && (
+          {payment.type === 'installment' && payment.installments && payment.installments > 0 && (
             <Card className="p-4">
               <h4 className="font-semibold text-slate-800 mb-3">Informações de Parcelamento</h4>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -189,13 +201,13 @@ export const PaymentViewModal = ({ isOpen, onClose, payment, onEdit, onMarkAsPai
                 <div className="text-center p-3 bg-green-50 rounded-lg">
                   <p className="text-sm text-green-600">Valor da Parcela</p>
                   <p className="text-lg font-semibold text-green-800">
-                    R$ {(payment.amount / payment.installments).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                    R$ {getInstallmentValue().toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                   </p>
                 </div>
                 <div className="text-center p-3 bg-purple-50 rounded-lg">
                   <p className="text-sm text-purple-600">Total Restante</p>
                   <p className="text-lg font-semibold text-purple-800">
-                    R$ {(payment.amount * (payment.installments - (payment.currentInstallment || 1)) / payment.installments).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                    R$ {getRemainingAmount().toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                   </p>
                 </div>
               </div>
