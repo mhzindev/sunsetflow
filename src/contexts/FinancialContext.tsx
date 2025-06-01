@@ -146,19 +146,30 @@ export const FinancialProvider = ({ children }: { children: React.ReactNode }) =
         notes: p.notes
       }));
 
-      const expenses: Expense[] = (expensesData || []).map(e => ({
-        id: e.id,
-        missionId: e.mission_id,
-        employeeId: e.employee_id,
-        employeeName: e.employee_name,
-        category: e.category,
-        description: e.description,
-        amount: Number(e.amount),
-        date: e.date,
-        isAdvanced: e.is_advanced,
-        status: e.status,
-        accommodationDetails: e.accommodation_details
-      }));
+      const expenses: Expense[] = (expensesData || []).map(e => {
+        let accommodationDetails;
+        if (e.accommodation_details && typeof e.accommodation_details === 'object') {
+          accommodationDetails = e.accommodation_details as {
+            actualCost: number;
+            reimbursementAmount: number;
+            netAmount: number;
+          };
+        }
+
+        return {
+          id: e.id,
+          missionId: e.mission_id,
+          employeeId: e.employee_id,
+          employeeName: e.employee_name,
+          category: e.category,
+          description: e.description,
+          amount: Number(e.amount),
+          date: e.date,
+          isAdvanced: e.is_advanced,
+          status: e.status,
+          accommodationDetails
+        };
+      });
 
       // Calcular métricas
       const currentMonth = new Date().getMonth();
@@ -305,7 +316,7 @@ export const FinancialProvider = ({ children }: { children: React.ReactNode }) =
           mission_id: expense.missionId,
           employee_id: user?.id,
           employee_name: expense.employeeName || user?.name,
-          category: expense.category,
+          category: expense.category as any, // Cast to any to handle the type conversion
           description: expense.description,
           amount: expense.amount,
           date: expense.date,
@@ -373,9 +384,14 @@ export const FinancialProvider = ({ children }: { children: React.ReactNode }) =
 
   const updatePaymentStatus = async (id: string, status: Payment['status']) => {
     try {
+      const paymentDate = status === 'completed' ? new Date().toISOString().split('T')[0] : null;
+      
       const { error } = await supabase
         .from('payments')
-        .update({ status })
+        .update({ 
+          status,
+          payment_date: paymentDate
+        })
         .eq('id', id);
 
       if (error) throw error;
@@ -412,7 +428,7 @@ export const FinancialProvider = ({ children }: { children: React.ReactNode }) =
         amount: amount,
         description: `Despesa aprovada: ${description}`,
         date: new Date().toISOString().split('T')[0],
-        method: 'other',
+        method: 'pix',
         status: 'completed',
         userId: user?.id || '',
         userName: user?.name || '',
