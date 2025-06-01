@@ -89,11 +89,17 @@ export const PaymentList = () => {
   ];
 
   const applyFilters = (payments: Payment[]): Payment[] => {
+    if (!payments || !Array.isArray(payments)) {
+      return [];
+    }
+
     return payments.filter(payment => {
+      if (!payment) return false;
+
       // Busca por texto
       const searchMatch = !activeFilters.search || 
-        payment.providerName.toLowerCase().includes(activeFilters.search.toLowerCase()) ||
-        payment.description.toLowerCase().includes(activeFilters.search.toLowerCase());
+        (payment.providerName && payment.providerName.toLowerCase().includes(activeFilters.search.toLowerCase())) ||
+        (payment.description && payment.description.toLowerCase().includes(activeFilters.search.toLowerCase()));
 
       // Filtro por status
       const statusMatch = !activeFilters.status?.length || 
@@ -117,18 +123,28 @@ export const PaymentList = () => {
     });
   };
 
-  const filteredPayments = applyFilters(mockPayments);
+  const baseFilteredPayments = mockPayments.filter(payment => {
+    if (!payment) return false;
+    
+    const matchesSearch = (payment.providerName && payment.providerName.toLowerCase().includes(searchTerm.toLowerCase())) ||
+                         (payment.description && payment.description.toLowerCase().includes(searchTerm.toLowerCase()));
+    const matchesFilter = filterStatus === 'all' || payment.status === filterStatus;
+    
+    return matchesSearch && matchesFilter;
+  });
+
+  const filteredPayments = applyFilters(baseFilteredPayments);
 
   const handleExport = (options: ExportOptions) => {
     try {
       const headers = ['Prestador', 'Descrição', 'Tipo', 'Valor', 'Vencimento', 'Status'];
       const exportData = filteredPayments.map(payment => ({
-        prestador: payment.providerName,
-        descricao: payment.description,
-        tipo: getTypeLabel(payment.type),
-        valor: payment.amount,
-        vencimento: new Date(payment.dueDate).toLocaleDateString('pt-BR'),
-        status: getStatusLabel(payment.status)
+        prestador: payment?.providerName || '',
+        descricao: payment?.description || '',
+        tipo: getTypeLabel(payment?.type || ''),
+        valor: payment?.amount || 0,
+        vencimento: payment?.dueDate ? new Date(payment.dueDate).toLocaleDateString('pt-BR') : '',
+        status: getStatusLabel(payment?.status || 'pending')
       }));
 
       const filename = options.filename || `pagamentos_${new Date().toISOString().split('T')[0]}`;
@@ -159,7 +175,7 @@ export const PaymentList = () => {
       overdue: 'Em Atraso',
       cancelled: 'Cancelado'
     };
-    return labels[status];
+    return labels[status] || status;
   };
 
   const getTypeLabel = (type: string) => {
@@ -180,11 +196,15 @@ export const PaymentList = () => {
     { value: 'cancelled', label: 'Cancelado' }
   ];
 
-  const availableProviders = Array.from(new Set(mockPayments.map(p => p.providerId)))
+  const availableProviders = Array.from(new Set(mockPayments.filter(p => p && p.providerId).map(p => p.providerId)))
     .map(id => {
-      const payment = mockPayments.find(p => p.providerId === id);
-      return { value: id, label: payment?.providerName || '' };
-    });
+      const payment = mockPayments.find(p => p && p.providerId === id);
+      return { 
+        value: id, 
+        label: payment?.providerName || `Provider ${id}`
+      };
+    })
+    .filter(provider => provider.value && provider.label);
 
   return (
     <div className="space-y-6">
