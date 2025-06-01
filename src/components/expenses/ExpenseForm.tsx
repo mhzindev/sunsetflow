@@ -6,6 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Upload, X } from 'lucide-react';
 import { useAuth } from '@/components/auth/AuthContext';
 import { useToastFeedback } from '@/hooks/useToastFeedback';
@@ -32,12 +33,42 @@ export const ExpenseForm = ({ onExpenseSubmitted }: ExpenseFormProps) => {
   });
 
   const categories = [
-    { value: 'fuel', label: 'Combustível', color: 'bg-orange-100 text-orange-800' },
-    { value: 'accommodation', label: 'Hospedagem', color: 'bg-blue-100 text-blue-800' },
-    { value: 'meals', label: 'Alimentação', color: 'bg-green-100 text-green-800' },
-    { value: 'transportation', label: 'Transporte', color: 'bg-purple-100 text-purple-800' },
-    { value: 'materials', label: 'Materiais', color: 'bg-yellow-100 text-yellow-800' },
-    { value: 'other', label: 'Outros', color: 'bg-gray-100 text-gray-800' }
+    { 
+      value: 'fuel', 
+      label: 'Combustível', 
+      color: 'bg-orange-100 text-orange-800',
+      tooltip: 'Gastos com combustível para veículos da empresa durante viagens de trabalho. Inclui gasolina, etanol, diesel e outros combustíveis necessários para deslocamentos.'
+    },
+    { 
+      value: 'accommodation', 
+      label: 'Hospedagem', 
+      color: 'bg-blue-100 text-blue-800',
+      tooltip: 'Despesas com hotéis, pousadas ou outros tipos de acomodação durante viagens de trabalho. Inclui diárias e taxas de serviços relacionados.'
+    },
+    { 
+      value: 'meals', 
+      label: 'Alimentação', 
+      color: 'bg-green-100 text-green-800',
+      tooltip: 'Gastos com refeições durante viagens de trabalho, incluindo café da manhã, almoço, jantar e lanches necessários durante o período de trabalho fora da sede.'
+    },
+    { 
+      value: 'transportation', 
+      label: 'Transporte', 
+      color: 'bg-purple-100 text-purple-800',
+      tooltip: 'Despesas com transporte público, táxi, Uber, pedágios, estacionamento e outros meios de locomoção necessários para execução do trabalho.'
+    },
+    { 
+      value: 'materials', 
+      label: 'Materiais', 
+      color: 'bg-yellow-100 text-yellow-800',
+      tooltip: 'Compra de materiais, ferramentas ou equipamentos necessários para execução dos serviços em campo. Inclui peças de reposição e consumíveis.'
+    },
+    { 
+      value: 'other', 
+      label: 'Outros', 
+      color: 'bg-gray-100 text-gray-800',
+      tooltip: 'Outras despesas relacionadas ao trabalho que não se enquadram nas categorias anteriores. Detalhe sempre na descrição o tipo de gasto realizado.'
+    }
   ];
 
   const mockMissions = [
@@ -97,7 +128,6 @@ export const ExpenseForm = ({ onExpenseSubmitted }: ExpenseFormProps) => {
     setIsLoading(true);
     
     try {
-      // Integrar com o sistema financeiro
       const expenseData = {
         missionId: formData.missionId,
         employeeId: user?.id || '1',
@@ -111,7 +141,6 @@ export const ExpenseForm = ({ onExpenseSubmitted }: ExpenseFormProps) => {
         submittedAt: new Date().toISOString()
       };
       
-      // Adicionar despesa ao contexto financeiro
       addExpense(expenseData);
       
       const impactMessage = formData.isAdvanced 
@@ -133,150 +162,158 @@ export const ExpenseForm = ({ onExpenseSubmitted }: ExpenseFormProps) => {
   };
 
   return (
-    <Card className="p-6">
-      <h4 className="text-lg font-semibold text-slate-800 mb-4">
-        Registrar Nova Despesa de Viagem
-      </h4>
-      
-      <form onSubmit={handleSubmit} className="space-y-4">
-        <div>
-          <Label htmlFor="missionId">Missão *</Label>
-          <select
-            id="missionId"
-            className="w-full p-2 border border-gray-300 rounded-md"
-            value={formData.missionId}
-            onChange={(e) => setFormData({...formData, missionId: e.target.value})}
-            required
-          >
-            <option value="">Selecione uma missão</option>
-            {mockMissions.map(mission => (
-              <option key={mission.id} value={mission.id}>
-                {mission.title}
-              </option>
-            ))}
-          </select>
-        </div>
-
-        <div>
-          <Label>Categoria *</Label>
-          <div className="flex flex-wrap gap-2 mt-2">
-            {categories.map(category => (
-              <Badge
-                key={category.value}
-                className={`cursor-pointer ${
-                  formData.category === category.value 
-                    ? 'bg-blue-600 text-white' 
-                    : category.color
-                }`}
-                onClick={() => setFormData({...formData, category: category.value as any})}
-              >
-                {category.label}
-              </Badge>
-            ))}
-          </div>
-        </div>
-
-        <div>
-          <Label htmlFor="description">Descrição *</Label>
-          <Textarea
-            id="description"
-            placeholder="Descreva a despesa..."
-            value={formData.description}
-            onChange={(e) => setFormData({...formData, description: e.target.value})}
-            required
-          />
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+    <TooltipProvider>
+      <Card className="p-6">
+        <h4 className="text-lg font-semibold text-slate-800 mb-4">
+          Registrar Nova Despesa de Viagem
+        </h4>
+        
+        <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <Label htmlFor="amount">Valor (R$) *</Label>
-            <Input
-              id="amount"
-              type="number"
-              step="0.01"
-              placeholder="0,00"
-              value={formData.amount}
-              onChange={(e) => setFormData({...formData, amount: e.target.value})}
+            <Label htmlFor="missionId">Missão *</Label>
+            <select
+              id="missionId"
+              className="w-full p-2 border border-gray-300 rounded-md"
+              value={formData.missionId}
+              onChange={(e) => setFormData({...formData, missionId: e.target.value})}
+              required
+            >
+              <option value="">Selecione uma missão</option>
+              {mockMissions.map(mission => (
+                <option key={mission.id} value={mission.id}>
+                  {mission.title}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div>
+            <Label>Categoria *</Label>
+            <div className="flex flex-wrap gap-2 mt-2">
+              {categories.map(category => (
+                <Tooltip key={category.value}>
+                  <TooltipTrigger asChild>
+                    <Badge
+                      className={`cursor-pointer ${
+                        formData.category === category.value 
+                          ? 'bg-blue-600 text-white' 
+                          : category.color
+                      }`}
+                      onClick={() => setFormData({...formData, category: category.value as any})}
+                    >
+                      {category.label}
+                    </Badge>
+                  </TooltipTrigger>
+                  <TooltipContent className="max-w-xs p-3">
+                    <p className="text-sm">{category.tooltip}</p>
+                  </TooltipContent>
+                </Tooltip>
+              ))}
+            </div>
+          </div>
+
+          <div>
+            <Label htmlFor="description">Descrição *</Label>
+            <Textarea
+              id="description"
+              placeholder="Descreva a despesa..."
+              value={formData.description}
+              onChange={(e) => setFormData({...formData, description: e.target.value})}
               required
             />
           </div>
 
-          <div>
-            <Label htmlFor="date">Data *</Label>
-            <Input
-              id="date"
-              type="date"
-              value={formData.date}
-              onChange={(e) => setFormData({...formData, date: e.target.value})}
-              required
-            />
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <Label htmlFor="amount">Valor (R$) *</Label>
+              <Input
+                id="amount"
+                type="number"
+                step="0.01"
+                placeholder="0,00"
+                value={formData.amount}
+                onChange={(e) => setFormData({...formData, amount: e.target.value})}
+                required
+              />
+            </div>
+
+            <div>
+              <Label htmlFor="date">Data *</Label>
+              <Input
+                id="date"
+                type="date"
+                value={formData.date}
+                onChange={(e) => setFormData({...formData, date: e.target.value})}
+                required
+              />
+            </div>
           </div>
-        </div>
 
-        <div className="flex items-center space-x-2">
-          <Checkbox
-            id="isAdvanced"
-            checked={formData.isAdvanced}
-            onCheckedChange={(checked) => setFormData({...formData, isAdvanced: checked as boolean})}
-          />
-          <Label htmlFor="isAdvanced" className="text-sm">
-            Esta é uma despesa adiantada pela empresa
-          </Label>
-        </div>
+          <div className="flex items-center space-x-2">
+            <Checkbox
+              id="isAdvanced"
+              checked={formData.isAdvanced}
+              onCheckedChange={(checked) => setFormData({...formData, isAdvanced: checked as boolean})}
+            />
+            <Label htmlFor="isAdvanced" className="text-sm">
+              Esta é uma despesa adiantada pela empresa
+            </Label>
+          </div>
 
-        <div>
-          <Label>Comprovante (Opcional)</Label>
-          <div className="mt-2">
-            {!formData.receipt ? (
-              <label className="flex flex-col items-center justify-center w-full h-32 border-2 border-gray-300 border-dashed rounded-lg cursor-pointer bg-gray-50 hover:bg-gray-100">
-                <div className="flex flex-col items-center justify-center pt-5 pb-6">
-                  <Upload className="w-8 h-8 mb-4 text-gray-500" />
-                  <p className="mb-2 text-sm text-gray-500">
-                    <span className="font-semibold">Clique para enviar</span> ou arraste o arquivo
-                  </p>
-                  <p className="text-xs text-gray-500">PNG, JPG ou PDF (MAX. 10MB)</p>
+          <div>
+            <Label>Comprovante (Opcional)</Label>
+            <div className="mt-2">
+              {!formData.receipt ? (
+                <label className="flex flex-col items-center justify-center w-full h-32 border-2 border-gray-300 border-dashed rounded-lg cursor-pointer bg-gray-50 hover:bg-gray-100">
+                  <div className="flex flex-col items-center justify-center pt-5 pb-6">
+                    <Upload className="w-8 h-8 mb-4 text-gray-500" />
+                    <p className="mb-2 text-sm text-gray-500">
+                      <span className="font-semibold">Clique para enviar</span> ou arraste o arquivo
+                    </p>
+                    <p className="text-xs text-gray-500">PNG, JPG ou PDF (MAX. 10MB)</p>
+                  </div>
+                  <input
+                    type="file"
+                    className="hidden"
+                    accept="image/*,.pdf"
+                    onChange={handleFileUpload}
+                  />
+                </label>
+              ) : (
+                <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                  <span className="text-sm text-gray-700">{formData.receipt.name}</span>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={removeFile}
+                  >
+                    <X className="w-4 h-4" />
+                  </Button>
                 </div>
-                <input
-                  type="file"
-                  className="hidden"
-                  accept="image/*,.pdf"
-                  onChange={handleFileUpload}
-                />
-              </label>
-            ) : (
-              <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-                <span className="text-sm text-gray-700">{formData.receipt.name}</span>
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={removeFile}
-                >
-                  <X className="w-4 h-4" />
-                </Button>
-              </div>
-            )}
+              )}
+            </div>
           </div>
-        </div>
 
-        <div className="flex space-x-4">
-          <Button 
-            type="submit" 
-            className="bg-blue-600 hover:bg-blue-700"
-            disabled={isLoading}
-          >
-            {isLoading ? 'Registrando...' : 'Registrar Despesa'}
-          </Button>
-          <Button 
-            type="button" 
-            variant="outline"
-            onClick={handleCancel}
-            disabled={isLoading}
-          >
-            Cancelar
-          </Button>
-        </div>
-      </form>
-    </Card>
+          <div className="flex space-x-4">
+            <Button 
+              type="submit" 
+              className="bg-blue-600 hover:bg-blue-700"
+              disabled={isLoading}
+            >
+              {isLoading ? 'Registrando...' : 'Registrar Despesa'}
+            </Button>
+            <Button 
+              type="button" 
+              variant="outline"
+              onClick={handleCancel}
+              disabled={isLoading}
+            >
+              Cancelar
+            </Button>
+          </div>
+        </form>
+      </Card>
+    </TooltipProvider>
   );
 };
