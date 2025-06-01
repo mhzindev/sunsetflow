@@ -59,12 +59,12 @@ const mockTransactions: Transaction[] = [
     amount: 5000,
     date: '2024-01-15',
     method: 'pix',
-    isRecurring: false,
     status: 'completed',
     tags: ['consulting', 'clientA'],
-    createdAt: '2024-01-01',
     userId: '1',
-    userName: 'John Doe'
+    userName: 'John Doe',
+    isRecurring: false,
+    createdAt: '2024-01-01'
   },
   {
     id: '2',
@@ -74,12 +74,12 @@ const mockTransactions: Transaction[] = [
     amount: 1500,
     date: '2024-01-20',
     method: 'credit_card',
-    isRecurring: false,
     status: 'completed',
     tags: ['ads', 'facebook', 'marketing'],
-    createdAt: '2024-01-05',
     userId: '1',
-    userName: 'John Doe'
+    userName: 'John Doe',
+    isRecurring: false,
+    createdAt: '2024-01-05'
   },
 ];
 
@@ -235,7 +235,7 @@ export const FinancialProvider = ({ children }: { children: React.ReactNode }) =
 
   const getRecentTransactions = (limit: number = 5) => {
     return transactions
-      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+      .sort((a, b) => new Date(b.createdAt || b.date).getTime() - new Date(a.createdAt || a.date).getTime())
       .slice(0, limit);
   };
 
@@ -310,12 +310,12 @@ export const FinancialProvider = ({ children }: { children: React.ReactNode }) =
         amount: expenseData.amount,
         date: expenseData.date,
         method: 'pix' as const,
-        isRecurring: false,
         status: 'completed' as const,
         tags: ['despesa', 'adiantamento', expenseData.category],
-        createdAt: new Date().toISOString(),
         userId: expenseData.employeeId,
-        userName: expenseData.employeeName
+        userName: expenseData.employeeName,
+        isRecurring: false,
+        createdAt: new Date().toISOString()
       };
 
       addTransaction(transaction);

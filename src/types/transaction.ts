@@ -13,6 +13,9 @@ export interface Transaction {
   receipt?: string;
   tags?: string[];
   missionId?: string;
+  isRecurring?: boolean;
+  createdAt?: string;
+  clientName?: string;
 }
 
 export type TransactionCategory = 
