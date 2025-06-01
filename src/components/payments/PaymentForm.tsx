@@ -1,5 +1,5 @@
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -7,12 +7,15 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { PaymentType } from '@/types/payment';
 import { useFinancial } from '@/contexts/FinancialContext';
+import { useSupabaseData } from '@/hooks/useSupabaseData';
 import { useToastFeedback } from '@/hooks/useToastFeedback';
 
 export const PaymentForm = () => {
   const { addPayment } = useFinancial();
   const { showSuccess, showError } = useToastFeedback();
+  const { fetchServiceProviders } = useSupabaseData();
   const [isLoading, setIsLoading] = useState(false);
+  const [providers, setProviders] = useState<any[]>([]);
   
   const [formData, setFormData] = useState({
     providerId: '',
@@ -24,12 +27,19 @@ export const PaymentForm = () => {
     notes: ''
   });
 
-  const mockProviders = [
-    { id: '1', name: 'João Silva - Técnico' },
-    { id: '2', name: 'Maria Santos - Técnica' },
-    { id: '3', name: 'Tech Solutions Ltd' },
-    { id: '4', name: 'Carlos Oliveira - Freelancer' }
-  ];
+  useEffect(() => {
+    loadProviders();
+  }, []);
+
+  const loadProviders = async () => {
+    try {
+      const providersData = await fetchServiceProviders();
+      setProviders(providersData);
+    } catch (error) {
+      console.error('Erro ao carregar fornecedores:', error);
+      showError('Erro', 'Erro ao carregar lista de fornecedores');
+    }
+  };
 
   const resetForm = () => {
     setFormData({
@@ -63,7 +73,7 @@ export const PaymentForm = () => {
       // Simular processamento
       await new Promise(resolve => setTimeout(resolve, 1000));
 
-      const selectedProvider = mockProviders.find(p => p.id === formData.providerId);
+      const selectedProvider = providers.find(p => p.id === formData.providerId);
       
       if (formData.type === 'installment' && formData.installments > 1) {
         // Criar múltiplos pagamentos para parcelamento
@@ -144,12 +154,17 @@ export const PaymentForm = () => {
               required
             >
               <option value="">Selecione um prestador</option>
-              {mockProviders.map(provider => (
+              {providers.map(provider => (
                 <option key={provider.id} value={provider.id}>
-                  {provider.name}
+                  {provider.name} - {provider.service}
                 </option>
               ))}
             </select>
+            {providers.length === 0 && (
+              <p className="text-sm text-gray-500 mt-1">
+                Nenhum prestador encontrado. Cadastre um prestador primeiro.
+              </p>
+            )}
           </div>
 
           <div>
@@ -255,7 +270,7 @@ export const PaymentForm = () => {
           <Button 
             type="submit" 
             className="bg-blue-600 hover:bg-blue-700"
-            disabled={isLoading}
+            disabled={isLoading || providers.length === 0}
           >
             {isLoading ? 'Agendando...' : 'Agendar Pagamento'}
           </Button>

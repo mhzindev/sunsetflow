@@ -1,5 +1,5 @@
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -10,64 +10,32 @@ import { ProviderViewModal } from './ProviderViewModal';
 import { ProviderEditModal } from './ProviderEditModal';
 import { NewProviderModal } from './NewProviderModal';
 import { useFinancial } from '@/contexts/FinancialContext';
+import { useSupabaseData } from '@/hooks/useSupabaseData';
 import { useToastFeedback } from '@/hooks/useToastFeedback';
 
 export const ServiceProviders = () => {
   const { data } = useFinancial();
   const { showSuccess } = useToastFeedback();
+  const { fetchServiceProviders } = useSupabaseData();
   const [selectedProvider, setSelectedProvider] = useState<any>(null);
   const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
   const [isViewModalOpen, setIsViewModalOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [isNewProviderModalOpen, setIsNewProviderModalOpen] = useState(false);
+  const [providers, setProviders] = useState<any[]>([]);
 
-  // Mock data - em uma aplicação real, isso viria de uma API
-  const [providers, setProviders] = useState([
-    {
-      id: '1',
-      name: 'João Silva',
-      email: 'joao.silva@email.com',
-      phone: '(11) 99999-1111',
-      service: 'Técnico de Instalação',
-      paymentMethod: 'pix' as const,
-      active: true,
-      totalPaid: 15000.00,
-      lastPayment: '2024-01-15'
-    },
-    {
-      id: '2',
-      name: 'Maria Santos',
-      email: 'maria.santos@email.com',
-      phone: '(11) 99999-2222',
-      service: 'Técnica de Manutenção',
-      paymentMethod: 'transfer' as const,
-      active: true,
-      totalPaid: 12000.00,
-      lastPayment: '2024-01-10'
-    },
-    {
-      id: '3',
-      name: 'Tech Solutions Ltd',
-      email: 'contato@techsolutions.com',
-      phone: '(11) 3333-4444',
-      service: 'Desenvolvimento de Software',
-      paymentMethod: 'transfer' as const,
-      active: true,
-      totalPaid: 8500.00,
-      lastPayment: '2024-01-05'
-    },
-    {
-      id: '4',
-      name: 'Carlos Oliveira',
-      email: 'carlos.oliveira@email.com',
-      phone: '(11) 99999-3333',
-      service: 'Freelancer - Suporte Técnico',
-      paymentMethod: 'pix' as const,
-      active: false,
-      totalPaid: 3500.00,
-      lastPayment: '2023-12-20'
+  useEffect(() => {
+    loadProviders();
+  }, []);
+
+  const loadProviders = async () => {
+    try {
+      const providersData = await fetchServiceProviders();
+      setProviders(providersData);
+    } catch (error) {
+      console.error('Erro ao carregar fornecedores:', error);
     }
-  ]);
+  };
 
   // Calcular saldos pendentes baseado nos pagamentos
   const getProviderBalance = (providerId: string) => {
@@ -75,6 +43,21 @@ export const ServiceProviders = () => {
       p.providerId === providerId && p.status === 'pending'
     );
     return providerPayments.reduce((sum, p) => sum + p.amount, 0);
+  };
+
+  const getProviderTotalPaid = (providerId: string) => {
+    const providerPayments = data.payments.filter(p => 
+      p.providerId === providerId && p.status === 'completed'
+    );
+    return providerPayments.reduce((sum, p) => sum + p.amount, 0);
+  };
+
+  const getProviderLastPayment = (providerId: string) => {
+    const providerPayments = data.payments
+      .filter(p => p.providerId === providerId && p.status === 'completed')
+      .sort((a, b) => new Date(b.paymentDate || b.dueDate).getTime() - new Date(a.paymentDate || a.dueDate).getTime());
+    
+    return providerPayments.length > 0 ? providerPayments[0].paymentDate || providerPayments[0].dueDate : null;
   };
 
   const getPaymentMethodLabel = (method: string) => {
@@ -117,6 +100,7 @@ export const ServiceProviders = () => {
   const handleAddProvider = (newProvider: any) => {
     setProviders(prev => [newProvider, ...prev]);
     showSuccess('Sucesso', 'Novo prestador adicionado com sucesso!');
+    loadProviders(); // Recarregar para obter dados atualizados
   };
 
   const handleEditFromView = (provider: any) => {
@@ -172,77 +156,89 @@ export const ServiceProviders = () => {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {providers.map((provider) => {
-              const pendingBalance = getProviderBalance(provider.id);
-              
-              return (
-                <TableRow key={provider.id}>
-                  <TableCell className="font-medium">{provider.name}</TableCell>
-                  <TableCell>
-                    <div className="flex flex-col space-y-1">
-                      <div className="flex items-center space-x-1 text-sm text-gray-600">
-                        <Mail className="w-3 h-3" />
-                        <span>{provider.email}</span>
+            {providers.length === 0 ? (
+              <TableRow>
+                <TableCell colSpan={9} className="text-center text-gray-500 py-8">
+                  Nenhum prestador de serviço encontrado. Adicione seu primeiro prestador!
+                </TableCell>
+              </TableRow>
+            ) : (
+              providers.map((provider) => {
+                const pendingBalance = getProviderBalance(provider.id);
+                const totalPaid = getProviderTotalPaid(provider.id);
+                const lastPayment = getProviderLastPayment(provider.id);
+                
+                return (
+                  <TableRow key={provider.id}>
+                    <TableCell className="font-medium">{provider.name}</TableCell>
+                    <TableCell>
+                      <div className="flex flex-col space-y-1">
+                        <div className="flex items-center space-x-1 text-sm text-gray-600">
+                          <Mail className="w-3 h-3" />
+                          <span>{provider.email}</span>
+                        </div>
+                        <div className="flex items-center space-x-1 text-sm text-gray-600">
+                          <Phone className="w-3 h-3" />
+                          <span>{provider.phone}</span>
+                        </div>
                       </div>
-                      <div className="flex items-center space-x-1 text-sm text-gray-600">
-                        <Phone className="w-3 h-3" />
-                        <span>{provider.phone}</span>
-                      </div>
-                    </div>
-                  </TableCell>
-                  <TableCell>{provider.service}</TableCell>
-                  <TableCell>{getPaymentMethodLabel(provider.paymentMethod)}</TableCell>
-                  <TableCell className="font-semibold">
-                    R$ {provider.totalPaid.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                  </TableCell>
-                  <TableCell>
-                    {pendingBalance > 0 ? (
-                      <div className="flex items-center space-x-1">
-                        <DollarSign className="w-4 h-4 text-red-600" />
-                        <span className="font-semibold text-red-600">
-                          R$ {pendingBalance.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                        </span>
-                      </div>
-                    ) : (
-                      <Badge variant="outline" className="text-green-600 border-green-600">
-                        Em dia
+                    </TableCell>
+                    <TableCell>{provider.service}</TableCell>
+                    <TableCell>{getPaymentMethodLabel(provider.payment_method)}</TableCell>
+                    <TableCell className="font-semibold">
+                      R$ {totalPaid.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                    </TableCell>
+                    <TableCell>
+                      {pendingBalance > 0 ? (
+                        <div className="flex items-center space-x-1">
+                          <DollarSign className="w-4 h-4 text-red-600" />
+                          <span className="font-semibold text-red-600">
+                            R$ {pendingBalance.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                          </span>
+                        </div>
+                      ) : (
+                        <Badge variant="outline" className="text-green-600 border-green-600">
+                          Em dia
+                        </Badge>
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      {lastPayment ? new Date(lastPayment).toLocaleDateString('pt-BR') : 'Nunca'}
+                    </TableCell>
+                    <TableCell>
+                      <Badge variant={provider.active ? 'default' : 'secondary'}>
+                        {provider.active ? 'Ativo' : 'Inativo'}
                       </Badge>
-                    )}
-                  </TableCell>
-                  <TableCell>{new Date(provider.lastPayment).toLocaleDateString('pt-BR')}</TableCell>
-                  <TableCell>
-                    <Badge variant={provider.active ? 'default' : 'secondary'}>
-                      {provider.active ? 'Ativo' : 'Inativo'}
-                    </Badge>
-                  </TableCell>
-                  <TableCell>
-                    <div className="flex space-x-1">
-                      <Button 
-                        variant="outline" 
-                        size="sm"
-                        onClick={() => handleViewClick(provider)}
-                      >
-                        Ver
-                      </Button>
-                      <Button 
-                        variant="outline" 
-                        size="sm"
-                        onClick={() => handleEditClick(provider)}
-                      >
-                        Editar
-                      </Button>
-                      <Button 
-                        size="sm" 
-                        className="bg-green-600 hover:bg-green-700"
-                        onClick={() => handlePaymentClick(provider)}
-                      >
-                        Pagar
-                      </Button>
-                    </div>
-                  </TableCell>
-                </TableRow>
-              );
-            })}
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex space-x-1">
+                        <Button 
+                          variant="outline" 
+                          size="sm"
+                          onClick={() => handleViewClick(provider)}
+                        >
+                          Ver
+                        </Button>
+                        <Button 
+                          variant="outline" 
+                          size="sm"
+                          onClick={() => handleEditClick(provider)}
+                        >
+                          Editar
+                        </Button>
+                        <Button 
+                          size="sm" 
+                          className="bg-green-600 hover:bg-green-700"
+                          onClick={() => handlePaymentClick(provider)}
+                        >
+                          Pagar
+                        </Button>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                );
+              })
+            )}
           </TableBody>
         </Table>
       </Card>
@@ -258,7 +254,7 @@ export const ServiceProviders = () => {
         <Card className="p-4">
           <h5 className="font-semibold text-slate-800 mb-2">Total Pago (30 dias)</h5>
           <p className="text-2xl font-bold text-green-600">
-            R$ {providers.reduce((sum, p) => sum + p.totalPaid, 0).toLocaleString('pt-BR')}
+            R$ {providers.reduce((sum, p) => sum + getProviderTotalPaid(p.id), 0).toLocaleString('pt-BR')}
           </p>
         </Card>
         <Card className="p-4">
@@ -270,7 +266,7 @@ export const ServiceProviders = () => {
         <Card className="p-4">
           <h5 className="font-semibold text-slate-800 mb-2">Média por Prestador</h5>
           <p className="text-2xl font-bold text-purple-600">
-            R$ {(providers.reduce((sum, p) => sum + p.totalPaid, 0) / providers.length).toLocaleString('pt-BR')}
+            R$ {providers.length > 0 ? (providers.reduce((sum, p) => sum + getProviderTotalPaid(p.id), 0) / providers.length).toLocaleString('pt-BR') : '0'}
           </p>
         </Card>
       </div>

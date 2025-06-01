@@ -1,4 +1,3 @@
-
 import { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -13,7 +12,6 @@ export const CompanySettings = () => {
   const { profile } = useAuth();
   const { company, loading, createCompany, updateCompany } = useCompany();
   const [isEditing, setIsEditing] = useState(false);
-  const [isCreating, setIsCreating] = useState(false);
   
   const [formData, setFormData] = useState({
     name: company?.name || '',
@@ -30,7 +28,6 @@ export const CompanySettings = () => {
       setIsEditing(false);
     } else {
       await createCompany(formData);
-      setIsCreating(false);
     }
   };
 
@@ -44,7 +41,6 @@ export const CompanySettings = () => {
       address: company?.address || ''
     });
     setIsEditing(false);
-    setIsCreating(false);
   };
 
   const formatCNPJ = (value: string) => {
