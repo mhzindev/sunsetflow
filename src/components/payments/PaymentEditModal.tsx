@@ -33,11 +33,11 @@ export const PaymentEditModal = ({ isOpen, onClose, payment, onSave }: PaymentEd
   useEffect(() => {
     if (payment) {
       setFormData({
-        amount: payment.amount.toString(),
-        dueDate: payment.dueDate,
-        status: payment.status,
-        type: payment.type,
-        description: payment.description,
+        amount: payment.amount?.toString() || '',
+        dueDate: payment.dueDate || '',
+        status: payment.status || 'pending',
+        type: payment.type || 'full',
+        description: payment.description || '',
         notes: payment.notes || '',
         installments: payment.installments?.toString() || '',
         currentInstallment: payment.currentInstallment?.toString() || ''
