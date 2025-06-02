@@ -249,8 +249,10 @@ export const FinancialProvider = ({ children }: FinancialProviderProps) => {
     },
     addPayment: async (payment: any) => {
       try {
+        console.log('Criando pagamento no contexto:', payment);
         const result = await supabaseData.insertPayment(payment);
         if (!result.error) {
+          console.log('Pagamento criado com sucesso, atualizando dados...');
           await refreshData();
         }
         return result;
@@ -261,8 +263,10 @@ export const FinancialProvider = ({ children }: FinancialProviderProps) => {
     },
     updatePayment: async (paymentId: string, updates: any) => {
       try {
+        console.log('Atualizando pagamento no contexto:', paymentId, updates);
         const result = await supabaseData.updatePayment(paymentId, updates);
         if (!result.error) {
+          console.log('Pagamento atualizado com sucesso, refreshing data...');
           await refreshData();
         }
         return result;
@@ -272,7 +276,7 @@ export const FinancialProvider = ({ children }: FinancialProviderProps) => {
       }
     },
     updatePaymentStatus: async (paymentId: string, status: string) => {
-      return contextValue.updatePayment(paymentId, { status });
+      return contextValue.updatePayment(paymentId, { status, payment_date: status === 'completed' ? new Date().toISOString().split('T')[0] : null });
     },
     processPayment: async (paymentId: string) => {
       return contextValue.updatePaymentStatus(paymentId, 'completed');

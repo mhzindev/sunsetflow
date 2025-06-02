@@ -6,9 +6,12 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Checkbox } from "@/components/ui/checkbox";
 import { useSupabaseData } from '@/hooks/useSupabaseData';
+import { useEmployees } from '@/hooks/useEmployees';
 import { useToastFeedback } from '@/hooks/useToastFeedback';
-import { Plus, MapPin, Calendar, Users, DollarSign } from 'lucide-react';
+import { Plus, MapPin, Calendar, Users, DollarSign, X } from 'lucide-react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 
@@ -20,6 +23,7 @@ export const MissionManager = ({ onMissionCreated }: MissionManagerProps) => {
   const [showForm, setShowForm] = useState(false);
   const [missions, setMissions] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [selectedEmployees, setSelectedEmployees] = useState<string[]>([]);
   const [formData, setFormData] = useState({
     title: '',
     description: '',
@@ -27,11 +31,11 @@ export const MissionManager = ({ onMissionCreated }: MissionManagerProps) => {
     start_date: '',
     end_date: '',
     budget: '',
-    client_name: '', // Campo de texto livre
-    employee_names: '' // Campo de texto para separar por vírgula
+    client_name: ''
   });
 
   const { fetchMissions, insertMission } = useSupabaseData();
+  const { employees, loading: employeesLoading } = useEmployees();
   const { showSuccess, showError } = useToastFeedback();
 
   useEffect(() => {
@@ -51,6 +55,20 @@ export const MissionManager = ({ onMissionCreated }: MissionManagerProps) => {
     }
   };
 
+  const handleEmployeeToggle = (employeeId: string) => {
+    setSelectedEmployees(prev => 
+      prev.includes(employeeId)
+        ? prev.filter(id => id !== employeeId)
+        : [...prev, employeeId]
+    );
+  };
+
+  const getSelectedEmployeeNames = () => {
+    return employees
+      .filter(emp => selectedEmployees.includes(emp.id))
+      .map(emp => emp.name);
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!formData.title || !formData.location || !formData.start_date) {
@@ -59,11 +77,7 @@ export const MissionManager = ({ onMissionCreated }: MissionManagerProps) => {
     }
 
     try {
-      // Processar nomes dos funcionários (separados por vírgula)
-      const employeeNames = formData.employee_names
-        .split(',')
-        .map(name => name.trim())
-        .filter(name => name.length > 0);
+      const employeeNames = getSelectedEmployeeNames();
 
       const missionData = {
         title: formData.title,
@@ -72,7 +86,8 @@ export const MissionManager = ({ onMissionCreated }: MissionManagerProps) => {
         start_date: formData.start_date,
         end_date: formData.end_date || null,
         budget: formData.budget ? parseFloat(formData.budget) : null,
-        client_name: formData.client_name || null, // Campo de texto livre
+        client_name: formData.client_name || null,
+        assigned_employees: selectedEmployees,
         employee_names: employeeNames.length > 0 ? employeeNames : null,
         status: 'planning'
       };
@@ -98,9 +113,9 @@ export const MissionManager = ({ onMissionCreated }: MissionManagerProps) => {
         start_date: '',
         end_date: '',
         budget: '',
-        client_name: '',
-        employee_names: ''
+        client_name: ''
       });
+      setSelectedEmployees([]);
       
       setShowForm(false);
       loadMissions();
@@ -211,12 +226,43 @@ export const MissionManager = ({ onMissionCreated }: MissionManagerProps) => {
           </div>
 
           <div>
-            <Label htmlFor="employee_names">Funcionários</Label>
-            <Input
-              value={formData.employee_names}
-              onChange={(e) => setFormData(prev => ({ ...prev, employee_names: e.target.value }))}
-              placeholder="Separe os nomes por vírgula: João Silva, Maria Santos"
-            />
+            <Label>Funcionários</Label>
+            <div className="mt-2 space-y-2 max-h-40 overflow-y-auto border rounded-md p-2">
+              {employeesLoading ? (
+                <p className="text-sm text-gray-500">Carregando funcionários...</p>
+              ) : employees.length === 0 ? (
+                <p className="text-sm text-gray-500">Nenhum funcionário cadastrado</p>
+              ) : (
+                employees.map(employee => (
+                  <div key={employee.id} className="flex items-center space-x-2">
+                    <Checkbox
+                      id={employee.id}
+                      checked={selectedEmployees.includes(employee.id)}
+                      onCheckedChange={() => handleEmployeeToggle(employee.id)}
+                    />
+                    <Label htmlFor={employee.id} className="flex-1 cursor-pointer">
+                      {employee.name} - {employee.role}
+                    </Label>
+                  </div>
+                ))
+              )}
+            </div>
+            {selectedEmployees.length > 0 && (
+              <div className="mt-2 flex flex-wrap gap-2">
+                {getSelectedEmployeeNames().map(name => (
+                  <Badge key={name} variant="secondary" className="flex items-center gap-1">
+                    {name}
+                    <X 
+                      className="w-3 h-3 cursor-pointer" 
+                      onClick={() => {
+                        const employee = employees.find(emp => emp.name === name);
+                        if (employee) handleEmployeeToggle(employee.id);
+                      }}
+                    />
+                  </Badge>
+                ))}
+              </div>
+            )}
           </div>
 
           <div>

@@ -1,4 +1,3 @@
-
 import { useState } from 'react';
 import { TableCell, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
@@ -18,7 +17,7 @@ export const PaymentTableRow = ({ payment }: PaymentTableRowProps) => {
   const [isViewModalOpen, setIsViewModalOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const { showSuccess } = useToastFeedback();
-  const { processPayment } = useFinancial();
+  const { updatePaymentStatus } = useFinancial();
 
   const getStatusColor = (status: string) => {
     const colors = {
@@ -82,16 +81,20 @@ export const PaymentTableRow = ({ payment }: PaymentTableRowProps) => {
     // O modal já chama as funções do contexto, não precisamos fazer nada adicional aqui
   };
 
-  const handleMarkAsPaid = (payment: Payment) => {
+  const handleMarkAsPaid = async (payment: Payment) => {
     console.log('Processing payment via button:', payment.id);
     
-    // Fix: Pass payment ID string instead of payment object
-    processPayment(payment.id);
-    
-    showSuccess(
-      'Pagamento Confirmado', 
-      `Pagamento de R$ ${payment.amount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} para ${payment.providerName} foi processado! Status atualizado para concluído e registrado no sistema financeiro.`
-    );
+    try {
+      await updatePaymentStatus(payment.id, 'completed');
+      
+      showSuccess(
+        'Pagamento Confirmado', 
+        `Pagamento de R$ ${payment.amount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} para ${payment.providerName} foi processado! Status atualizado para concluído.`
+      );
+    } catch (error) {
+      console.error('Erro ao processar pagamento:', error);
+      showSuccess('Erro', 'Erro ao processar pagamento');
+    }
   };
 
   const handleEditFromView = (payment: Payment) => {

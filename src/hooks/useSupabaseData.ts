@@ -192,6 +192,30 @@ export const useSupabaseData = () => {
     }
   };
 
+  // Função para buscar funcionários
+  const fetchEmployees = async () => {
+    try {
+      console.log('Buscando funcionários do banco...');
+      const { data, error } = await supabase
+        .from('employees')
+        .select('*')
+        .eq('active', true)
+        .order('name', { ascending: true });
+
+      if (error) {
+        console.error('Erro SQL ao buscar funcionários:', error);
+        throw error;
+      }
+      
+      console.log('Funcionários encontrados:', data?.length || 0, data);
+      return data || [];
+    } catch (err) {
+      console.error('Erro ao buscar funcionários:', err);
+      setError('Erro ao buscar funcionários');
+      return [];
+    }
+  };
+
   // Função para inserir transação - MELHORADA
   const insertTransaction = async (transaction: {
     type: 'income' | 'expense';
@@ -606,6 +630,7 @@ export const useSupabaseData = () => {
     fetchClients,
     fetchBankAccounts,
     fetchCreditCards,
+    fetchEmployees,
     insertTransaction,
     insertExpense,
     updateExpenseStatus,
