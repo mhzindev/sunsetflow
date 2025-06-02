@@ -1,11 +1,43 @@
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { TrendingUp, TrendingDown, DollarSign, CreditCard, Wallet, RefreshCw } from "lucide-react";
-import { useFinancialDashboard } from "@/hooks/useFinancialDashboard";
+import { TrendingUp, TrendingDown, DollarSign, CreditCard } from "lucide-react";
+import { useFinancialSummary } from "@/hooks/useFinancialSummary";
 
 export const FinancialSummary = () => {
-  const { data, loading, error, refetch } = useFinancialDashboard();
+  const { summary, loading, error } = useFinancialSummary();
+
+  if (loading) {
+    return (
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        {[1, 2, 3, 4].map((i) => (
+          <Card key={i} className="animate-pulse">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <div className="h-4 bg-gray-200 rounded w-24"></div>
+              <div className="h-4 w-4 bg-gray-200 rounded"></div>
+            </CardHeader>
+            <CardContent>
+              <div className="h-8 bg-gray-200 rounded w-32 mb-2"></div>
+              <div className="h-4 bg-gray-200 rounded w-16"></div>
+            </CardContent>
+          </Card>
+        ))}
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        <Card className="col-span-full">
+          <CardContent className="pt-6">
+            <div className="text-center text-red-600">
+              Erro ao carregar dados financeiros: {error}
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat('pt-BR', {
@@ -14,99 +46,80 @@ export const FinancialSummary = () => {
     }).format(value);
   };
 
-  const calculatePercentage = (current: number, previous: number) => {
-    if (previous === 0) return current > 0 ? 100 : 0;
-    return ((current - previous) / previous) * 100;
+  const formatPercentage = (value: number) => {
+    const sign = value >= 0 ? '+' : '';
+    return `${sign}${value.toFixed(1)}%`;
   };
 
-  if (error) {
-    return (
-      <Card className="p-6">
-        <div className="text-center">
-          <p className="text-red-600 mb-4">Erro ao carregar dados financeiros: {error}</p>
-          <Button onClick={refetch} variant="outline">
-            <RefreshCw className="w-4 h-4 mr-2" />
-            Tentar novamente
-          </Button>
-        </div>
-      </Card>
-    );
-  }
-
-  const cards = [
-    {
-      title: "Receitas (30 dias)",
-      value: data.monthlyIncome,
-      icon: TrendingUp,
-      color: "text-green-600",
-      bgColor: "bg-green-50",
-      change: calculatePercentage(data.monthlyIncome, 1100) // Simulando valor anterior
-    },
-    {
-      title: "Despesas (30 dias)", 
-      value: data.monthlyExpenses,
-      icon: TrendingDown,
-      color: "text-red-600",
-      bgColor: "bg-red-50",
-      change: calculatePercentage(data.monthlyExpenses, 133) // Simulando valor anterior
-    },
-    {
-      title: "Saldo em Contas",
-      value: data.bankBalance,
-      icon: Wallet,
-      color: "text-blue-600", 
-      bgColor: "bg-blue-50",
-      change: 0
-    },
-    {
-      title: "Crédito Disponível",
-      value: data.creditAvailable,
-      icon: CreditCard,
-      color: "text-purple-600",
-      bgColor: "bg-purple-50", 
-      change: 0
-    }
-  ];
-
   return (
-    <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-      {cards.map((card, index) => {
-        const Icon = card.icon;
-        const isPositive = card.change >= 0;
-        
-        return (
-          <Card key={index}>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium text-gray-600">
-                {card.title}
-              </CardTitle>
-              <div className={`p-2 rounded-lg ${card.bgColor}`}>
-                <Icon className={`h-4 w-4 ${card.color}`} />
-              </div>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-1">
-                <div className="text-2xl font-bold">
-                  {loading ? (
-                    <div className="flex items-center">
-                      <RefreshCw className="w-4 h-4 animate-spin mr-2" />
-                      Carregando...
-                    </div>
-                  ) : (
-                    formatCurrency(card.value)
-                  )}
-                </div>
-                {!loading && card.change !== 0 && (
-                  <div className={`flex items-center text-xs ${isPositive ? 'text-green-600' : 'text-red-600'}`}>
-                    {isPositive ? <TrendingUp className="h-3 w-3 mr-1" /> : <TrendingDown className="h-3 w-3 mr-1" />}
-                    {isPositive ? '+' : ''}{card.change.toFixed(1)}%
-                  </div>
-                )}
-              </div>
-            </CardContent>
-          </Card>
-        );
-      })}
+    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+      <Card>
+        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+          <CardTitle className="text-sm font-medium text-slate-600">
+            Saldo Atual
+          </CardTitle>
+          <DollarSign className="h-4 w-4 text-slate-600" />
+        </CardHeader>
+        <CardContent>
+          <div className="text-2xl font-bold text-slate-800">
+            {formatCurrency(summary.totalIncome - summary.totalExpenses)}
+          </div>
+          <p className="text-xs text-slate-600 mt-1">
+            Receitas menos despesas totais
+          </p>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+          <CardTitle className="text-sm font-medium text-slate-600">
+            Receitas (30 dias)
+          </CardTitle>
+          <TrendingUp className="h-4 w-4 text-green-600" />
+        </CardHeader>
+        <CardContent>
+          <div className="text-2xl font-bold text-green-600">
+            {formatCurrency(summary.monthlyIncome)}
+          </div>
+          <p className="text-xs text-green-600 mt-1">
+            {formatPercentage(summary.incomeChange)} vs mês anterior
+          </p>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+          <CardTitle className="text-sm font-medium text-slate-600">
+            Despesas (30 dias)
+          </CardTitle>
+          <TrendingDown className="h-4 w-4 text-red-600" />
+        </CardHeader>
+        <CardContent>
+          <div className="text-2xl font-bold text-red-600">
+            {formatCurrency(summary.monthlyExpenses)}
+          </div>
+          <p className="text-xs text-red-600 mt-1">
+            {formatPercentage(summary.expenseChange)} vs mês anterior
+          </p>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+          <CardTitle className="text-sm font-medium text-slate-600">
+            Transações Totais
+          </CardTitle>
+          <CreditCard className="h-4 w-4 text-slate-600" />
+        </CardHeader>
+        <CardContent>
+          <div className="text-2xl font-bold text-slate-800">
+            {formatCurrency(summary.totalIncome + summary.totalExpenses)}
+          </div>
+          <p className="text-xs text-slate-600 mt-1">
+            Volume total movimentado
+          </p>
+        </CardContent>
+      </Card>
     </div>
   );
 };

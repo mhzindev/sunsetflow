@@ -12,8 +12,7 @@ import { useEmployees } from '@/hooks/useEmployees';
 import { useToastFeedback } from '@/hooks/useToastFeedback';
 import { ClientAutocomplete } from '@/components/clients/ClientAutocomplete';
 import { ServiceValueDistribution } from '@/components/missions/ServiceValueDistribution';
-import { Plus, Calendar, MapPin, Users, DollarSign, RefreshCw } from 'lucide-react';
-import { supabase } from '@/integrations/supabase/client';
+import { Plus, Calendar, MapPin, Users, DollarSign, RefreshCw, AlertCircle } from 'lucide-react';
 
 interface MissionManagerProps {
   onMissionCreated?: () => void;
@@ -39,43 +38,31 @@ export const MissionManager = ({ onMissionCreated }: MissionManagerProps) => {
     status: 'planning'
   });
 
-  const { fetchMissions } = useSupabaseData();
-  const { employees, loading: employeesLoading, error: employeesError } = useEmployees();
+  const { fetchMissions, insertMission } = useSupabaseData();
+  const { employees, loading: employeesLoading } = useEmployees();
   const { showSuccess, showError } = useToastFeedback();
 
-  // Separar o carregamento de missões do carregamento de funcionários
   useEffect(() => {
-    loadMissions();
+    loadData();
   }, []);
 
-  const loadMissions = async () => {
+  const loadData = async () => {
     try {
       setLoading(true);
-      console.log('Carregando missões...');
+      const missionsData = await fetchMissions();
       
-      // Buscar missões diretamente, sem depender de funcionários
-      const { data: missionsData, error } = await supabase
-        .from('missions')
-        .select('*')
-        .order('start_date', { ascending: false });
-
-      if (error) {
-        console.error('Erro ao carregar missões:', error);
-        setMissions([]);
-      } else {
-        console.log('Missões carregadas:', missionsData?.length || 0);
-        setMissions(missionsData || []);
-      }
+      console.log('Dados carregados:', { missions: missionsData });
+      setMissions(missionsData || []);
     } catch (error) {
-      console.error('Erro ao carregar missões:', error);
-      setMissions([]);
+      console.error('Erro ao carregar dados:', error);
+      showError('Erro', 'Não foi possível carregar os dados');
     } finally {
       setLoading(false);
     }
   };
 
   const handleRefresh = () => {
-    loadMissions();
+    loadData();
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -93,56 +80,30 @@ export const MissionManager = ({ onMissionCreated }: MissionManagerProps) => {
 
     try {
       setSubmitting(true);
-      console.log('Criando missão:', formData);
-
-      // Tentar usar a RPC primeiro
-      const { data, error: rpcError } = await supabase.rpc('create_mission', {
-        p_title: formData.title,
-        p_description: formData.description,
-        p_location: formData.location,
-        p_start_date: formData.start_date,
-        p_end_date: formData.end_date || null,
-        p_service_value: formData.service_value || null,
-        p_company_percentage: formData.company_percentage,
-        p_provider_percentage: formData.provider_percentage,
-        p_client_name: formData.client_name,
-        p_assigned_employees: formData.assigned_employees,
-        p_employee_names: formData.employee_names,
-        p_status: formData.status
-      });
       
-      if (rpcError) {
-        console.warn('RPC create_mission falhou, tentando inserção direta:', rpcError);
-        
-        // Fallback: inserção direta na tabela
-        const { data: directData, error: directError } = await supabase
-          .from('missions')
-          .insert({
-            title: formData.title,
-            description: formData.description,
-            location: formData.location,
-            start_date: formData.start_date,
-            end_date: formData.end_date || null,
-            service_value: formData.service_value || null,
-            company_percentage: formData.company_percentage,
-            provider_percentage: formData.provider_percentage,
-            client_name: formData.client_name,
-            assigned_employees: formData.assigned_employees,
-            employee_names: formData.employee_names,
-            status: formData.status
-          })
-          .select()
-          .single();
+      const missionData = {
+        title: formData.title,
+        description: formData.description,
+        location: formData.location,
+        start_date: formData.start_date,
+        end_date: formData.end_date || null,
+        service_value: formData.service_value || null,
+        company_percentage: formData.company_percentage,
+        provider_percentage: formData.provider_percentage,
+        client_name: formData.client_name,
+        assigned_employees: formData.assigned_employees,
+        employee_names: formData.employee_names,
+        status: formData.status
+      };
 
-        if (directError) {
-          console.error('Erro ao criar missão diretamente:', directError);
-          showError('Erro', `Erro ao criar missão: ${directError.message}`);
-          return;
-        }
+      console.log('Criando missão:', missionData);
 
-        console.log('Missão criada com sucesso via inserção direta:', directData);
-      } else {
-        console.log('Missão criada com sucesso via RPC:', data);
+      const result = await insertMission(missionData);
+      
+      if (result.error) {
+        console.error('Erro ao criar missão:', result.error);
+        showError('Erro', `Falha ao criar missão: ${result.error}`);
+        return;
       }
 
       showSuccess('Sucesso', 'Missão criada com sucesso!');
@@ -161,11 +122,21 @@ export const MissionManager = ({ onMissionCreated }: MissionManagerProps) => {
         employee_names: [],
         status: 'planning'
       });
-      loadMissions();
+      loadData();
       onMissionCreated?.();
-    } catch (error) {
+    } catch (error: any) {
       console.error('Erro ao criar missão:', error);
-      showError('Erro', 'Erro ao criar missão. Tente novamente.');
+      
+      // Tratar diferentes tipos de erro
+      let errorMessage = 'Erro ao criar missão. Tente novamente.';
+      
+      if (error.message === 'Failed to fetch') {
+        errorMessage = 'Erro de conexão. Verifique sua internet e tente novamente.';
+      } else if (error.message) {
+        errorMessage = error.message;
+      }
+      
+      showError('Erro', errorMessage);
     } finally {
       setSubmitting(false);
     }
@@ -248,9 +219,10 @@ export const MissionManager = ({ onMissionCreated }: MissionManagerProps) => {
             <Card className="mb-6">
               <CardHeader>
                 <CardTitle>Nova Missão</CardTitle>
-                {employeesError && (
-                  <div className="text-sm text-amber-600 bg-amber-50 p-2 rounded">
-                    Aviso: Problemas ao carregar funcionários. Usando lista padrão.
+                {employeesLoading && (
+                  <div className="flex items-center text-sm text-blue-600">
+                    <RefreshCw className="w-4 h-4 animate-spin mr-2" />
+                    Carregando funcionários...
                   </div>
                 )}
               </CardHeader>
@@ -263,8 +235,8 @@ export const MissionManager = ({ onMissionCreated }: MissionManagerProps) => {
                         id="title"
                         value={formData.title}
                         onChange={(e) => setFormData({...formData, title: e.target.value})}
-                        disabled={submitting}
                         required
+                        disabled={submitting}
                       />
                     </div>
                     
@@ -274,8 +246,8 @@ export const MissionManager = ({ onMissionCreated }: MissionManagerProps) => {
                         id="location"
                         value={formData.location}
                         onChange={(e) => setFormData({...formData, location: e.target.value})}
-                        disabled={submitting}
                         required
+                        disabled={submitting}
                       />
                     </div>
                   </div>
@@ -286,8 +258,8 @@ export const MissionManager = ({ onMissionCreated }: MissionManagerProps) => {
                       id="description"
                       value={formData.description}
                       onChange={(e) => setFormData({...formData, description: e.target.value})}
-                      disabled={submitting}
                       placeholder="Descrição detalhada da missão..."
+                      disabled={submitting}
                     />
                   </div>
 
@@ -299,8 +271,8 @@ export const MissionManager = ({ onMissionCreated }: MissionManagerProps) => {
                         type="date"
                         value={formData.start_date}
                         onChange={(e) => setFormData({...formData, start_date: e.target.value})}
-                        disabled={submitting}
                         required
+                        disabled={submitting}
                       />
                     </div>
                     
@@ -340,6 +312,7 @@ export const MissionManager = ({ onMissionCreated }: MissionManagerProps) => {
                       value={formData.client_name}
                       onValueChange={(value) => setFormData({...formData, client_name: value})}
                       placeholder="Digite o nome do cliente"
+                      disabled={submitting}
                     />
                   </div>
 
@@ -348,14 +321,20 @@ export const MissionManager = ({ onMissionCreated }: MissionManagerProps) => {
                     companyPercentage={formData.company_percentage}
                     onCompanyPercentageChange={handleCompanyPercentageChange}
                     onServiceValueChange={(value) => setFormData({...formData, service_value: value})}
+                    disabled={submitting}
                   />
 
                   <div>
                     <Label>Funcionários Designados *</Label>
                     {employeesLoading ? (
-                      <div className="flex items-center gap-2 p-4 border rounded">
-                        <RefreshCw className="w-4 h-4 animate-spin" />
-                        <span>Carregando funcionários...</span>
+                      <div className="border rounded-lg p-4 text-center text-gray-500">
+                        <RefreshCw className="w-5 h-5 animate-spin mx-auto mb-2" />
+                        Carregando funcionários...
+                      </div>
+                    ) : employees.length === 0 ? (
+                      <div className="border rounded-lg p-4 text-center text-gray-500">
+                        <AlertCircle className="w-5 h-5 mx-auto mb-2" />
+                        Nenhum funcionário encontrado
                       </div>
                     ) : (
                       <div className="grid grid-cols-2 md:grid-cols-3 gap-2 mt-2">
@@ -365,14 +344,15 @@ export const MissionManager = ({ onMissionCreated }: MissionManagerProps) => {
                               type="checkbox"
                               checked={formData.assigned_employees.includes(employee.id)}
                               onChange={() => handleEmployeeToggle(employee.id, employee.name)}
-                              disabled={submitting}
                               className="rounded"
+                              disabled={submitting}
                             />
                             <span className="text-sm">{employee.name}</span>
                           </label>
                         ))}
                       </div>
                     )}
+                    
                     {formData.assigned_employees.length > 0 && (
                       <div className="flex flex-wrap gap-2 mt-3">
                         {formData.employee_names.map((name, index) => (
@@ -387,7 +367,7 @@ export const MissionManager = ({ onMissionCreated }: MissionManagerProps) => {
                   <div className="flex space-x-4 pt-4">
                     <Button 
                       type="submit" 
-                      className="flex-1"
+                      className="flex-1" 
                       disabled={submitting || employeesLoading}
                     >
                       {submitting ? (
