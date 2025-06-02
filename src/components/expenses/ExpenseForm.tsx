@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -20,15 +21,13 @@ export const ExpenseForm = ({ onSave, onCancel }: ExpenseFormProps) => {
     category: '',
     description: '',
     amount: '',
-    invoice_amount: '', // Novo campo para valor da nota
+    invoice_amount: '',
     date: new Date().toISOString().split('T')[0],
     is_advanced: false,
     receipt: '',
-    // Campos específicos para deslocamento
     travel_km: '',
     travel_km_rate: '',
     travel_total_value: '',
-    // Campos para hospedagem
     accommodation_reimbursement: ''
   });
 
@@ -51,7 +50,7 @@ export const ExpenseForm = ({ onSave, onCancel }: ExpenseFormProps) => {
       setFormData(prev => ({
         ...prev,
         travel_total_value: total.toFixed(2),
-        amount: total.toFixed(2) // Define o valor principal como o valor da viagem
+        amount: total.toFixed(2)
       }));
     }
   }, [formData.travel_km, formData.travel_km_rate]);
@@ -126,7 +125,6 @@ export const ExpenseForm = ({ onSave, onCancel }: ExpenseFormProps) => {
           date: formData.date,
           is_advanced: formData.is_advanced,
           receipt: formData.receipt || null,
-          // Campos específicos para deslocamento
           travel_km: formData.travel_km ? parseFloat(formData.travel_km) : null,
           travel_km_rate: formData.travel_km_rate ? parseFloat(formData.travel_km_rate) : null,
           travel_total_value: formData.travel_total_value ? parseFloat(formData.travel_total_value) : null
@@ -339,7 +337,7 @@ export const ExpenseForm = ({ onSave, onCancel }: ExpenseFormProps) => {
               id="is_advanced"
               checked={formData.is_advanced}
               onCheckedChange={(checked) => 
-                setFormData(prev => ({ ...prev, is_advanced: Boolean(checked) }))
+                setFormData(prev => ({ ...prev, is_advanced: checked === true }))
               }
             />
             <Label htmlFor="is_advanced">Adiantamento</Label>

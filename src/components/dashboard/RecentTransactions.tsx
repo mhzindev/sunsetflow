@@ -2,8 +2,10 @@
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { ArrowUpRight, ArrowDownRight, Eye } from "lucide-react";
+import { ArrowUpRight, ArrowDownRight, Eye, RefreshCw } from "lucide-react";
 import { useFinancial } from "@/contexts/FinancialContext";
+import { useTransactionSync } from "@/hooks/useTransactionSync";
+import { useState } from "react";
 
 interface RecentTransactionsProps {
   onViewAll?: () => void;
@@ -11,10 +13,23 @@ interface RecentTransactionsProps {
 
 export const RecentTransactions = ({ onViewAll }: RecentTransactionsProps) => {
   const { getRecentTransactions } = useFinancial();
+  const { syncTransactions } = useTransactionSync();
+  const [refreshing, setRefreshing] = useState(false);
   const recentTransactions = getRecentTransactions(4);
 
   const handleViewAll = () => {
     onViewAll?.();
+  };
+
+  const handleRefresh = async () => {
+    try {
+      setRefreshing(true);
+      await syncTransactions();
+    } catch (error) {
+      console.error('Erro ao sincronizar transações:', error);
+    } finally {
+      setRefreshing(false);
+    }
   };
 
   const getCategoryColor = (category: string) => {
@@ -55,15 +70,27 @@ export const RecentTransactions = ({ onViewAll }: RecentTransactionsProps) => {
     <Card className="p-6">
       <div className="flex items-center justify-between mb-4">
         <h3 className="text-lg font-semibold text-slate-800">Transações Recentes</h3>
-        <Button 
-          variant="outline" 
-          size="sm"
-          onClick={handleViewAll}
-          className="text-blue-600 hover:text-blue-700"
-        >
-          <Eye className="w-4 h-4 mr-2" />
-          Ver Todas
-        </Button>
+        <div className="flex gap-2">
+          <Button 
+            variant="outline" 
+            size="sm"
+            onClick={handleRefresh}
+            disabled={refreshing}
+            className="text-blue-600 hover:text-blue-700"
+          >
+            <RefreshCw className={`w-4 h-4 mr-2 ${refreshing ? 'animate-spin' : ''}`} />
+            Sync
+          </Button>
+          <Button 
+            variant="outline" 
+            size="sm"
+            onClick={handleViewAll}
+            className="text-blue-600 hover:text-blue-700"
+          >
+            <Eye className="w-4 h-4 mr-2" />
+            Ver Todas
+          </Button>
+        </div>
       </div>
       
       <div className="space-y-3">

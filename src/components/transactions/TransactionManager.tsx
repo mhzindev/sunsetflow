@@ -8,21 +8,26 @@ import { TransactionForm } from './TransactionForm';
 import { TransactionCategories } from './TransactionCategories';
 import { useAuth } from "@/contexts/AuthContext";
 import { useFinancial } from "@/contexts/FinancialContext";
+import { useTransactionSync } from "@/hooks/useTransactionSync";
 import { Plus, RefreshCw } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
 export const TransactionManager = () => {
   const { profile } = useAuth();
   const { data, loading, error, refreshData } = useFinancial();
+  const { syncTransactions } = useTransactionSync();
   const { toast } = useToast();
   const [activeTab, setActiveTab] = useState('list');
+  const [refreshing, setRefreshing] = useState(false);
 
   const handleNewTransaction = () => {
     setActiveTab('new');
   };
 
-  const handleTransactionSubmitted = () => {
+  const handleTransactionSubmitted = async () => {
     setActiveTab('list');
+    // Sincronizar dados após criar transação
+    await syncTransactions();
     toast({
       title: "Transação criada",
       description: "A transação foi registrada com sucesso.",
@@ -31,17 +36,21 @@ export const TransactionManager = () => {
 
   const handleRefresh = async () => {
     try {
-      await refreshData();
+      setRefreshing(true);
+      await Promise.all([refreshData(), syncTransactions()]);
       toast({
         title: "Dados atualizados",
         description: "As transações foram recarregadas.",
       });
     } catch (err) {
+      console.error('Erro ao atualizar dados:', err);
       toast({
         title: "Erro",
         description: "Não foi possível atualizar os dados.",
         variant: "destructive"
       });
+    } finally {
+      setRefreshing(false);
     }
   };
 
@@ -101,16 +110,19 @@ export const TransactionManager = () => {
                 : 'Registre suas despesas de viagem e visualize seus lançamentos.'
               }
             </p>
+            <p className="text-sm text-slate-500 mt-1">
+              Total de transações carregadas: {mappedTransactions.length}
+            </p>
           </div>
           <div className="flex gap-2">
             <Button 
               onClick={handleRefresh}
               variant="outline"
               size="sm"
-              disabled={loading}
+              disabled={loading || refreshing}
             >
-              <RefreshCw className={`w-4 h-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
-              Atualizar
+              <RefreshCw className={`w-4 h-4 mr-2 ${(loading || refreshing) ? 'animate-spin' : ''}`} />
+              Sincronizar
             </Button>
             <Button 
               onClick={handleNewTransaction}
@@ -125,7 +137,7 @@ export const TransactionManager = () => {
         <Tabs value={activeTab} onValueChange={setActiveTab}>
           <TabsList className={`grid w-full ${profile?.role === 'admin' ? 'grid-cols-3' : 'grid-cols-2'}`}>
             <TabsTrigger value="list">
-              Transações ({data.transactions.length})
+              Transações ({mappedTransactions.length})
             </TabsTrigger>
             <TabsTrigger value="new">Nova Transação</TabsTrigger>
             {profile?.role === 'admin' && (
@@ -134,12 +146,19 @@ export const TransactionManager = () => {
           </TabsList>
 
           <TabsContent value="list" className="mt-6">
-            <TransactionList 
-              transactions={mappedTransactions}
-              onView={handleViewTransaction}
-              onEdit={handleEditTransaction}
-              onDelete={handleDeleteTransaction}
-            />
+            {loading ? (
+              <div className="text-center py-8">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
+                <p className="text-slate-600 mt-2">Carregando transações...</p>
+              </div>
+            ) : (
+              <TransactionList 
+                transactions={mappedTransactions}
+                onView={handleViewTransaction}
+                onEdit={handleEditTransaction}
+                onDelete={handleDeleteTransaction}
+              />
+            )}
           </TabsContent>
 
           <TabsContent value="new" className="mt-6">

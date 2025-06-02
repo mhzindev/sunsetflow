@@ -7,8 +7,9 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { PaymentMethod } from '@/types/payment';
-import { useFinancial } from '@/contexts/FinancialContext';
+import { useSupabaseData } from '@/hooks/useSupabaseData';
 import { useToastFeedback } from '@/hooks/useToastFeedback';
+import { useTransactionSync } from '@/hooks/useTransactionSync';
 
 interface PaymentModalProps {
   isOpen: boolean;
@@ -23,8 +24,9 @@ interface PaymentModalProps {
 }
 
 export const PaymentModal = ({ isOpen, onClose, provider }: PaymentModalProps) => {
-  const { addTransaction, addPayment } = useFinancial();
+  const { insertPayment } = useSupabaseData();
   const { showSuccess, showError } = useToastFeedback();
+  const { syncTransactions } = useTransactionSync();
   const [isLoading, setIsLoading] = useState(false);
   
   const [formData, setFormData] = useState({
@@ -65,50 +67,45 @@ export const PaymentModal = ({ isOpen, onClose, provider }: PaymentModalProps) =
     setIsLoading(true);
 
     try {
-      // Simular processamento
-      await new Promise(resolve => setTimeout(resolve, 1000));
-
       const currentDate = new Date().toISOString().split('T')[0];
 
-      // Registrar como transação de despesa no sistema financeiro
-      const transactionData = {
-        type: 'expense' as const,
-        category: 'service_payment' as const,
-        amount: amount,
-        description: formData.description,
-        date: currentDate,
-        method: formData.method,
-        status: 'completed' as const,
-        userId: '1',
-        userName: 'Sistema - Pagamento Manual',
-        tags: ['payment', 'manual']
-      };
-
-      addTransaction(transactionData);
-
-      // Registrar como pagamento concluído
+      // Registrar pagamento no Supabase
       const paymentData = {
-        providerId: provider.id,
-        providerName: provider.name,
+        provider_id: provider.id,
+        provider_name: provider.name,
         amount: amount,
-        dueDate: currentDate,
-        paymentDate: currentDate,
+        due_date: currentDate,
+        payment_date: currentDate,
         status: 'completed' as const,
         type: 'full' as const,
         description: formData.description,
         notes: formData.notes
       };
 
-      addPayment(paymentData);
+      console.log('Criando pagamento:', paymentData);
+      
+      const { data: paymentResult, error: paymentError } = await insertPayment(paymentData);
+      
+      if (paymentError) {
+        console.error('Erro ao criar pagamento:', paymentError);
+        showError('Erro', `Erro ao registrar pagamento: ${paymentError}`);
+        return;
+      }
+
+      console.log('Pagamento criado com sucesso:', paymentResult);
+
+      // Sincronizar transações após criar o pagamento
+      await syncTransactions();
 
       showSuccess(
         'Pagamento Processado com Sucesso!', 
-        `Pagamento de R$ ${amount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} para ${provider.name} foi registrado e impactou o saldo da empresa. O sistema financeiro foi atualizado automaticamente.`
+        `Pagamento de R$ ${amount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} para ${provider.name} foi registrado. Uma transação correspondente foi criada automaticamente no sistema.`
       );
       
       resetForm();
       onClose();
     } catch (error) {
+      console.error('Erro ao registrar pagamento:', error);
       showError('Erro', 'Erro ao registrar pagamento. Tente novamente.');
     } finally {
       setIsLoading(false);
