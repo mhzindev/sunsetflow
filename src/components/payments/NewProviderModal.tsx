@@ -1,107 +1,93 @@
 
 import { useState } from 'react';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Switch } from "@/components/ui/switch";
-import { Textarea } from "@/components/ui/textarea";
-import { UserPlus } from 'lucide-react';
+import { useSupabaseData } from '@/hooks/useSupabaseData';
 import { useToastFeedback } from '@/hooks/useToastFeedback';
+import { Plus } from 'lucide-react';
 
 interface NewProviderModalProps {
-  isOpen: boolean;
-  onClose: () => void;
-  onSave: (provider: any) => void;
+  onProviderCreated?: () => void;
 }
 
-export const NewProviderModal = ({ 
-  isOpen, 
-  onClose, 
-  onSave 
-}: NewProviderModalProps) => {
-  const { showSuccess, showError } = useToastFeedback();
-  const [isLoading, setIsLoading] = useState(false);
+export const NewProviderModal = ({ onProviderCreated }: NewProviderModalProps) => {
+  const [open, setOpen] = useState(false);
+  const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState({
     name: '',
     email: '',
     phone: '',
     service: '',
-    paymentMethod: 'pix',
-    active: true,
-    notes: ''
+    payment_method: 'pix' as any
   });
 
-  const resetForm = () => {
-    setFormData({
-      name: '',
-      email: '',
-      phone: '',
-      service: '',
-      paymentMethod: 'pix',
-      active: true,
-      notes: ''
-    });
-  };
+  const { insertServiceProvider } = useSupabaseData();
+  const { showSuccess, showError } = useToastFeedback();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
-    if (!formData.name || !formData.email || !formData.service) {
-      showError('Erro de Validação', 'Por favor, preencha todos os campos obrigatórios');
+    if (!formData.name || !formData.email || !formData.phone || !formData.service) {
+      showError('Erro', 'Preencha todos os campos obrigatórios');
       return;
     }
 
-    // Validar email
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(formData.email)) {
-      showError('Email Inválido', 'Por favor, insira um email válido');
-      return;
-    }
-
-    setIsLoading(true);
-
+    setLoading(true);
     try {
-      // Simular processamento
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      console.log('Criando novo prestador:', formData);
+      
+      const { data, error } = await insertServiceProvider(formData);
+      
+      if (error) {
+        console.error('Erro ao criar prestador:', error);
+        showError('Erro', `Erro ao criar prestador: ${error}`);
+        return;
+      }
 
-      const newProvider = {
-        id: Date.now().toString(),
-        ...formData,
-        totalPaid: 0,
-        lastPayment: new Date().toISOString().split('T')[0]
-      };
-
-      onSave(newProvider);
-      showSuccess('Sucesso', `Prestador ${formData.name} adicionado com sucesso!`);
-      resetForm();
-      onClose();
+      console.log('Prestador criado com sucesso:', data);
+      showSuccess('Sucesso', 'Prestador criado com sucesso!');
+      
+      setFormData({
+        name: '',
+        email: '',
+        phone: '',
+        service: '',
+        payment_method: 'pix'
+      });
+      
+      setOpen(false);
+      onProviderCreated?.();
     } catch (error) {
-      showError('Erro', 'Erro ao adicionar prestador. Tente novamente.');
+      console.error('Erro inesperado ao criar prestador:', error);
+      showError('Erro', 'Erro inesperado ao criar prestador');
     } finally {
-      setIsLoading(false);
+      setLoading(false);
     }
   };
 
   return (
-    <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger asChild>
+        <Button>
+          <Plus className="w-4 h-4 mr-2" />
+          Novo Prestador
+        </Button>
+      </DialogTrigger>
+      <DialogContent className="sm:max-w-[500px]">
         <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <UserPlus className="w-5 h-5" />
-            Novo Prestador de Serviço
-          </DialogTitle>
+          <DialogTitle>Novo Prestador de Serviços</DialogTitle>
         </DialogHeader>
-
+        
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <Label htmlFor="name">Nome Completo / Razão Social *</Label>
+            <Label htmlFor="name">Nome *</Label>
             <Input
               id="name"
               value={formData.name}
-              onChange={(e) => setFormData({...formData, name: e.target.value})}
-              placeholder="Digite o nome do prestador"
+              onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
+              placeholder="Nome do prestador"
               required
             />
           </div>
@@ -112,44 +98,48 @@ export const NewProviderModal = ({
               id="email"
               type="email"
               value={formData.email}
-              onChange={(e) => setFormData({...formData, email: e.target.value})}
+              onChange={(e) => setFormData(prev => ({ ...prev, email: e.target.value }))}
               placeholder="email@exemplo.com"
               required
             />
           </div>
 
           <div>
-            <Label htmlFor="phone">Telefone</Label>
+            <Label htmlFor="phone">Telefone *</Label>
             <Input
               id="phone"
               value={formData.phone}
-              onChange={(e) => setFormData({...formData, phone: e.target.value})}
+              onChange={(e) => setFormData(prev => ({ ...prev, phone: e.target.value }))}
               placeholder="(11) 99999-9999"
-            />
-          </div>
-
-          <div>
-            <Label htmlFor="service">Tipo de Serviço *</Label>
-            <Input
-              id="service"
-              value={formData.service}
-              onChange={(e) => setFormData({...formData, service: e.target.value})}
-              placeholder="Ex: Técnico de Instalação, Desenvolvedor, etc."
               required
             />
           </div>
 
           <div>
-            <Label htmlFor="paymentMethod">Forma de Pagamento Preferencial</Label>
-            <Select value={formData.paymentMethod} onValueChange={(value) => 
-              setFormData({...formData, paymentMethod: value})
-            }>
+            <Label htmlFor="service">Serviço *</Label>
+            <Input
+              id="service"
+              value={formData.service}
+              onChange={(e) => setFormData(prev => ({ ...prev, service: e.target.value }))}
+              placeholder="Ex: Instalação de rastreadores"
+              required
+            />
+          </div>
+
+          <div>
+            <Label htmlFor="payment_method">Método de Pagamento *</Label>
+            <Select 
+              value={formData.payment_method} 
+              onValueChange={(value) => 
+                setFormData(prev => ({ ...prev, payment_method: value }))
+              }
+            >
               <SelectTrigger>
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="pix">PIX</SelectItem>
-                <SelectItem value="transfer">Transferência Bancária</SelectItem>
+                <SelectItem value="transfer">Transferência</SelectItem>
                 <SelectItem value="credit_card">Cartão de Crédito</SelectItem>
                 <SelectItem value="debit_card">Cartão de Débito</SelectItem>
                 <SelectItem value="cash">Dinheiro</SelectItem>
@@ -157,39 +147,15 @@ export const NewProviderModal = ({
             </Select>
           </div>
 
-          <div>
-            <Label htmlFor="notes">Observações</Label>
-            <Textarea
-              id="notes"
-              value={formData.notes}
-              onChange={(e) => setFormData({...formData, notes: e.target.value})}
-              placeholder="Informações adicionais sobre o prestador..."
-              rows={3}
-            />
-          </div>
-
-          <div className="flex items-center space-x-2">
-            <Switch
-              id="active"
-              checked={formData.active}
-              onCheckedChange={(checked) => setFormData({...formData, active: checked})}
-            />
-            <Label htmlFor="active">Prestador Ativo</Label>
-          </div>
-
-          <div className="flex space-x-4 pt-4">
-            <Button 
-              type="submit" 
-              className="flex-1 bg-blue-600 hover:bg-blue-700"
-              disabled={isLoading}
-            >
-              {isLoading ? 'Adicionando...' : 'Adicionar Prestador'}
+          <div className="flex gap-4 pt-4">
+            <Button type="submit" disabled={loading} className="flex-1">
+              {loading ? 'Criando...' : 'Criar Prestador'}
             </Button>
             <Button 
               type="button" 
-              variant="outline"
-              onClick={onClose}
-              disabled={isLoading}
+              variant="outline" 
+              onClick={() => setOpen(false)}
+              className="flex-1"
             >
               Cancelar
             </Button>

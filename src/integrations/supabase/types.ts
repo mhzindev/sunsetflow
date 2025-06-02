@@ -249,6 +249,9 @@ export type Database = {
           receipt: string | null
           receipt_amount: number | null
           status: Database["public"]["Enums"]["expense_status"]
+          travel_km: number | null
+          travel_km_rate: number | null
+          travel_total_value: number | null
           updated_at: string | null
         }
         Insert: {
@@ -270,6 +273,9 @@ export type Database = {
           receipt?: string | null
           receipt_amount?: number | null
           status?: Database["public"]["Enums"]["expense_status"]
+          travel_km?: number | null
+          travel_km_rate?: number | null
+          travel_total_value?: number | null
           updated_at?: string | null
         }
         Update: {
@@ -291,6 +297,9 @@ export type Database = {
           receipt?: string | null
           receipt_amount?: number | null
           status?: Database["public"]["Enums"]["expense_status"]
+          travel_km?: number | null
+          travel_km_rate?: number | null
+          travel_total_value?: number | null
           updated_at?: string | null
         }
         Relationships: [

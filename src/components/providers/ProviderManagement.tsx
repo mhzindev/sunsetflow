@@ -2,300 +2,486 @@
 import { useState, useEffect } from 'react';
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
-import { UserPlus, Search, Key, Edit, Eye, Shield, ShieldCheck } from 'lucide-react';
-import { ProviderAccessModal } from './ProviderAccessModal';
-import { NewProviderModal } from '../payments/NewProviderModal';
+import { Label } from "@/components/ui/label";
+import { Badge } from "@/components/ui/badge";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Checkbox } from "@/components/ui/checkbox";
 import { useSupabaseData } from '@/hooks/useSupabaseData';
 import { useToastFeedback } from '@/hooks/useToastFeedback';
+import { 
+  Plus, 
+  Edit, 
+  Eye, 
+  UserCheck, 
+  UserX, 
+  Mail, 
+  Phone, 
+  Briefcase,
+  Settings,
+  Key
+} from 'lucide-react';
 
 export const ProviderManagement = () => {
-  const { fetchServiceProviders } = useSupabaseData();
-  const { showSuccess } = useToastFeedback();
-  
   const [providers, setProviders] = useState<any[]>([]);
-  const [filteredProviders, setFilteredProviders] = useState<any[]>([]);
+  const [providerAccess, setProviderAccess] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  const [searchTerm, setSearchTerm] = useState('');
-  
+  const [showNewProvider, setShowNewProvider] = useState(false);
   const [selectedProvider, setSelectedProvider] = useState<any>(null);
-  const [isAccessModalOpen, setIsAccessModalOpen] = useState(false);
-  const [isNewProviderModalOpen, setIsNewProviderModalOpen] = useState(false);
+  const [showAccessModal, setShowAccessModal] = useState(false);
+
+  // Formulário de novo prestador
+  const [newProviderForm, setNewProviderForm] = useState({
+    name: '',
+    email: '',
+    phone: '',
+    service: '',
+    payment_method: 'pix' as any,
+    cpf_cnpj: '',
+    address: '',
+    hourly_rate: ''
+  });
+
+  // Formulário de acesso
+  const [accessForm, setAccessForm] = useState({
+    access_email: '',
+    password: '',
+    permissions: {
+      can_view_missions: true,
+      can_create_expenses: true,
+      can_update_missions: false
+    }
+  });
+
+  const { 
+    fetchServiceProviders, 
+    fetchProviderAccess, 
+    insertServiceProvider,
+    insertServiceProviderWithAccess 
+  } = useSupabaseData();
+  const { showSuccess, showError } = useToastFeedback();
 
   useEffect(() => {
-    loadProviders();
+    loadData();
   }, []);
 
-  useEffect(() => {
-    const filtered = providers.filter(provider =>
-      provider.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      provider.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      provider.service.toLowerCase().includes(searchTerm.toLowerCase())
-    );
-    setFilteredProviders(filtered);
-  }, [providers, searchTerm]);
-
-  const loadProviders = async () => {
+  const loadData = async () => {
+    setLoading(true);
     try {
-      setLoading(true);
-      const data = await fetchServiceProviders();
-      setProviders(data);
+      const [providersData, accessData] = await Promise.all([
+        fetchServiceProviders(),
+        fetchProviderAccess()
+      ]);
+      setProviders(providersData);
+      setProviderAccess(accessData);
     } catch (error) {
-      console.error('Erro ao carregar prestadores:', error);
+      console.error('Erro ao carregar dados:', error);
+      showError('Erro', 'Erro ao carregar dados dos prestadores');
     } finally {
       setLoading(false);
     }
   };
 
-  const handleCreateAccess = (provider: any) => {
-    setSelectedProvider(provider);
-    setIsAccessModalOpen(true);
+  const handleCreateProvider = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newProviderForm.name || !newProviderForm.email || !newProviderForm.phone || !newProviderForm.service) {
+      showError('Erro', 'Preencha todos os campos obrigatórios');
+      return;
+    }
+
+    try {
+      const providerData = {
+        ...newProviderForm,
+        hourly_rate: newProviderForm.hourly_rate ? parseFloat(newProviderForm.hourly_rate) : null
+      };
+
+      const { data, error } = await insertServiceProvider(providerData);
+      
+      if (error) {
+        showError('Erro', `Erro ao criar prestador: ${error}`);
+        return;
+      }
+
+      showSuccess('Sucesso', 'Prestador criado com sucesso!');
+      setNewProviderForm({
+        name: '',
+        email: '',
+        phone: '',
+        service: '',
+        payment_method: 'pix',
+        cpf_cnpj: '',
+        address: '',
+        hourly_rate: ''
+      });
+      setShowNewProvider(false);
+      loadData();
+    } catch (error) {
+      console.error('Erro ao criar prestador:', error);
+      showError('Erro', 'Erro inesperado ao criar prestador');
+    }
   };
 
-  const handleNewProvider = () => {
-    setIsNewProviderModalOpen(true);
+  const handleCreateAccess = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedProvider || !accessForm.access_email || !accessForm.password) {
+      showError('Erro', 'Preencha todos os campos obrigatórios');
+      return;
+    }
+
+    try {
+      const { data, error } = await insertServiceProviderWithAccess(
+        selectedProvider,
+        accessForm
+      );
+      
+      if (error) {
+        showError('Erro', `Erro ao criar acesso: ${error}`);
+        return;
+      }
+
+      showSuccess('Sucesso', `Acesso criado! Código: ${data.access?.access_code}`);
+      setAccessForm({
+        access_email: '',
+        password: '',
+        permissions: {
+          can_view_missions: true,
+          can_create_expenses: true,
+          can_update_missions: false
+        }
+      });
+      setShowAccessModal(false);
+      setSelectedProvider(null);
+      loadData();
+    } catch (error) {
+      console.error('Erro ao criar acesso:', error);
+      showError('Erro', 'Erro inesperado ao criar acesso');
+    }
   };
 
-  const handleProviderAdded = (newProvider: any) => {
-    setProviders(prev => [newProvider, ...prev]);
-    showSuccess('Sucesso', 'Novo prestador adicionado com sucesso!');
+  const getProviderAccess = (providerId: string) => {
+    return providerAccess.find(access => access.provider_id === providerId);
   };
 
-  const handleAccessCreated = () => {
-    // Atualizar lista de prestadores
-    loadProviders();
-  };
-
-  const getPaymentMethodLabel = (method: string) => {
-    const labels = {
-      pix: 'PIX',
-      transfer: 'Transferência',
-      credit_card: 'Cartão de Crédito',
-      debit_card: 'Cartão de Débito',
-      cash: 'Dinheiro'
-    };
-    return labels[method as keyof typeof labels] || method;
+  const formatCurrency = (value: number) => {
+    return new Intl.NumberFormat('pt-BR', {
+      style: 'currency',
+      currency: 'BRL'
+    }).format(value);
   };
 
   if (loading) {
     return (
       <Card className="p-6">
-        <div className="text-center">
-          <div className="animate-spin h-8 w-8 border-b-2 border-blue-600 mx-auto mb-4"></div>
-          <p className="text-slate-600">Carregando prestadores...</p>
-        </div>
+        <div className="text-center">Carregando prestadores...</div>
       </Card>
     );
   }
 
   return (
     <div className="space-y-6">
-      <Card className="p-6">
-        <div className="flex items-center justify-between mb-6">
-          <div>
-            <h4 className="text-lg font-semibold text-slate-800">Gestão de Prestadores</h4>
-            <p className="text-slate-600">Gerencie prestadores de serviço e seus acessos ao sistema</p>
-          </div>
-          <Button 
-            className="bg-blue-600 hover:bg-blue-700"
-            onClick={handleNewProvider}
-          >
-            <UserPlus className="w-4 h-4 mr-2" />
-            Novo Prestador
-          </Button>
-        </div>
+      <div className="flex justify-between items-center">
+        <h4 className="text-lg font-semibold">Prestadores de Serviços</h4>
+        <Button onClick={() => setShowNewProvider(true)}>
+          <Plus className="w-4 h-4 mr-2" />
+          Novo Prestador
+        </Button>
+      </div>
 
-        {/* Busca */}
-        <div className="mb-6">
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
-            <Input
-              placeholder="Buscar por nome, email ou serviço..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="pl-10"
-            />
-          </div>
-        </div>
-
-        {/* Estatísticas */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-          <Card className="p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-slate-600">Total de Prestadores</p>
-                <p className="text-2xl font-bold text-blue-600">{providers.length}</p>
-              </div>
-              <UserPlus className="w-8 h-8 text-blue-600" />
-            </div>
-          </Card>
+      {/* Lista de Prestadores */}
+      <div className="grid gap-4">
+        {providers.map((provider) => {
+          const access = getProviderAccess(provider.id);
           
-          <Card className="p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-slate-600">Com Acesso ao Sistema</p>
-                <p className="text-2xl font-bold text-green-600">
-                  {providers.filter(p => p.has_system_access).length}
-                </p>
-              </div>
-              <Shield className="w-8 h-8 text-green-600" />
-            </div>
-          </Card>
-          
-          <Card className="p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-slate-600">Ativos</p>
-                <p className="text-2xl font-bold text-emerald-600">
-                  {providers.filter(p => p.active).length}
-                </p>
-              </div>
-              <ShieldCheck className="w-8 h-8 text-emerald-600" />
-            </div>
-          </Card>
-          
-          <Card className="p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-slate-600">Especialidades</p>
-                <p className="text-2xl font-bold text-purple-600">
-                  {[...new Set(providers.flatMap(p => p.specialties || []))].length}
-                </p>
-              </div>
-              <Key className="w-8 h-8 text-purple-600" />
-            </div>
-          </Card>
-        </div>
-
-        {/* Tabela de Prestadores */}
-        <div className="border rounded-lg overflow-hidden">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Prestador</TableHead>
-                <TableHead>Contato</TableHead>
-                <TableHead>Serviço</TableHead>
-                <TableHead>Especialidades</TableHead>
-                <TableHead>Valor/Hora</TableHead>
-                <TableHead>Pagamento</TableHead>
-                <TableHead>Acesso Sistema</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead>Ações</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {filteredProviders.length === 0 ? (
-                <TableRow>
-                  <TableCell colSpan={9} className="text-center text-gray-500 py-8">
-                    {searchTerm ? 'Nenhum prestador encontrado com esse termo de busca' : 'Nenhum prestador cadastrado'}
-                  </TableCell>
-                </TableRow>
-              ) : (
-                filteredProviders.map((provider) => (
-                  <TableRow key={provider.id}>
-                    <TableCell>
-                      <div>
-                        <div className="font-medium">{provider.name}</div>
-                        {provider.cpf_cnpj && (
-                          <div className="text-sm text-gray-500">{provider.cpf_cnpj}</div>
-                        )}
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <div>
-                        <div className="text-sm">{provider.email}</div>
-                        <div className="text-sm text-gray-500">{provider.phone}</div>
-                      </div>
-                    </TableCell>
-                    <TableCell>{provider.service}</TableCell>
-                    <TableCell>
-                      <div className="flex flex-wrap gap-1">
-                        {(provider.specialties || []).slice(0, 2).map((specialty: string, index: number) => (
-                          <Badge key={index} variant="secondary" className="text-xs">
-                            {specialty}
-                          </Badge>
-                        ))}
-                        {(provider.specialties || []).length > 2 && (
-                          <Badge variant="outline" className="text-xs">
-                            +{(provider.specialties || []).length - 2}
-                          </Badge>
-                        )}
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      {provider.hourly_rate ? (
-                        <span className="font-medium">
-                          R$ {provider.hourly_rate.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                        </span>
-                      ) : (
-                        <span className="text-gray-400">Não informado</span>
-                      )}
-                    </TableCell>
-                    <TableCell>
+          return (
+            <Card key={provider.id} className="p-6">
+              <div className="flex items-start justify-between">
+                <div className="flex-1">
+                  <div className="flex items-center gap-3 mb-2">
+                    <h5 className="font-semibold text-lg">{provider.name}</h5>
+                    {access ? (
+                      <Badge className="bg-green-100 text-green-800">
+                        <UserCheck className="w-3 h-3 mr-1" />
+                        Com Acesso
+                      </Badge>
+                    ) : (
                       <Badge variant="outline">
-                        {getPaymentMethodLabel(provider.payment_method)}
+                        <UserX className="w-3 h-3 mr-1" />
+                        Sem Acesso
                       </Badge>
-                    </TableCell>
-                    <TableCell>
-                      {provider.has_system_access ? (
-                        <Badge className="bg-green-100 text-green-800">
-                          <Shield className="w-3 h-3 mr-1" />
-                          Ativo
-                        </Badge>
-                      ) : (
-                        <Badge variant="outline">
-                          Sem acesso
-                        </Badge>
-                      )}
-                    </TableCell>
-                    <TableCell>
-                      <Badge variant={provider.active ? 'default' : 'secondary'}>
-                        {provider.active ? 'Ativo' : 'Inativo'}
-                      </Badge>
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex space-x-1">
-                        <Button variant="outline" size="sm">
-                          <Eye className="w-3 h-3" />
-                        </Button>
-                        <Button variant="outline" size="sm">
-                          <Edit className="w-3 h-3" />
-                        </Button>
-                        {!provider.has_system_access && (
-                          <Button 
-                            size="sm" 
-                            className="bg-blue-600 hover:bg-blue-700"
-                            onClick={() => handleCreateAccess(provider)}
-                          >
-                            <Key className="w-3 h-3 mr-1" />
-                            Acesso
-                          </Button>
-                        )}
+                    )}
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-sm text-gray-600">
+                    <div className="flex items-center gap-2">
+                      <Mail className="w-4 h-4" />
+                      <span>{provider.email}</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Phone className="w-4 h-4" />
+                      <span>{provider.phone}</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Briefcase className="w-4 h-4" />
+                      <span>{provider.service}</span>
+                    </div>
+                    {provider.hourly_rate && (
+                      <div className="flex items-center gap-2">
+                        <span>Valor/hora: {formatCurrency(provider.hourly_rate)}</span>
                       </div>
-                    </TableCell>
-                  </TableRow>
-                ))
-              )}
-            </TableBody>
-          </Table>
-        </div>
-      </Card>
+                    )}
+                  </div>
 
-      {/* Modals */}
-      <ProviderAccessModal
-        isOpen={isAccessModalOpen}
-        onClose={() => setIsAccessModalOpen(false)}
-        provider={selectedProvider}
-        onSuccess={handleAccessCreated}
-      />
+                  {access && (
+                    <div className="mt-3 p-3 bg-green-50 rounded-lg">
+                      <div className="text-sm">
+                        <p><strong>Email de acesso:</strong> {access.email}</p>
+                        <p><strong>Código:</strong> {access.access_code}</p>
+                        <p><strong>Status:</strong> {access.is_active ? 'Ativo' : 'Inativo'}</p>
+                      </div>
+                    </div>
+                  )}
+                </div>
 
-      <NewProviderModal
-        isOpen={isNewProviderModalOpen}
-        onClose={() => setIsNewProviderModalOpen(false)}
-        onSave={handleProviderAdded}
-      />
+                <div className="flex flex-col gap-2">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => {
+                      setSelectedProvider(provider);
+                      setShowAccessModal(true);
+                    }}
+                  >
+                    <Key className="w-4 h-4 mr-1" />
+                    {access ? 'Recriar Acesso' : 'Criar Acesso'}
+                  </Button>
+                </div>
+              </div>
+            </Card>
+          );
+        })}
+      </div>
+
+      {/* Modal Novo Prestador */}
+      <Dialog open={showNewProvider} onOpenChange={setShowNewProvider}>
+        <DialogContent className="sm:max-w-[600px]">
+          <DialogHeader>
+            <DialogTitle>Novo Prestador de Serviços</DialogTitle>
+          </DialogHeader>
+          
+          <form onSubmit={handleCreateProvider} className="space-y-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <Label htmlFor="name">Nome *</Label>
+                <Input
+                  value={newProviderForm.name}
+                  onChange={(e) => setNewProviderForm(prev => ({ ...prev, name: e.target.value }))}
+                  placeholder="Nome completo"
+                  required
+                />
+              </div>
+
+              <div>
+                <Label htmlFor="email">Email *</Label>
+                <Input
+                  type="email"
+                  value={newProviderForm.email}
+                  onChange={(e) => setNewProviderForm(prev => ({ ...prev, email: e.target.value }))}
+                  placeholder="email@exemplo.com"
+                  required
+                />
+              </div>
+
+              <div>
+                <Label htmlFor="phone">Telefone *</Label>
+                <Input
+                  value={newProviderForm.phone}
+                  onChange={(e) => setNewProviderForm(prev => ({ ...prev, phone: e.target.value }))}
+                  placeholder="(11) 99999-9999"
+                  required
+                />
+              </div>
+
+              <div>
+                <Label htmlFor="cpf_cnpj">CPF/CNPJ</Label>
+                <Input
+                  value={newProviderForm.cpf_cnpj}
+                  onChange={(e) => setNewProviderForm(prev => ({ ...prev, cpf_cnpj: e.target.value }))}
+                  placeholder="000.000.000-00"
+                />
+              </div>
+
+              <div>
+                <Label htmlFor="service">Serviço *</Label>
+                <Input
+                  value={newProviderForm.service}
+                  onChange={(e) => setNewProviderForm(prev => ({ ...prev, service: e.target.value }))}
+                  placeholder="Ex: Instalação de rastreadores"
+                  required
+                />
+              </div>
+
+              <div>
+                <Label htmlFor="hourly_rate">Valor por Hora</Label>
+                <Input
+                  type="number"
+                  step="0.01"
+                  value={newProviderForm.hourly_rate}
+                  onChange={(e) => setNewProviderForm(prev => ({ ...prev, hourly_rate: e.target.value }))}
+                  placeholder="0,00"
+                />
+              </div>
+
+              <div>
+                <Label htmlFor="payment_method">Método de Pagamento *</Label>
+                <Select 
+                  value={newProviderForm.payment_method} 
+                  onValueChange={(value) => 
+                    setNewProviderForm(prev => ({ ...prev, payment_method: value }))
+                  }
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="pix">PIX</SelectItem>
+                    <SelectItem value="transfer">Transferência</SelectItem>
+                    <SelectItem value="credit_card">Cartão de Crédito</SelectItem>
+                    <SelectItem value="debit_card">Cartão de Débito</SelectItem>
+                    <SelectItem value="cash">Dinheiro</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            <div>
+              <Label htmlFor="address">Endereço</Label>
+              <Input
+                value={newProviderForm.address}
+                onChange={(e) => setNewProviderForm(prev => ({ ...prev, address: e.target.value }))}
+                placeholder="Endereço completo"
+              />
+            </div>
+
+            <div className="flex gap-4 pt-4">
+              <Button type="submit" className="flex-1">
+                Criar Prestador
+              </Button>
+              <Button 
+                type="button" 
+                variant="outline" 
+                onClick={() => setShowNewProvider(false)}
+                className="flex-1"
+              >
+                Cancelar
+              </Button>
+            </div>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Modal Criar Acesso */}
+      <Dialog open={showAccessModal} onOpenChange={setShowAccessModal}>
+        <DialogContent className="sm:max-w-[500px]">
+          <DialogHeader>
+            <DialogTitle>Criar Acesso para {selectedProvider?.name}</DialogTitle>
+          </DialogHeader>
+          
+          <form onSubmit={handleCreateAccess} className="space-y-4">
+            <div>
+              <Label htmlFor="access_email">Email de Acesso *</Label>
+              <Input
+                type="email"
+                value={accessForm.access_email}
+                onChange={(e) => setAccessForm(prev => ({ ...prev, access_email: e.target.value }))}
+                placeholder="email.acesso@exemplo.com"
+                required
+              />
+            </div>
+
+            <div>
+              <Label htmlFor="password">Senha Temporária *</Label>
+              <Input
+                type="password"
+                value={accessForm.password}
+                onChange={(e) => setAccessForm(prev => ({ ...prev, password: e.target.value }))}
+                placeholder="Senha forte"
+                required
+              />
+            </div>
+
+            <div>
+              <Label>Permissões</Label>
+              <div className="space-y-3 mt-2">
+                <div className="flex items-center space-x-2">
+                  <Checkbox
+                    id="can_view_missions"
+                    checked={accessForm.permissions.can_view_missions}
+                    onCheckedChange={(checked) => 
+                      setAccessForm(prev => ({
+                        ...prev,
+                        permissions: {
+                          ...prev.permissions,
+                          can_view_missions: checked as boolean
+                        }
+                      }))
+                    }
+                  />
+                  <Label htmlFor="can_view_missions">Visualizar Missões</Label>
+                </div>
+
+                <div className="flex items-center space-x-2">
+                  <Checkbox
+                    id="can_create_expenses"
+                    checked={accessForm.permissions.can_create_expenses}
+                    onCheckedChange={(checked) => 
+                      setAccessForm(prev => ({
+                        ...prev,
+                        permissions: {
+                          ...prev.permissions,
+                          can_create_expenses: checked as boolean
+                        }
+                      }))
+                    }
+                  />
+                  <Label htmlFor="can_create_expenses">Criar Despesas</Label>
+                </div>
+
+                <div className="flex items-center space-x-2">
+                  <Checkbox
+                    id="can_update_missions"
+                    checked={accessForm.permissions.can_update_missions}
+                    onCheckedChange={(checked) => 
+                      setAccessForm(prev => ({
+                        ...prev,
+                        permissions: {
+                          ...prev.permissions,
+                          can_update_missions: checked as boolean
+                        }
+                      }))
+                    }
+                  />
+                  <Label htmlFor="can_update_missions">Atualizar Missões</Label>
+                </div>
+              </div>
+            </div>
+
+            <div className="flex gap-4 pt-4">
+              <Button type="submit" className="flex-1">
+                Criar Acesso
+              </Button>
+              <Button 
+                type="button" 
+                variant="outline" 
+                onClick={() => setShowAccessModal(false)}
+                className="flex-1"
+              >
+                Cancelar
+              </Button>
+            </div>
+          </form>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

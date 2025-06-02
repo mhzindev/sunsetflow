@@ -7,15 +7,21 @@ export const useSupabaseData = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // Função para buscar transações
+  // Função para buscar transações - MELHORADA
   const fetchTransactions = async () => {
     try {
+      console.log('Buscando transações do banco...');
       const { data, error } = await supabase
         .from('transactions')
         .select('*')
         .order('created_at', { ascending: false });
 
-      if (error) throw error;
+      if (error) {
+        console.error('Erro SQL ao buscar transações:', error);
+        throw error;
+      }
+      
+      console.log('Transações encontradas:', data?.length || 0);
       return data || [];
     } catch (err) {
       console.error('Erro ao buscar transações:', err);
@@ -90,16 +96,22 @@ export const useSupabaseData = () => {
     }
   };
 
-  // Função para buscar fornecedores
+  // Função para buscar fornecedores - MELHORADA
   const fetchServiceProviders = async () => {
     try {
+      console.log('Buscando fornecedores...');
       const { data, error } = await supabase
         .from('service_providers')
         .select('*')
         .eq('active', true)
         .order('name', { ascending: true });
 
-      if (error) throw error;
+      if (error) {
+        console.error('Erro SQL ao buscar fornecedores:', error);
+        throw error;
+      }
+      
+      console.log('Fornecedores encontrados:', data?.length || 0);
       return data || [];
     } catch (err) {
       console.error('Erro ao buscar fornecedores:', err);
@@ -162,7 +174,7 @@ export const useSupabaseData = () => {
     }
   };
 
-  // Função para inserir transação
+  // Função para inserir transação - MELHORADA
   const insertTransaction = async (transaction: {
     type: 'income' | 'expense';
     category: string;
@@ -206,7 +218,7 @@ export const useSupabaseData = () => {
     }
   };
 
-  // Função para inserir despesa
+  // Função para inserir despesa - MELHORADA COM NOVOS CAMPOS
   const insertExpense = async (expense: {
     mission_id?: string;
     category: string;
@@ -217,6 +229,9 @@ export const useSupabaseData = () => {
     receipt?: string;
     accommodation_details?: any;
     employee_role?: string;
+    travel_km?: number;
+    travel_km_rate?: number;
+    travel_total_value?: number;
   }) => {
     try {
       if (!user) throw new Error('Usuário não autenticado');
@@ -434,13 +449,16 @@ export const useSupabaseData = () => {
     }
   };
 
-  // Função para inserir fornecedor
+  // Função para inserir fornecedor - MELHORADA
   const insertServiceProvider = async (provider: {
     name: string;
     email: string;
     phone: string;
     service: string;
     payment_method: string;
+    cpf_cnpj?: string;
+    address?: string;
+    hourly_rate?: number;
   }) => {
     try {
       console.log('Inserindo fornecedor:', provider);
