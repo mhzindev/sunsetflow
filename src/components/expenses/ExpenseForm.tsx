@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -340,7 +339,7 @@ export const ExpenseForm = ({ onSave, onCancel }: ExpenseFormProps) => {
               id="is_advanced"
               checked={formData.is_advanced}
               onCheckedChange={(checked) => 
-                setFormData(prev => ({ ...prev, is_advanced: Boolean(checked) }))
+                setFormData(prev => ({ ...prev, is_advanced: checked === true }))
               }
             />
             <Label htmlFor="is_advanced">Adiantamento</Label>
@@ -355,7 +354,7 @@ export const ExpenseForm = ({ onSave, onCancel }: ExpenseFormProps) => {
             <Button type="button" variant="outline" onClick={onCancel}>
               Cancelar
             </Button>
-            )}
+          )}
         </div>
       </form>
     </Card>
