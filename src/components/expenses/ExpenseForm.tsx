@@ -75,7 +75,7 @@ export const ExpenseForm = ({ onSave, onCancel }: ExpenseFormProps) => {
     setLoading(true);
     try {
       const expenseData = {
-        mission_id: formData.mission_id || null,
+        mission_id: formData.mission_id === 'none' ? null : formData.mission_id || null,
         category: formData.category,
         description: formData.description,
         amount: parseFloat(formData.amount),
@@ -139,16 +139,16 @@ export const ExpenseForm = ({ onSave, onCancel }: ExpenseFormProps) => {
           <div>
             <Label htmlFor="mission">Missão</Label>
             <Select 
-              value={formData.mission_id} 
+              value={formData.mission_id || 'none'} 
               onValueChange={(value) => 
-                setFormData(prev => ({ ...prev, mission_id: value }))
+                setFormData(prev => ({ ...prev, mission_id: value === 'none' ? '' : value }))
               }
             >
               <SelectTrigger>
                 <SelectValue placeholder="Selecione uma missão (opcional)" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">Nenhuma missão</SelectItem>
+                <SelectItem value="none">Nenhuma missão</SelectItem>
                 {missions.map(mission => (
                   <SelectItem key={mission.id} value={mission.id}>
                     {mission.title} - {mission.location}

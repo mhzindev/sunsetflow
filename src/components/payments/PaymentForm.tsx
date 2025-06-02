@@ -68,6 +68,15 @@ export const PaymentForm = ({ onSave, onCancel }: PaymentFormProps) => {
   };
 
   const handleProviderChange = (providerId: string) => {
+    if (providerId === 'no-provider') {
+      setFormData(prev => ({
+        ...prev,
+        provider_id: '',
+        provider_name: ''
+      }));
+      return;
+    }
+
     const provider = providers.find(p => p.id === providerId);
     if (provider) {
       setFormData(prev => ({
@@ -75,16 +84,19 @@ export const PaymentForm = ({ onSave, onCancel }: PaymentFormProps) => {
         provider_id: providerId,
         provider_name: provider.name
       }));
-    } else {
-      setFormData(prev => ({
-        ...prev,
-        provider_id: '',
-        provider_name: ''
-      }));
     }
   };
 
   const handleAccountChange = (accountId: string) => {
+    if (accountId === 'no-account') {
+      setFormData(prev => ({
+        ...prev,
+        account_id: '',
+        account_type: ''
+      }));
+      return;
+    }
+
     const bankAccount = bankAccounts.find(acc => acc.id === accountId);
     const creditCard = creditCards.find(card => card.id === accountId);
     
@@ -99,12 +111,6 @@ export const PaymentForm = ({ onSave, onCancel }: PaymentFormProps) => {
         ...prev,
         account_id: accountId,
         account_type: 'credit_card'
-      }));
-    } else {
-      setFormData(prev => ({
-        ...prev,
-        account_id: '',
-        account_type: ''
       }));
     }
   };
@@ -204,14 +210,14 @@ export const PaymentForm = ({ onSave, onCancel }: PaymentFormProps) => {
           <div>
             <Label htmlFor="provider">Prestador</Label>
             <Select 
-              value={formData.provider_id} 
+              value={formData.provider_id || 'no-provider'} 
               onValueChange={handleProviderChange}
             >
               <SelectTrigger>
                 <SelectValue placeholder="Selecione um prestador" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">Prestador não cadastrado</SelectItem>
+                <SelectItem value="no-provider">Prestador não cadastrado</SelectItem>
                 {providers.map(provider => (
                   <SelectItem key={provider.id} value={provider.id}>
                     {provider.name} - {provider.service}
@@ -221,7 +227,7 @@ export const PaymentForm = ({ onSave, onCancel }: PaymentFormProps) => {
             </Select>
           </div>
 
-          {!formData.provider_id && (
+          {(!formData.provider_id || formData.provider_id === 'no-provider') && (
             <div>
               <Label htmlFor="provider_name">Nome do Prestador *</Label>
               <Input
@@ -331,14 +337,14 @@ export const PaymentForm = ({ onSave, onCancel }: PaymentFormProps) => {
           <div>
             <Label htmlFor="account">Conta/Cartão</Label>
             <Select 
-              value={formData.account_id} 
+              value={formData.account_id || 'no-account'} 
               onValueChange={handleAccountChange}
             >
               <SelectTrigger>
                 <SelectValue placeholder="Selecione uma conta" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">Nenhuma conta selecionada</SelectItem>
+                <SelectItem value="no-account">Nenhuma conta selecionada</SelectItem>
                 {bankAccounts.map(account => (
                   <SelectItem key={account.id} value={account.id}>
                     {account.name} - {account.bank}
