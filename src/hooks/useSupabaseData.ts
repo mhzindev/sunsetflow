@@ -19,14 +19,14 @@ export const useSupabaseData = () => {
 
       if (error) {
         console.error('Erro SQL ao buscar transações:', error);
-        return [];
+        throw error;
       }
       
       console.log('Transações encontradas:', data?.length || 0);
       return data || [];
     } catch (err) {
       console.error('Erro ao buscar transações:', err);
-      return [];
+      throw err;
     }
   };
 
@@ -53,14 +53,14 @@ export const useSupabaseData = () => {
 
       if (error) {
         console.error('Erro SQL ao buscar despesas:', error);
-        return [];
+        throw error;
       }
       
       console.log('Despesas encontradas:', data?.length || 0);
       return data || [];
     } catch (err) {
       console.error('Erro ao buscar despesas:', err);
-      return [];
+      throw err;
     }
   };
 
@@ -78,14 +78,14 @@ export const useSupabaseData = () => {
 
       if (error) {
         console.error('Erro SQL ao buscar pagamentos:', error);
-        return [];
+        throw error;
       }
       
       console.log('Pagamentos encontrados:', data?.length || 0);
       return data || [];
     } catch (err) {
       console.error('Erro ao buscar pagamentos:', err);
-      return [];
+      throw err;
     }
   };
 
@@ -100,14 +100,14 @@ export const useSupabaseData = () => {
 
       if (error) {
         console.error('Erro SQL ao buscar missões:', error);
-        return [];
+        throw error;
       }
       
       console.log('Missões encontradas:', data?.length || 0);
       return data || [];
     } catch (err) {
       console.error('Erro ao buscar missões:', err);
-      return [];
+      throw err;
     }
   };
 
@@ -123,14 +123,14 @@ export const useSupabaseData = () => {
 
       if (error) {
         console.error('Erro SQL ao buscar fornecedores:', error);
-        return [];
+        throw error;
       }
       
       console.log('Fornecedores encontrados:', data?.length || 0);
       return data || [];
     } catch (err) {
       console.error('Erro ao buscar fornecedores:', err);
-      return [];
+      throw err;
     }
   };
 
@@ -145,14 +145,14 @@ export const useSupabaseData = () => {
 
       if (error) {
         console.error('Erro ao buscar clientes:', error);
-        return [];
+        throw error;
       }
       
       console.log('Clientes encontrados:', data?.length || 0);
       return data || [];
     } catch (err) {
       console.error('Erro ao buscar clientes:', err);
-      return [];
+      throw err;
     }
   };
 
@@ -415,6 +415,9 @@ export const useSupabaseData = () => {
     start_date: string;
     end_date?: string;
     budget?: number;
+    service_value?: number;
+    company_percentage?: number;
+    provider_percentage?: number;
     client_name?: string;
     client_id?: string;
     assigned_employees?: string[];
@@ -643,19 +646,414 @@ export const useSupabaseData = () => {
     fetchMissions,
     fetchServiceProviders,
     fetchClients,
-    fetchBankAccounts,
-    fetchCreditCards,
-    fetchEmployees,
+    fetchBankAccounts: async () => {
+      try {
+        if (!user?.id) return [];
+        
+        const { data, error } = await supabase
+          .from('bank_accounts')
+          .select('*')
+          .eq('user_id', user.id)
+          .order('created_at', { ascending: false });
+
+        if (error) {
+          console.error('Erro ao buscar contas bancárias:', error);
+          return [];
+        }
+        
+        return data || [];
+      } catch (err) {
+        console.error('Erro ao buscar contas bancárias:', err);
+        return [];
+      }
+    },
+    fetchCreditCards: async () => {
+      try {
+        if (!user?.id) return [];
+        
+        const { data, error } = await supabase
+          .from('credit_cards')
+          .select('*')
+          .eq('user_id', user.id)
+          .order('created_at', { ascending: false });
+
+        if (error) {
+          console.error('Erro ao buscar cartões de crédito:', error);
+          return [];
+        }
+        
+        return data || [];
+      } catch (err) {
+        console.error('Erro ao buscar cartões de crédito:', err);
+        return [];
+      }
+    },
+    fetchEmployees: async () => {
+      try {
+        console.log('Buscando funcionários do banco...');
+        const { data, error } = await supabase
+          .from('employees')
+          .select('*')
+          .eq('active', true)
+          .order('name', { ascending: true });
+
+        if (error) {
+          console.error('Erro SQL ao buscar funcionários:', error);
+          return [];
+        }
+        
+        console.log('Funcionários encontrados:', data?.length || 0);
+        return data || [];
+      } catch (err) {
+        console.error('Erro ao buscar funcionários:', err);
+        return [];
+      }
+    },
     insertTransaction,
-    insertExpense,
-    updateExpenseStatus,
-    insertPayment,
-    updatePayment,
-    insertMission,
-    updateMission,
-    insertClient,
-    insertServiceProvider,
-    insertServiceProviderWithAccess,
-    fetchProviderAccess
+    insertExpense: async (expense: {
+      mission_id?: string;
+      category: string;
+      description: string;
+      amount: number;
+      invoice_amount?: number;
+      date: string;
+      is_advanced?: boolean;
+      receipt?: string;
+      accommodation_details?: any;
+      employee_role?: string;
+      travel_km?: number;
+      travel_km_rate?: number;
+      travel_total_value?: number;
+    }) => {
+      try {
+        if (!user) throw new Error('Usuário não autenticado');
+
+        console.log('Inserindo despesa:', expense);
+
+        const { data, error } = await supabase
+          .from('expenses')
+          .insert({
+            ...expense,
+            employee_id: user.id,
+            employee_name: user.user_metadata?.name || user.email?.split('@')[0] || 'Usuário',
+            employee_role: expense.employee_role || 'Funcionário',
+            status: 'pending'
+          })
+          .select()
+          .single();
+
+        if (error) {
+          console.error('Erro SQL ao inserir despesa:', error);
+          throw error;
+        }
+
+        console.log('Despesa inserida com sucesso:', data);
+        return { data, error: null };
+      } catch (err) {
+        console.error('Erro ao inserir despesa:', err);
+        return { data: null, error: err instanceof Error ? err.message : 'Erro desconhecido' };
+      }
+    },
+    updateExpenseStatus: async (expenseId: string, status: 'pending' | 'approved' | 'reimbursed') => {
+      try {
+        console.log('Atualizando status da despesa:', expenseId, status);
+
+        const { data, error } = await supabase
+          .from('expenses')
+          .update({ status })
+          .eq('id', expenseId)
+          .select()
+          .single();
+
+        if (error) {
+          console.error('Erro SQL ao atualizar status da despesa:', error);
+          throw error;
+        }
+
+        console.log('Status da despesa atualizado com sucesso:', data);
+        return { data, error: null };
+      } catch (err) {
+        console.error('Erro ao atualizar status da despesa:', err);
+        return { data: null, error: err instanceof Error ? err.message : 'Erro desconhecido' };
+      }
+    },
+    insertPayment: async (payment: {
+      provider_id?: string;
+      provider_name: string;
+      amount: number;
+      due_date: string;
+      payment_date?: string;
+      status: string;
+      type: string;
+      description: string;
+      installments?: number;
+      current_installment?: number;
+      tags?: string[];
+      notes?: string;
+      account_id?: string;
+      account_type?: 'bank_account' | 'credit_card';
+    }) => {
+      try {
+        console.log('Inserindo pagamento:', payment);
+
+        const { data, error } = await supabase
+          .from('payments')
+          .insert(payment)
+          .select()
+          .single();
+
+        if (error) {
+          console.error('Erro SQL ao inserir pagamento:', error);
+          throw error;
+        }
+
+        console.log('Pagamento inserido com sucesso:', data);
+        return { data, error: null };
+      } catch (err) {
+        console.error('Erro ao inserir pagamento:', err);
+        return { data: null, error: err instanceof Error ? err.message : 'Erro desconhecido' };
+      }
+    },
+    updatePayment: async (paymentId: string, updates: any) => {
+      try {
+        console.log('Atualizando pagamento:', paymentId, updates);
+
+        const { data, error } = await supabase
+          .from('payments')
+          .update(updates)
+          .eq('id', paymentId)
+          .select()
+          .single();
+
+        if (error) {
+          console.error('Erro SQL ao atualizar pagamento:', error);
+          throw error;
+        }
+
+        console.log('Pagamento atualizado com sucesso:', data);
+        return { data, error: null };
+      } catch (err) {
+        console.error('Erro ao atualizar pagamento:', err);
+        return { data: null, error: err instanceof Error ? err.message : 'Erro desconhecido' };
+      }
+    },
+    insertMission: async (mission: {
+      title: string;
+      description?: string;
+      location: string;
+      start_date: string;
+      end_date?: string;
+      budget?: number;
+      service_value?: number;
+      company_percentage?: number;
+      provider_percentage?: number;
+      client_name?: string;
+      client_id?: string;
+      assigned_employees?: string[];
+      employee_names?: string[];
+      status?: string;
+    }) => {
+      try {
+        if (!user) {
+          console.error('Usuário não autenticado');
+          return { data: null, error: 'Usuário não autenticado' };
+        }
+
+        console.log('Inserindo missão:', mission);
+
+        const { data, error } = await supabase
+          .from('missions')
+          .insert({
+            ...mission,
+            created_by: user.id,
+            status: mission.status || 'planning'
+          })
+          .select()
+          .single();
+
+        if (error) {
+          console.error('Erro SQL ao inserir missão:', error);
+          return { data: null, error: error.message };
+        }
+
+        console.log('Missão inserida com sucesso:', data);
+        return { data, error: null };
+      } catch (err) {
+        console.error('Erro ao inserir missão:', err);
+        return { data: null, error: err instanceof Error ? err.message : 'Erro desconhecido' };
+      }
+    },
+    updateMission: async (missionId: string, updates: any) => {
+      try {
+        console.log('Atualizando missão:', missionId, updates);
+
+        const { data, error } = await supabase
+          .from('missions')
+          .update(updates)
+          .eq('id', missionId)
+          .select()
+          .single();
+
+        if (error) {
+          console.error('Erro SQL ao atualizar missão:', error);
+          throw error;
+        }
+
+        console.log('Missão atualizada com sucesso:', data);
+        return { data, error: null };
+      } catch (err) {
+        console.error('Erro ao atualizar missão:', err);
+        return { data: null, error: err instanceof Error ? err.message : 'Erro desconhecido' };
+      }
+    },
+    insertClient: async (client: {
+      name: string;
+      company_name?: string;
+      email?: string;
+      phone?: string;
+      address?: string;
+    }) => {
+      try {
+        console.log('Inserindo cliente:', client);
+
+        const { data, error } = await supabase
+          .from('clients')
+          .insert(client)
+          .select()
+          .single();
+
+        if (error) {
+          console.error('Erro SQL ao inserir cliente:', error);
+          throw error;
+        }
+
+        console.log('Cliente inserido com sucesso:', data);
+        return { data, error: null };
+      } catch (err) {
+        console.error('Erro ao inserir cliente:', err);
+        return { data: null, error: err instanceof Error ? err.message : 'Erro desconhecido' };
+      }
+    },
+    insertServiceProvider: async (provider: {
+      name: string;
+      email: string;
+      phone: string;
+      service: string;
+      payment_method: string;
+      cpf_cnpj?: string;
+      address?: string;
+      hourly_rate?: number;
+    }) => {
+      try {
+        console.log('Inserindo fornecedor:', provider);
+
+        const { data, error } = await supabase
+          .from('service_providers')
+          .insert({
+            ...provider,
+            active: true
+          })
+          .select()
+          .single();
+
+        if (error) {
+          console.error('Erro SQL ao inserir fornecedor:', error);
+          throw error;
+        }
+
+        console.log('Fornecedor inserido com sucesso:', data);
+        return { data, error: null };
+      } catch (err) {
+        console.error('Erro ao inserir fornecedor:', err);
+        return { data: null, error: err instanceof Error ? err.message : 'Erro desconhecido' };
+      }
+    },
+    insertServiceProviderWithAccess: async (provider: {
+      name: string;
+      email: string;
+      phone: string;
+      service: string;
+      payment_method: string;
+      cpf_cnpj?: string;
+      address?: string;
+      specialties?: string[];
+      hourly_rate?: number;
+    }, accessData?: {
+      access_email: string;
+      password: string;
+      permissions: any;
+    }) => {
+      try {
+        console.log('Inserindo prestador com acesso:', { provider, accessData });
+
+        // Primeiro inserir o prestador
+        const { data: providerData, error: providerError } = await supabase
+          .from('service_providers')
+          .insert({
+            ...provider,
+            has_system_access: !!accessData,
+            active: true
+          })
+          .select()
+          .single();
+
+        if (providerError) {
+          console.error('Erro SQL ao inserir prestador:', providerError);
+          throw providerError;
+        }
+
+        // Se há dados de acesso, criar o acesso
+        if (accessData && providerData) {
+          const accessCode = Math.random().toString(36).substr(2, 12).toUpperCase();
+          
+          const { data: accessResult, error: accessError } = await supabase
+            .from('service_provider_access')
+            .insert({
+              provider_id: providerData.id,
+              email: accessData.access_email,
+              password_hash: btoa(accessData.password), // Em produção, usar hash apropriado
+              access_code: accessCode,
+              permissions: accessData.permissions,
+              is_active: true
+            })
+            .select()
+            .single();
+
+          if (accessError) {
+            console.error('Erro ao criar acesso:', accessError);
+            // Em caso de erro, remover o prestador criado
+            await supabase.from('service_providers').delete().eq('id', providerData.id);
+            throw accessError;
+          }
+
+          console.log('Prestador e acesso criados com sucesso:', { providerData, accessResult });
+          return { data: { provider: providerData, access: accessResult }, error: null };
+        }
+
+        console.log('Prestador criado com sucesso:', providerData);
+        return { data: { provider: providerData }, error: null };
+      } catch (err) {
+        console.error('Erro ao inserir prestador:', err);
+        return { data: null, error: err instanceof Error ? err.message : 'Erro desconhecido' };
+      }
+    },
+    fetchProviderAccess: async () => {
+      try {
+        const { data, error } = await supabase
+          .from('service_provider_access')
+          .select(`
+            *,
+            service_providers:provider_id(name, email, phone, service)
+          `)
+          .eq('is_active', true)
+          .order('created_at', { ascending: false });
+
+        if (error) throw error;
+        return data || [];
+      } catch (err) {
+        console.error('Erro ao buscar acessos de prestadores:', err);
+        return [];
+      }
+    }
   };
 };

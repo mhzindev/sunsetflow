@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -9,6 +10,8 @@ import { Badge } from "@/components/ui/badge";
 import { useSupabaseData } from '@/hooks/useSupabaseData';
 import { useEmployees } from '@/hooks/useEmployees';
 import { useToastFeedback } from '@/hooks/useToastFeedback';
+import { ClientAutocomplete } from '@/components/clients/ClientAutocomplete';
+import { ServiceValueDistribution } from '@/components/missions/ServiceValueDistribution';
 import { Plus, Calendar, MapPin, Users, DollarSign, RefreshCw } from 'lucide-react';
 
 interface MissionManagerProps {
@@ -17,7 +20,6 @@ interface MissionManagerProps {
 
 export const MissionManager = ({ onMissionCreated }: MissionManagerProps) => {
   const [missions, setMissions] = useState<any[]>([]);
-  const [clients, setClients] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [formData, setFormData] = useState({
@@ -26,15 +28,16 @@ export const MissionManager = ({ onMissionCreated }: MissionManagerProps) => {
     location: '',
     start_date: '',
     end_date: '',
-    budget: '',
-    client_id: '',
+    service_value: 0,
+    company_percentage: 70,
+    provider_percentage: 30,
     client_name: '',
     assigned_employees: [] as string[],
     employee_names: [] as string[],
     status: 'planning'
   });
 
-  const { fetchMissions, fetchClients, insertMission } = useSupabaseData();
+  const { fetchMissions, insertMission } = useSupabaseData();
   const { employees } = useEmployees();
   const { showSuccess, showError } = useToastFeedback();
 
@@ -45,14 +48,10 @@ export const MissionManager = ({ onMissionCreated }: MissionManagerProps) => {
   const loadData = async () => {
     try {
       setLoading(true);
-      const [missionsData, clientsData] = await Promise.all([
-        fetchMissions(),
-        fetchClients()
-      ]);
+      const missionsData = await fetchMissions();
       
-      console.log('Dados carregados:', { missions: missionsData, clients: clientsData });
+      console.log('Dados carregados:', { missions: missionsData });
       setMissions(missionsData || []);
-      setClients(clientsData || []);
     } catch (error) {
       console.error('Erro ao carregar dados:', error);
       showError('Erro', 'Não foi possível carregar os dados');
@@ -85,8 +84,9 @@ export const MissionManager = ({ onMissionCreated }: MissionManagerProps) => {
         location: formData.location,
         start_date: formData.start_date,
         end_date: formData.end_date || null,
-        budget: formData.budget ? parseFloat(formData.budget) : null,
-        client_id: formData.client_id || null,
+        service_value: formData.service_value || null,
+        company_percentage: formData.company_percentage,
+        provider_percentage: formData.provider_percentage,
         client_name: formData.client_name,
         assigned_employees: formData.assigned_employees,
         employee_names: formData.employee_names,
@@ -111,8 +111,9 @@ export const MissionManager = ({ onMissionCreated }: MissionManagerProps) => {
         location: '',
         start_date: '',
         end_date: '',
-        budget: '',
-        client_id: '',
+        service_value: 0,
+        company_percentage: 70,
+        provider_percentage: 30,
         client_name: '',
         assigned_employees: [],
         employee_names: [],
@@ -144,6 +145,14 @@ export const MissionManager = ({ onMissionCreated }: MissionManagerProps) => {
         };
       }
     });
+  };
+
+  const handleCompanyPercentageChange = (percentage: number) => {
+    setFormData(prev => ({
+      ...prev,
+      company_percentage: percentage,
+      provider_percentage: 100 - percentage
+    }));
   };
 
   const getStatusBadge = (status: string) => {
@@ -253,43 +262,6 @@ export const MissionManager = ({ onMissionCreated }: MissionManagerProps) => {
                     </div>
                     
                     <div>
-                      <Label htmlFor="budget">Orçamento (R$)</Label>
-                      <Input
-                        id="budget"
-                        type="number"
-                        step="0.01"
-                        value={formData.budget}
-                        onChange={(e) => setFormData({...formData, budget: e.target.value})}
-                        placeholder="0,00"
-                      />
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                      <Label htmlFor="client_id">Cliente</Label>
-                      <Select value={formData.client_id} onValueChange={(value) => {
-                        const selectedClient = clients.find(c => c.id === value);
-                        setFormData({
-                          ...formData, 
-                          client_id: value,
-                          client_name: selectedClient?.name || ''
-                        });
-                      }}>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Selecionar cliente" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {clients.map((client) => (
-                            <SelectItem key={client.id} value={client.id}>
-                              {client.name} {client.company_name && `(${client.company_name})`}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-
-                    <div>
                       <Label htmlFor="status">Status</Label>
                       <Select value={formData.status} onValueChange={(value) => 
                         setFormData({...formData, status: value})
@@ -305,6 +277,22 @@ export const MissionManager = ({ onMissionCreated }: MissionManagerProps) => {
                       </Select>
                     </div>
                   </div>
+
+                  <div>
+                    <Label htmlFor="client_name">Cliente</Label>
+                    <ClientAutocomplete
+                      value={formData.client_name}
+                      onValueChange={(value) => setFormData({...formData, client_name: value})}
+                      placeholder="Digite o nome do cliente"
+                    />
+                  </div>
+
+                  <ServiceValueDistribution
+                    serviceValue={formData.service_value}
+                    companyPercentage={formData.company_percentage}
+                    onCompanyPercentageChange={handleCompanyPercentageChange}
+                    onServiceValueChange={(value) => setFormData({...formData, service_value: value})}
+                  />
 
                   <div>
                     <Label>Funcionários Designados *</Label>
@@ -390,10 +378,10 @@ export const MissionManager = ({ onMissionCreated }: MissionManagerProps) => {
                           <p><strong>Cliente:</strong> {mission.client_name}</p>
                         )}
                         
-                        {mission.budget && (
+                        {mission.service_value && (
                           <p className="flex items-center gap-2">
                             <DollarSign className="w-4 h-4" />
-                            Orçamento: R$ {Number(mission.budget).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                            Valor do Serviço: R$ {Number(mission.service_value).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                           </p>
                         )}
                         
