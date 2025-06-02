@@ -357,17 +357,25 @@ export type Database = {
       }
       missions: {
         Row: {
+          approved_at: string | null
+          approved_by: string | null
           assigned_employees: string[] | null
           budget: number | null
           client_id: string | null
           client_name: string | null
+          company_percentage: number | null
+          company_value: number | null
           created_at: string | null
           created_by: string | null
           description: string | null
           employee_names: string[] | null
           end_date: string | null
           id: string
+          is_approved: boolean | null
           location: string
+          provider_percentage: number | null
+          provider_value: number | null
+          service_value: number | null
           start_date: string
           status: string
           title: string
@@ -375,17 +383,25 @@ export type Database = {
           updated_at: string | null
         }
         Insert: {
+          approved_at?: string | null
+          approved_by?: string | null
           assigned_employees?: string[] | null
           budget?: number | null
           client_id?: string | null
           client_name?: string | null
+          company_percentage?: number | null
+          company_value?: number | null
           created_at?: string | null
           created_by?: string | null
           description?: string | null
           employee_names?: string[] | null
           end_date?: string | null
           id?: string
+          is_approved?: boolean | null
           location: string
+          provider_percentage?: number | null
+          provider_value?: number | null
+          service_value?: number | null
           start_date: string
           status?: string
           title: string
@@ -393,17 +409,25 @@ export type Database = {
           updated_at?: string | null
         }
         Update: {
+          approved_at?: string | null
+          approved_by?: string | null
           assigned_employees?: string[] | null
           budget?: number | null
           client_id?: string | null
           client_name?: string | null
+          company_percentage?: number | null
+          company_value?: number | null
           created_at?: string | null
           created_by?: string | null
           description?: string | null
           employee_names?: string[] | null
           end_date?: string | null
           id?: string
+          is_approved?: boolean | null
           location?: string
+          provider_percentage?: number | null
+          provider_value?: number | null
+          service_value?: number | null
           start_date?: string
           status?: string
           title?: string

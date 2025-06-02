@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -10,9 +9,10 @@ import { Badge } from "@/components/ui/badge";
 import { useSupabaseData } from '@/hooks/useSupabaseData';
 import { useEmployees } from '@/hooks/useEmployees';
 import { useToastFeedback } from '@/hooks/useToastFeedback';
+import { useAuth } from '@/contexts/AuthContext';
 import { ClientAutocomplete } from '@/components/clients/ClientAutocomplete';
 import { ServiceValueDistribution } from '@/components/missions/ServiceValueDistribution';
-import { Plus, Calendar, MapPin, Users, DollarSign, RefreshCw } from 'lucide-react';
+import { Plus, Calendar, MapPin, Users, DollarSign, RefreshCw, CheckCircle, Clock } from 'lucide-react';
 
 interface MissionManagerProps {
   onMissionCreated?: () => void;
@@ -29,17 +29,21 @@ export const MissionManager = ({ onMissionCreated }: MissionManagerProps) => {
     start_date: '',
     end_date: '',
     service_value: 0,
-    company_percentage: 70,
-    provider_percentage: 30,
+    company_percentage: 30,
+    provider_percentage: 70,
     client_name: '',
     assigned_employees: [] as string[],
     employee_names: [] as string[],
     status: 'planning'
   });
 
-  const { fetchMissions, insertMission } = useSupabaseData();
+  const { fetchMissions, insertMission, updateMission } = useSupabaseData();
   const { employees } = useEmployees();
   const { showSuccess, showError } = useToastFeedback();
+  const { user } = useAuth();
+
+  // Verificar se o usuário é dono/admin
+  const isOwner = user?.user_metadata?.role === 'admin' || user?.user_metadata?.role === 'owner';
 
   useEffect(() => {
     loadData();
@@ -112,8 +116,8 @@ export const MissionManager = ({ onMissionCreated }: MissionManagerProps) => {
         start_date: '',
         end_date: '',
         service_value: 0,
-        company_percentage: 70,
-        provider_percentage: 30,
+        company_percentage: 30,
+        provider_percentage: 70,
         client_name: '',
         assigned_employees: [],
         employee_names: [],
@@ -124,6 +128,30 @@ export const MissionManager = ({ onMissionCreated }: MissionManagerProps) => {
     } catch (error) {
       console.error('Erro ao criar missão:', error);
       showError('Erro', 'Erro ao criar missão. Tente novamente.');
+    }
+  };
+
+  const handleApproveMission = async (missionId: string) => {
+    try {
+      console.log('Aprovando missão:', missionId);
+
+      const result = await updateMission(missionId, {
+        is_approved: true,
+        approved_by: user?.id,
+        approved_at: new Date().toISOString()
+      });
+
+      if (result.error) {
+        console.error('Erro ao aprovar missão:', result.error);
+        showError('Erro', result.error);
+        return;
+      }
+
+      showSuccess('Sucesso', 'Missão aprovada! Receita registrada no sistema.');
+      loadData();
+    } catch (error) {
+      console.error('Erro ao aprovar missão:', error);
+      showError('Erro', 'Erro ao aprovar missão. Tente novamente.');
     }
   };
 
@@ -155,7 +183,11 @@ export const MissionManager = ({ onMissionCreated }: MissionManagerProps) => {
     }));
   };
 
-  const getStatusBadge = (status: string) => {
+  const getStatusBadge = (status: string, isApproved: boolean = false) => {
+    if (isApproved) {
+      return <Badge className="bg-green-100 text-green-800">✓ Aprovada</Badge>;
+    }
+    
     const statusConfig = {
       planning: { label: 'Planejamento', className: 'bg-blue-100 text-blue-800' },
       'in-progress': { label: 'Em Andamento', className: 'bg-yellow-100 text-yellow-800' },
@@ -359,7 +391,7 @@ export const MissionManager = ({ onMissionCreated }: MissionManagerProps) => {
                     <div className="flex-1">
                       <div className="flex items-center gap-2 mb-2">
                         <h3 className="font-semibold text-lg">{mission.title}</h3>
-                        {getStatusBadge(mission.status)}
+                        {getStatusBadge(mission.status, mission.is_approved)}
                       </div>
                       
                       <div className="space-y-2 text-sm text-gray-600">
@@ -378,11 +410,25 @@ export const MissionManager = ({ onMissionCreated }: MissionManagerProps) => {
                           <p><strong>Cliente:</strong> {mission.client_name}</p>
                         )}
                         
-                        {mission.service_value && (
-                          <p className="flex items-center gap-2">
-                            <DollarSign className="w-4 h-4" />
-                            Valor do Serviço: R$ {Number(mission.service_value).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                          </p>
+                        {mission.service_value && mission.service_value > 0 && (
+                          <div className="space-y-1">
+                            <p className="flex items-center gap-2">
+                              <DollarSign className="w-4 h-4" />
+                              Valor do Serviço: R$ {Number(mission.service_value).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                            </p>
+                            {mission.company_value && mission.provider_value && (
+                              <div className="grid grid-cols-2 gap-2 mt-2">
+                                <div className="p-2 bg-blue-50 rounded text-xs">
+                                  <div className="font-medium text-blue-800">Empresa ({mission.company_percentage}%)</div>
+                                  <div className="text-blue-900">R$ {Number(mission.company_value).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</div>
+                                </div>
+                                <div className="p-2 bg-green-50 rounded text-xs">
+                                  <div className="font-medium text-green-800">Prestadores ({mission.provider_percentage}%)</div>
+                                  <div className="text-green-900">R$ {Number(mission.provider_value).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</div>
+                                </div>
+                              </div>
+                            )}
+                          </div>
                         )}
                         
                         {mission.employee_names && mission.employee_names.length > 0 && (
@@ -400,6 +446,29 @@ export const MissionManager = ({ onMissionCreated }: MissionManagerProps) => {
 
                         {mission.description && (
                           <p className="mt-2 text-gray-700">{mission.description}</p>
+                        )}
+
+                        {/* Botão de aprovação para donos */}
+                        {isOwner && !mission.is_approved && mission.service_value > 0 && (
+                          <div className="pt-3 mt-3 border-t">
+                            <Button 
+                              onClick={() => handleApproveMission(mission.id)}
+                              className="bg-green-600 hover:bg-green-700"
+                              size="sm"
+                            >
+                              <CheckCircle className="w-4 h-4 mr-2" />
+                              Aprovar e Registrar Receita
+                            </Button>
+                          </div>
+                        )}
+
+                        {mission.is_approved && mission.approved_at && (
+                          <div className="pt-2 mt-2 border-t text-xs text-green-600">
+                            <div className="flex items-center gap-1">
+                              <CheckCircle className="w-3 h-3" />
+                              Aprovada em {new Date(mission.approved_at).toLocaleDateString('pt-BR')}
+                            </div>
+                          </div>
                         )}
                       </div>
                     </div>
