@@ -1,8 +1,7 @@
-
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { ArrowUpRight, ArrowDownRight, Eye, RefreshCw } from "lucide-react";
+import { ArrowUpRight, ArrowDownRight, Eye, RefreshCw, AlertCircle } from "lucide-react";
 import { useFinancial } from "@/contexts/FinancialContext";
 import { useTransactionSync } from "@/hooks/useTransactionSync";
 import { useState } from "react";
@@ -12,8 +11,8 @@ interface RecentTransactionsProps {
 }
 
 export const RecentTransactions = ({ onViewAll }: RecentTransactionsProps) => {
-  const { getRecentTransactions } = useFinancial();
-  const { syncTransactions } = useTransactionSync();
+  const { getRecentTransactions, loading, error } = useFinancial();
+  const { syncTransactions, isRetrying, retryCount } = useTransactionSync();
   const [refreshing, setRefreshing] = useState(false);
   const recentTransactions = getRecentTransactions(4);
 
@@ -24,7 +23,10 @@ export const RecentTransactions = ({ onViewAll }: RecentTransactionsProps) => {
   const handleRefresh = async () => {
     try {
       setRefreshing(true);
-      await syncTransactions();
+      const result = await syncTransactions();
+      if (!result.success) {
+        console.error('Falha na sincronização:', result.error);
+      }
     } catch (error) {
       console.error('Erro ao sincronizar transações:', error);
     } finally {
@@ -66,6 +68,31 @@ export const RecentTransactions = ({ onViewAll }: RecentTransactionsProps) => {
     return (amount || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 });
   };
 
+  if (error && !loading) {
+    return (
+      <Card className="p-6">
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="text-lg font-semibold text-slate-800">Transações Recentes</h3>
+          <Button 
+            variant="outline" 
+            size="sm"
+            onClick={handleRefresh}
+            disabled={refreshing || isRetrying}
+            className="text-red-600 hover:text-red-700"
+          >
+            <RefreshCw className={`w-4 h-4 mr-2 ${(refreshing || isRetrying) ? 'animate-spin' : ''}`} />
+            {isRetrying ? `Tentando (${retryCount}/3)` : 'Tentar novamente'}
+          </Button>
+        </div>
+        
+        <div className="text-center py-8">
+          <AlertCircle className="w-8 h-8 text-red-400 mx-auto mb-2" />
+          <p className="text-red-600 text-sm">{error}</p>
+        </div>
+      </Card>
+    );
+  }
+
   return (
     <Card className="p-6">
       <div className="flex items-center justify-between mb-4">
@@ -75,11 +102,11 @@ export const RecentTransactions = ({ onViewAll }: RecentTransactionsProps) => {
             variant="outline" 
             size="sm"
             onClick={handleRefresh}
-            disabled={refreshing}
+            disabled={refreshing || isRetrying || loading}
             className="text-blue-600 hover:text-blue-700"
           >
-            <RefreshCw className={`w-4 h-4 mr-2 ${refreshing ? 'animate-spin' : ''}`} />
-            Sync
+            <RefreshCw className={`w-4 h-4 mr-2 ${(refreshing || isRetrying || loading) ? 'animate-spin' : ''}`} />
+            {isRetrying ? `Sync (${retryCount}/3)` : 'Sync'}
           </Button>
           <Button 
             variant="outline" 
@@ -94,7 +121,12 @@ export const RecentTransactions = ({ onViewAll }: RecentTransactionsProps) => {
       </div>
       
       <div className="space-y-3">
-        {recentTransactions.length > 0 ? (
+        {loading ? (
+          <div className="text-center py-4">
+            <RefreshCw className="w-6 h-6 animate-spin text-blue-600 mx-auto" />
+            <p className="text-sm text-slate-600 mt-2">Carregando...</p>
+          </div>
+        ) : recentTransactions.length > 0 ? (
           recentTransactions.map((transaction) => (
             <div key={transaction.id} className="flex items-center justify-between p-3 bg-slate-50 rounded-lg">
               <div className="flex items-center space-x-3">

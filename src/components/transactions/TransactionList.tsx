@@ -1,11 +1,10 @@
-
 import { useState, useEffect } from 'react';
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useSupabaseData } from '@/hooks/useSupabaseData';
 import { useToastFeedback } from '@/hooks/useToastFeedback';
-import { Eye, FileText, RefreshCw } from 'lucide-react';
+import { Eye, FileText, RefreshCw, AlertCircle } from 'lucide-react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 
@@ -19,9 +18,11 @@ interface TransactionListProps {
 export const TransactionList = ({ transactions: externalTransactions, onView, onEdit, onDelete }: TransactionListProps) => {
   const [internalTransactions, setInternalTransactions] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [retryCount, setRetryCount] = useState(0);
 
   const { fetchTransactions } = useSupabaseData();
-  const { showError } = useToastFeedback();
+  const { showError, showSuccess } = useToastFeedback();
 
   useEffect(() => {
     if (!externalTransactions) {
@@ -29,24 +30,53 @@ export const TransactionList = ({ transactions: externalTransactions, onView, on
     } else {
       setInternalTransactions(externalTransactions);
       setLoading(false);
+      setError(null);
     }
   }, [externalTransactions]);
 
   const transactions = externalTransactions || internalTransactions;
 
-  const loadTransactions = async () => {
-    setLoading(true);
+  const loadTransactions = async (silent: boolean = false) => {
+    if (!silent) setLoading(true);
+    setError(null);
+    
     try {
       console.log('Carregando transações...');
       const data = await fetchTransactions();
-      console.log('Transações carregadas:', data);
-      setInternalTransactions(data);
-    } catch (error) {
-      console.error('Erro ao carregar transações:', error);
-      showError('Erro', 'Erro ao carregar transações');
+      console.log('Transações carregadas:', data?.length || 0, data);
+      
+      if (Array.isArray(data)) {
+        setInternalTransactions(data);
+        setRetryCount(0);
+        if (!silent && data.length > 0) {
+          showSuccess('Dados atualizados', `${data.length} transações carregadas`);
+        }
+      } else {
+        console.warn('Dados de transações não são um array:', data);
+        setInternalTransactions([]);
+      }
+    } catch (err) {
+      console.error('Erro ao carregar transações:', err);
+      setError('Erro ao carregar transações');
+      
+      // Auto-retry logic
+      if (retryCount < 2) {
+        console.log(`Auto-retry em 3 segundos... (tentativa ${retryCount + 1}/3)`);
+        setTimeout(() => {
+          setRetryCount(prev => prev + 1);
+          loadTransactions(true);
+        }, 3000);
+      } else if (!silent) {
+        showError('Erro', 'Erro ao carregar transações após várias tentativas');
+      }
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
+  };
+
+  const handleRetry = () => {
+    setRetryCount(0);
+    loadTransactions();
   };
 
   const getStatusBadgeColor = (status: string) => {
@@ -115,7 +145,32 @@ export const TransactionList = ({ transactions: externalTransactions, onView, on
     );
   }
 
-  if (transactions.length === 0) {
+  if (error) {
+    return (
+      <Card className="p-6">
+        <div className="text-center py-8">
+          <AlertCircle className="w-12 h-12 text-red-400 mx-auto mb-4" />
+          <h3 className="text-lg font-semibold text-red-600 mb-2">
+            Erro ao carregar dados
+          </h3>
+          <p className="text-gray-500 mb-4">{error}</p>
+          <div className="flex gap-2 justify-center">
+            <Button onClick={handleRetry} variant="outline">
+              <RefreshCw className="w-4 h-4 mr-2" />
+              Tentar novamente
+            </Button>
+            {retryCount > 0 && (
+              <span className="text-sm text-gray-500 flex items-center">
+                Tentativa {retryCount}/3
+              </span>
+            )}
+          </div>
+        </div>
+      </Card>
+    );
+  }
+
+  if (!transactions || transactions.length === 0) {
     return (
       <Card className="p-6">
         <div className="text-center py-8">
@@ -123,15 +178,11 @@ export const TransactionList = ({ transactions: externalTransactions, onView, on
           <h3 className="text-lg font-semibold text-gray-600 mb-2">
             Nenhuma transação encontrada
           </h3>
-          <p className="text-gray-500">
-            As transações registradas aparecerão aqui
+          <p className="text-gray-500 mb-4">
+            As transações registradas aparecerão aqui. Experimente registrar uma nova transação ou pagamento.
           </p>
           {!externalTransactions && (
-            <Button 
-              onClick={loadTransactions} 
-              className="mt-4"
-              variant="outline"
-            >
+            <Button onClick={() => loadTransactions()} variant="outline">
               <RefreshCw className="w-4 h-4 mr-2" />
               Atualizar
             </Button>
@@ -148,7 +199,7 @@ export const TransactionList = ({ transactions: externalTransactions, onView, on
           Transações ({transactions.length})
         </h3>
         {!externalTransactions && (
-          <Button onClick={loadTransactions} variant="outline" size="sm">
+          <Button onClick={() => loadTransactions()} variant="outline" size="sm">
             <RefreshCw className="w-4 h-4 mr-2" />
             Atualizar
           </Button>
