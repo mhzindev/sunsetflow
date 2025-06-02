@@ -156,7 +156,7 @@ export const NewProviderModal = ({ onProviderCreated, isOpen, onClose, onSave }:
           <div>
             <Label htmlFor="payment_method">Método de Pagamento *</Label>
             <Select 
-              value={formData.payment_method} 
+              value={formData.payment_method || 'pix'} 
               onValueChange={(value) => 
                 setFormData(prev => ({ ...prev, payment_method: value }))
               }

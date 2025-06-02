@@ -9,10 +9,9 @@ import { Textarea } from "@/components/ui/textarea";
 import { useSupabaseData } from '@/hooks/useSupabaseData';
 import { useToastFeedback } from '@/hooks/useToastFeedback';
 import { useAuth } from '@/contexts/AuthContext';
-import { Database } from '@/integrations/supabase/types';
 
-type TransactionCategory = Database['public']['Enums']['transaction_category'];
-type PaymentMethod = Database['public']['Enums']['payment_method'];
+type TransactionCategory = 'service_payment' | 'client_payment' | 'fuel' | 'accommodation' | 'meals' | 'materials' | 'maintenance' | 'office_expense' | 'other';
+type PaymentMethod = 'pix' | 'transfer' | 'credit_card' | 'debit_card' | 'cash';
 
 interface TransactionFormProps {
   onClose?: () => void;
@@ -122,6 +121,8 @@ export const TransactionForm = ({ onClose, onSubmit }: TransactionFormProps) => 
   };
 
   const handleAccountChange = (value: string) => {
+    console.log('Account change value:', value); // Debug log
+    
     if (value === 'none') {
       setFormData(prev => ({
         ...prev,
@@ -132,6 +133,8 @@ export const TransactionForm = ({ onClose, onSubmit }: TransactionFormProps) => 
     }
 
     const [type, id] = value.split(':');
+    console.log('Parsed account:', { type, id }); // Debug log
+    
     setFormData(prev => ({
       ...prev,
       account_id: id,
