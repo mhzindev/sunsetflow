@@ -28,9 +28,9 @@ interface ExpenseListItem {
   isAdvanced: boolean;
   status: string;
   accommodationDetails?: {
-    actualCost: number;
-    reimbursementAmount: number;
-    netAmount: number;
+    actualCost?: number;
+    reimbursementAmount?: number;
+    netAmount?: number;
   };
   employee_role?: string;
 }
@@ -72,6 +72,12 @@ export const ExpenseList = () => {
     accommodationDetails: expense.accommodationDetails,
     employee_role: expense.employee_role || 'Funcionário'
   }));
+
+  // Função auxiliar para formatar valores com segurança
+  const formatCurrency = (value?: number) => {
+    if (value == null || value === undefined) return 'R$ 0,00';
+    return `R$ ${value.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`;
+  };
 
   const applyFilters = (expenses: ExpenseListItem[]) => {
     return expenses.filter(expense => {
@@ -307,10 +313,10 @@ export const ExpenseList = () => {
                     <div>{expense.description}</div>
                     {expense.accommodationDetails && (
                       <div className="text-xs text-gray-600 mt-1">
-                        <div>Gasto: R$ {expense.accommodationDetails.actualCost.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</div>
-                        <div>Ressarcimento: R$ {expense.accommodationDetails.reimbursementAmount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</div>
-                        <div className={`font-medium ${expense.accommodationDetails.netAmount >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                          Líquido: {expense.accommodationDetails.netAmount >= 0 ? '+' : ''}R$ {expense.accommodationDetails.netAmount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                        <div>Gasto: {formatCurrency(expense.accommodationDetails.actualCost)}</div>
+                        <div>Ressarcimento: {formatCurrency(expense.accommodationDetails.reimbursementAmount)}</div>
+                        <div className={`font-medium ${(expense.accommodationDetails.netAmount ?? 0) >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                          Líquido: {(expense.accommodationDetails.netAmount ?? 0) >= 0 ? '+' : ''}{formatCurrency(expense.accommodationDetails.netAmount)}
                         </div>
                       </div>
                     )}
@@ -319,13 +325,13 @@ export const ExpenseList = () => {
                 <TableCell className="font-semibold">
                   {expense.accommodationDetails ? (
                     <div>
-                      <div className="text-red-600">R$ {expense.amount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</div>
+                      <div className="text-red-600">{formatCurrency(expense.amount)}</div>
                       <div className="text-xs text-gray-500">
-                        Líquido: {expense.accommodationDetails.netAmount >= 0 ? '+' : ''}R$ {expense.accommodationDetails.netAmount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                        Líquido: {(expense.accommodationDetails.netAmount ?? 0) >= 0 ? '+' : ''}{formatCurrency(expense.accommodationDetails.netAmount)}
                       </div>
                     </div>
                   ) : (
-                    `R$ ${expense.amount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`
+                    formatCurrency(expense.amount)
                   )}
                 </TableCell>
                 <TableCell>{new Date(expense.date).toLocaleDateString('pt-BR')}</TableCell>
