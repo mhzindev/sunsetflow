@@ -705,6 +705,19 @@ export type Database = {
       }
     }
     Functions: {
+      get_active_employees: {
+        Args: Record<PropertyKey, never>
+        Returns: {
+          id: string
+          name: string
+          email: string
+          phone: string
+          role: string
+          active: boolean
+          created_at: string
+          updated_at: string
+        }[]
+      }
       get_current_user_role: {
         Args: Record<PropertyKey, never>
         Returns: string

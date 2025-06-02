@@ -7,12 +7,11 @@ export const useSupabaseData = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // Função para buscar transações - CORRIGIDA para usar RPC
+  // Função para buscar transações - OTIMIZADA
   const fetchTransactions = async () => {
     try {
-      console.log('Buscando transações usando RPC...');
+      console.log('Buscando transações usando RPC otimizada...');
       
-      // Usar a nova função RPC que não tem problemas de RLS
       const { data, error } = await supabase.rpc('get_user_transactions_simple');
 
       if (error) {
@@ -21,21 +20,18 @@ export const useSupabaseData = () => {
       }
       
       console.log('Transações encontradas via RPC:', data?.length || 0);
-      console.log('Dados das transações:', data);
       return data || [];
     } catch (err) {
       console.error('Erro ao buscar transações:', err);
-      // Em caso de erro, retorna array vazio para não quebrar a UI
       return [];
     }
   };
 
-  // Função para buscar despesas com fallback melhorado
+  // Função para buscar despesas - OTIMIZADA
   const fetchExpenses = async () => {
     try {
-      console.log('Buscando despesas do banco...');
+      console.log('Buscando despesas com política RLS corrigida...');
       
-      // Primeiro, tentar busca com joins
       const { data, error } = await supabase
         .from('expenses')
         .select(`
@@ -54,31 +50,11 @@ export const useSupabaseData = () => {
         .order('created_at', { ascending: false });
 
       if (error) {
-        console.error('Erro SQL ao buscar despesas com joins:', error);
-        
-        // Se falhar, tentar busca simples sem joins
-        console.log('Tentando busca simples de despesas...');
-        const { data: simpleData, error: simpleError } = await supabase
-          .from('expenses')
-          .select('*')
-          .order('created_at', { ascending: false });
-          
-        if (simpleError) {
-          console.error('Erro SQL na busca simples de despesas:', simpleError);
-          
-          // Se ainda falhar, verificar se é problema de RLS
-          if (simpleError.code === '42P17' || simpleError.message.includes('infinite recursion')) {
-            console.warn('Problema de RLS detectado em expenses, retornando array vazio');
-            return [];
-          }
-          throw simpleError;
-        }
-        
-        console.log('Despesas encontradas (busca simples):', simpleData?.length || 0);
-        return simpleData || [];
+        console.error('Erro SQL ao buscar despesas:', error);
+        return [];
       }
       
-      console.log('Despesas encontradas (com joins):', data?.length || 0);
+      console.log('Despesas encontradas:', data?.length || 0);
       return data || [];
     } catch (err) {
       console.error('Erro ao buscar despesas:', err);
@@ -86,10 +62,10 @@ export const useSupabaseData = () => {
     }
   };
 
-  // Função para buscar pagamentos
+  // Função para buscar pagamentos - OTIMIZADA
   const fetchPayments = async () => {
     try {
-      console.log('Buscando pagamentos do banco...');
+      console.log('Buscando pagamentos com RLS corrigido...');
       const { data, error } = await supabase
         .from('payments')
         .select(`
@@ -100,11 +76,7 @@ export const useSupabaseData = () => {
 
       if (error) {
         console.error('Erro SQL ao buscar pagamentos:', error);
-        if (error.code === '42P17' || error.message.includes('infinite recursion')) {
-          console.warn('Problema de RLS detectado, retornando array vazio temporariamente');
-          return [];
-        }
-        throw error;
+        return [];
       }
       
       console.log('Pagamentos encontrados:', data?.length || 0);
@@ -115,10 +87,10 @@ export const useSupabaseData = () => {
     }
   };
 
-  // Função para buscar missões - SIMPLIFICADA
+  // Função para buscar missões - OTIMIZADA
   const fetchMissions = async () => {
     try {
-      console.log('Buscando missões do banco...');
+      console.log('Buscando missões...');
       const { data, error } = await supabase
         .from('missions')
         .select('*')
@@ -126,11 +98,7 @@ export const useSupabaseData = () => {
 
       if (error) {
         console.error('Erro SQL ao buscar missões:', error);
-        if (error.code === '42P17' || error.message.includes('infinite recursion')) {
-          console.warn('Problema de RLS detectado, retornando array vazio temporariamente');
-          return [];
-        }
-        throw error;
+        return [];
       }
       
       console.log('Missões encontradas:', data?.length || 0);
@@ -141,7 +109,7 @@ export const useSupabaseData = () => {
     }
   };
 
-  // Função para buscar fornecedores - SIMPLIFICADA
+  // Função para buscar fornecedores - OTIMIZADA
   const fetchServiceProviders = async () => {
     try {
       console.log('Buscando fornecedores...');
@@ -153,11 +121,7 @@ export const useSupabaseData = () => {
 
       if (error) {
         console.error('Erro SQL ao buscar fornecedores:', error);
-        if (error.code === '42P17' || error.message.includes('infinite recursion')) {
-          console.warn('Problema de RLS detectado, retornando array vazio temporariamente');
-          return [];
-        }
-        throw error;
+        return [];
       }
       
       console.log('Fornecedores encontrados:', data?.length || 0);
@@ -236,18 +200,15 @@ export const useSupabaseData = () => {
     }
   };
 
-  // Função para buscar funcionários
+  // Função para buscar funcionários - USANDO NOVA FUNÇÃO
   const fetchEmployees = async () => {
     try {
-      console.log('Buscando funcionários do banco...');
-      const { data, error } = await supabase
-        .from('employees')
-        .select('*')
-        .eq('active', true)
-        .order('name', { ascending: true });
+      console.log('Buscando funcionários usando função otimizada...');
+      
+      const { data, error } = await supabase.rpc('get_active_employees');
 
       if (error) {
-        console.error('Erro SQL ao buscar funcionários:', error);
+        console.error('Erro ao buscar funcionários via RPC:', error);
         return [];
       }
       

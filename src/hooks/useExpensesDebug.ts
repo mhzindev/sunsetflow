@@ -18,13 +18,13 @@ export const useExpensesDebug = () => {
       if (!user) return;
       
       try {
-        console.log('🔍 Iniciando debug de despesas...');
+        console.log('🔍 Iniciando debug pós-correções RLS...');
         
-        // 1. Buscar transações que são despesas (usado no dashboard)
+        // 1. Buscar transações usando RPC otimizada
         const { data: transactions, error: transError } = await supabase.rpc('get_user_transactions_simple');
         
         if (transError) {
-          console.error('❌ Erro ao buscar transações:', transError);
+          console.error('❌ Erro ao buscar transações via RPC:', transError);
         } else {
           const expenseTransactions = transactions?.filter(t => t.type === 'expense') || [];
           console.log('💰 Transações tipo despesa encontradas:', expenseTransactions.length, expenseTransactions);
@@ -47,8 +47,8 @@ export const useExpensesDebug = () => {
           }));
         }
 
-        // 2. Buscar dados da tabela expenses diretamente
-        console.log('🗂️ Buscando dados da tabela expenses...');
+        // 2. Buscar dados da tabela expenses com políticas RLS corrigidas
+        console.log('🗂️ Buscando dados da tabela expenses com RLS corrigido...');
         
         const { data: expenses, error: expError } = await supabase
           .from('expenses')
@@ -70,7 +70,7 @@ export const useExpensesDebug = () => {
         if (expError) {
           console.error('❌ Erro ao buscar expenses:', expError);
           
-          // Tentar busca mais simples sem join
+          // Tentar busca mais simples
           const { data: simpleExpenses, error: simpleError } = await supabase
             .from('expenses')
             .select('*')
@@ -86,18 +86,17 @@ export const useExpensesDebug = () => {
             }));
           }
         } else {
-          console.log('📋 Expenses encontradas:', expenses?.length || 0, expenses);
+          console.log('📋 Expenses encontradas (com joins):', expenses?.length || 0, expenses);
           setDebugInfo(prev => ({
             ...prev,
             tableExpenses: expenses || []
           }));
         }
 
-        // 3. Verificar políticas RLS
-        console.log('🔐 Verificando usuário atual:', user.id, user.email);
+        console.log('🔐 Usuário atual após correções RLS:', user.id, user.email);
         
       } catch (err) {
-        console.error('💥 Erro geral no debug:', err);
+        console.error('💥 Erro geral no debug pós-correções:', err);
         setDebugInfo(prev => ({
           ...prev,
           error: err instanceof Error ? err.message : 'Erro desconhecido'
