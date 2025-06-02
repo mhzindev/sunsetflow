@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -39,10 +38,10 @@ export const MissionManager = ({ onMissionCreated }: MissionManagerProps) => {
 
   const { fetchMissions, insertMission, updateMission } = useSupabaseData();
   const { showSuccess, showError } = useToastFeedback();
-  const { user } = useAuth();
+  const { user, profile } = useAuth();
 
-  // Verificar se o usuário é dono/admin
-  const isOwner = user?.user_metadata?.role === 'admin' || user?.user_metadata?.role === 'owner';
+  // Verificar se o usuário é dono/admin usando o profile atualizado
+  const isOwner = profile?.role === 'admin';
 
   useEffect(() => {
     loadData();
