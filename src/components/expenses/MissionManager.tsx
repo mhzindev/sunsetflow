@@ -12,7 +12,7 @@ import { useEmployees } from '@/hooks/useEmployees';
 import { useToastFeedback } from '@/hooks/useToastFeedback';
 import { ClientAutocomplete } from '@/components/clients/ClientAutocomplete';
 import { ServiceValueDistribution } from '@/components/missions/ServiceValueDistribution';
-import { Plus, Calendar, MapPin, Users, DollarSign, RefreshCw } from 'lucide-react';
+import { Plus, Calendar, MapPin, Users, DollarSign, RefreshCw, AlertCircle } from 'lucide-react';
 
 interface MissionManagerProps {
   onMissionCreated?: () => void;
@@ -22,6 +22,7 @@ export const MissionManager = ({ onMissionCreated }: MissionManagerProps) => {
   const [missions, setMissions] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
   const [formData, setFormData] = useState({
     title: '',
     description: '',
@@ -38,7 +39,7 @@ export const MissionManager = ({ onMissionCreated }: MissionManagerProps) => {
   });
 
   const { fetchMissions, insertMission } = useSupabaseData();
-  const { employees } = useEmployees();
+  const { employees, loading: employeesLoading } = useEmployees();
   const { showSuccess, showError } = useToastFeedback();
 
   useEffect(() => {
@@ -78,6 +79,8 @@ export const MissionManager = ({ onMissionCreated }: MissionManagerProps) => {
     }
 
     try {
+      setSubmitting(true);
+      
       const missionData = {
         title: formData.title,
         description: formData.description,
@@ -99,7 +102,7 @@ export const MissionManager = ({ onMissionCreated }: MissionManagerProps) => {
       
       if (result.error) {
         console.error('Erro ao criar missão:', result.error);
-        showError('Erro', result.error);
+        showError('Erro', `Falha ao criar missão: ${result.error}`);
         return;
       }
 
@@ -121,9 +124,21 @@ export const MissionManager = ({ onMissionCreated }: MissionManagerProps) => {
       });
       loadData();
       onMissionCreated?.();
-    } catch (error) {
+    } catch (error: any) {
       console.error('Erro ao criar missão:', error);
-      showError('Erro', 'Erro ao criar missão. Tente novamente.');
+      
+      // Tratar diferentes tipos de erro
+      let errorMessage = 'Erro ao criar missão. Tente novamente.';
+      
+      if (error.message === 'Failed to fetch') {
+        errorMessage = 'Erro de conexão. Verifique sua internet e tente novamente.';
+      } else if (error.message) {
+        errorMessage = error.message;
+      }
+      
+      showError('Erro', errorMessage);
+    } finally {
+      setSubmitting(false);
     }
   };
 
@@ -204,6 +219,12 @@ export const MissionManager = ({ onMissionCreated }: MissionManagerProps) => {
             <Card className="mb-6">
               <CardHeader>
                 <CardTitle>Nova Missão</CardTitle>
+                {employeesLoading && (
+                  <div className="flex items-center text-sm text-blue-600">
+                    <RefreshCw className="w-4 h-4 animate-spin mr-2" />
+                    Carregando funcionários...
+                  </div>
+                )}
               </CardHeader>
               <CardContent>
                 <form onSubmit={handleSubmit} className="space-y-4">
@@ -215,6 +236,7 @@ export const MissionManager = ({ onMissionCreated }: MissionManagerProps) => {
                         value={formData.title}
                         onChange={(e) => setFormData({...formData, title: e.target.value})}
                         required
+                        disabled={submitting}
                       />
                     </div>
                     
@@ -225,6 +247,7 @@ export const MissionManager = ({ onMissionCreated }: MissionManagerProps) => {
                         value={formData.location}
                         onChange={(e) => setFormData({...formData, location: e.target.value})}
                         required
+                        disabled={submitting}
                       />
                     </div>
                   </div>
@@ -236,6 +259,7 @@ export const MissionManager = ({ onMissionCreated }: MissionManagerProps) => {
                       value={formData.description}
                       onChange={(e) => setFormData({...formData, description: e.target.value})}
                       placeholder="Descrição detalhada da missão..."
+                      disabled={submitting}
                     />
                   </div>
 
@@ -248,6 +272,7 @@ export const MissionManager = ({ onMissionCreated }: MissionManagerProps) => {
                         value={formData.start_date}
                         onChange={(e) => setFormData({...formData, start_date: e.target.value})}
                         required
+                        disabled={submitting}
                       />
                     </div>
                     
@@ -258,14 +283,17 @@ export const MissionManager = ({ onMissionCreated }: MissionManagerProps) => {
                         type="date"
                         value={formData.end_date}
                         onChange={(e) => setFormData({...formData, end_date: e.target.value})}
+                        disabled={submitting}
                       />
                     </div>
                     
                     <div>
                       <Label htmlFor="status">Status</Label>
-                      <Select value={formData.status} onValueChange={(value) => 
-                        setFormData({...formData, status: value})
-                      }>
+                      <Select 
+                        value={formData.status} 
+                        onValueChange={(value) => setFormData({...formData, status: value})}
+                        disabled={submitting}
+                      >
                         <SelectTrigger>
                           <SelectValue />
                         </SelectTrigger>
@@ -284,6 +312,7 @@ export const MissionManager = ({ onMissionCreated }: MissionManagerProps) => {
                       value={formData.client_name}
                       onValueChange={(value) => setFormData({...formData, client_name: value})}
                       placeholder="Digite o nome do cliente"
+                      disabled={submitting}
                     />
                   </div>
 
@@ -292,23 +321,38 @@ export const MissionManager = ({ onMissionCreated }: MissionManagerProps) => {
                     companyPercentage={formData.company_percentage}
                     onCompanyPercentageChange={handleCompanyPercentageChange}
                     onServiceValueChange={(value) => setFormData({...formData, service_value: value})}
+                    disabled={submitting}
                   />
 
                   <div>
                     <Label>Funcionários Designados *</Label>
-                    <div className="grid grid-cols-2 md:grid-cols-3 gap-2 mt-2">
-                      {employees.map((employee) => (
-                        <label key={employee.id} className="flex items-center space-x-2 p-2 border rounded cursor-pointer hover:bg-gray-50">
-                          <input
-                            type="checkbox"
-                            checked={formData.assigned_employees.includes(employee.id)}
-                            onChange={() => handleEmployeeToggle(employee.id, employee.name)}
-                            className="rounded"
-                          />
-                          <span className="text-sm">{employee.name}</span>
-                        </label>
-                      ))}
-                    </div>
+                    {employeesLoading ? (
+                      <div className="border rounded-lg p-4 text-center text-gray-500">
+                        <RefreshCw className="w-5 h-5 animate-spin mx-auto mb-2" />
+                        Carregando funcionários...
+                      </div>
+                    ) : employees.length === 0 ? (
+                      <div className="border rounded-lg p-4 text-center text-gray-500">
+                        <AlertCircle className="w-5 h-5 mx-auto mb-2" />
+                        Nenhum funcionário encontrado
+                      </div>
+                    ) : (
+                      <div className="grid grid-cols-2 md:grid-cols-3 gap-2 mt-2">
+                        {employees.map((employee) => (
+                          <label key={employee.id} className="flex items-center space-x-2 p-2 border rounded cursor-pointer hover:bg-gray-50">
+                            <input
+                              type="checkbox"
+                              checked={formData.assigned_employees.includes(employee.id)}
+                              onChange={() => handleEmployeeToggle(employee.id, employee.name)}
+                              className="rounded"
+                              disabled={submitting}
+                            />
+                            <span className="text-sm">{employee.name}</span>
+                          </label>
+                        ))}
+                      </div>
+                    )}
+                    
                     {formData.assigned_employees.length > 0 && (
                       <div className="flex flex-wrap gap-2 mt-3">
                         {formData.employee_names.map((name, index) => (
@@ -321,13 +365,25 @@ export const MissionManager = ({ onMissionCreated }: MissionManagerProps) => {
                   </div>
 
                   <div className="flex space-x-4 pt-4">
-                    <Button type="submit" className="flex-1">
-                      Criar Missão
+                    <Button 
+                      type="submit" 
+                      className="flex-1" 
+                      disabled={submitting || employeesLoading}
+                    >
+                      {submitting ? (
+                        <>
+                          <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
+                          Criando...
+                        </>
+                      ) : (
+                        'Criar Missão'
+                      )}
                     </Button>
                     <Button 
                       type="button" 
                       variant="outline"
                       onClick={() => setShowForm(false)}
+                      disabled={submitting}
                     >
                       Cancelar
                     </Button>
