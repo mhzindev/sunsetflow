@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -302,7 +301,7 @@ export const ExpenseForm = ({ onSave, onCancel }: ExpenseFormProps) => {
               onChange={(e) => setFormData(prev => ({ ...prev, amount: e.target.value }))}
               placeholder="0,00"
               required
-              readOnly={isDisplacementCategory && formData.travel_total_value}
+              readOnly={isDisplacementCategory && Boolean(formData.travel_total_value)}
             />
           </div>
 
