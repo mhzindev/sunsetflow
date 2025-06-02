@@ -338,8 +338,8 @@ export const ExpenseForm = ({ onSave, onCancel }: ExpenseFormProps) => {
             <Checkbox
               id="is_advanced"
               checked={formData.is_advanced}
-              onCheckedChange={(checked: boolean | string) => 
-                setFormData(prev => ({ ...prev, is_advanced: checked === true || checked === 'true' }))
+              onCheckedChange={(checked) => 
+                setFormData(prev => ({ ...prev, is_advanced: Boolean(checked) }))
               }
             />
             <Label htmlFor="is_advanced">Adiantamento</Label>
