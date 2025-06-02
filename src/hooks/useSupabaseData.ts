@@ -30,21 +30,10 @@ export const useSupabaseData = () => {
     }
   };
 
-  // Função para buscar despesas - CORRIGIDA para usar RPC
+  // Função para buscar despesas com dados de missões
   const fetchExpenses = async () => {
     try {
-      console.log('Buscando despesas usando RPC...');
-      
-      // Primeiro tenta usar RPC
-      const { data: rpcData, error: rpcError } = await supabase.rpc('get_user_expenses_simple');
-      
-      if (!rpcError && rpcData) {
-        console.log('Despesas encontradas via RPC:', rpcData.length);
-        return rpcData;
-      }
-
-      // Fallback: busca direta (pode falhar por RLS)
-      console.log('Tentando busca direta de despesas...');
+      console.log('Buscando despesas do banco...');
       const { data, error } = await supabase
         .from('expenses')
         .select(`
@@ -71,7 +60,7 @@ export const useSupabaseData = () => {
         throw error;
       }
       
-      console.log('Despesas encontradas via busca direta:', data?.length || 0);
+      console.log('Despesas encontradas:', data?.length || 0);
       return data || [];
     } catch (err) {
       console.error('Erro ao buscar despesas:', err);
@@ -79,20 +68,10 @@ export const useSupabaseData = () => {
     }
   };
 
-  // Função para buscar pagamentos - MELHORADA
+  // Função para buscar pagamentos
   const fetchPayments = async () => {
     try {
-      console.log('Buscando pagamentos...');
-      
-      // Primeiro tenta usar RPC
-      const { data: rpcData, error: rpcError } = await supabase.rpc('get_user_payments_simple');
-      
-      if (!rpcError && rpcData) {
-        console.log('Pagamentos encontrados via RPC:', rpcData.length);
-        return rpcData;
-      }
-
-      // Fallback: busca direta (pode falhar por RLS)
+      console.log('Buscando pagamentos do banco...');
       const { data, error } = await supabase
         .from('payments')
         .select(`
@@ -118,20 +97,10 @@ export const useSupabaseData = () => {
     }
   };
 
-  // Função para buscar missões - MELHORADA
+  // Função para buscar missões - SIMPLIFICADA
   const fetchMissions = async () => {
     try {
-      console.log('Buscando missões...');
-      
-      // Primeiro tenta usar RPC
-      const { data: rpcData, error: rpcError } = await supabase.rpc('get_user_missions_simple');
-      
-      if (!rpcError && rpcData) {
-        console.log('Missões encontradas via RPC:', rpcData.length);
-        return rpcData;
-      }
-
-      // Fallback: busca direta (pode falhar por RLS)
+      console.log('Buscando missões do banco...');
       const { data, error } = await supabase
         .from('missions')
         .select('*')
@@ -708,14 +677,201 @@ export const useSupabaseData = () => {
     loading,
     error,
     fetchTransactions,
-    fetchExpenses,
-    fetchPayments,
-    fetchMissions,
-    fetchServiceProviders,
-    fetchClients,
-    fetchBankAccounts,
-    fetchCreditCards,
-    fetchEmployees,
+    fetchExpenses: async () => {
+      try {
+        console.log('Buscando despesas do banco...');
+        const { data, error } = await supabase
+          .from('expenses')
+          .select(`
+            *,
+            missions:mission_id(
+              title, 
+              location, 
+              client_name,
+              employee_names,
+              start_date,
+              end_date,
+              budget,
+              total_expenses
+            )
+          `)
+          .order('created_at', { ascending: false });
+
+        if (error) {
+          console.error('Erro SQL ao buscar despesas:', error);
+          if (error.code === '42P17' || error.message.includes('infinite recursion')) {
+            console.warn('Problema de RLS detectado, retornando array vazio temporariamente');
+            return [];
+          }
+          throw error;
+        }
+        
+        console.log('Despesas encontradas:', data?.length || 0);
+        return data || [];
+      } catch (err) {
+        console.error('Erro ao buscar despesas:', err);
+        return [];
+      }
+    },
+    fetchPayments: async () => {
+      try {
+        console.log('Buscando pagamentos do banco...');
+        const { data, error } = await supabase
+          .from('payments')
+          .select(`
+            *,
+            service_providers:provider_id(name, email, phone, service)
+          `)
+          .order('due_date', { ascending: true });
+
+        if (error) {
+          console.error('Erro SQL ao buscar pagamentos:', error);
+          if (error.code === '42P17' || error.message.includes('infinite recursion')) {
+            console.warn('Problema de RLS detectado, retornando array vazio temporariamente');
+            return [];
+          }
+          throw error;
+        }
+        
+        console.log('Pagamentos encontrados:', data?.length || 0);
+        return data || [];
+      } catch (err) {
+        console.error('Erro ao buscar pagamentos:', err);
+        return [];
+      }
+    },
+    fetchMissions: async () => {
+      try {
+        console.log('Buscando missões do banco...');
+        const { data, error } = await supabase
+          .from('missions')
+          .select('*')
+          .order('start_date', { ascending: false });
+
+        if (error) {
+          console.error('Erro SQL ao buscar missões:', error);
+          if (error.code === '42P17' || error.message.includes('infinite recursion')) {
+            console.warn('Problema de RLS detectado, retornando array vazio temporariamente');
+            return [];
+          }
+          throw error;
+        }
+        
+        console.log('Missões encontradas:', data?.length || 0);
+        return data || [];
+      } catch (err) {
+        console.error('Erro ao buscar missões:', err);
+        return [];
+      }
+    },
+    fetchServiceProviders: async () => {
+      try {
+        console.log('Buscando fornecedores...');
+        const { data, error } = await supabase
+          .from('service_providers')
+          .select('*')
+          .eq('active', true)
+          .order('name', { ascending: true });
+
+        if (error) {
+          console.error('Erro SQL ao buscar fornecedores:', error);
+          if (error.code === '42P17' || error.message.includes('infinite recursion')) {
+            console.warn('Problema de RLS detectado, retornando array vazio temporariamente');
+            return [];
+          }
+          throw error;
+        }
+        
+        console.log('Fornecedores encontrados:', data?.length || 0);
+        return data || [];
+      } catch (err) {
+        console.error('Erro ao buscar fornecedores:', err);
+        return [];
+      }
+    },
+    fetchClients: async () => {
+      try {
+        const { data, error } = await supabase
+          .from('clients')
+          .select('*')
+          .eq('active', true)
+          .order('name', { ascending: true });
+
+        if (error) {
+          console.error('Erro ao buscar clientes:', error);
+          throw error;
+        }
+        
+        console.log('Clientes encontrados:', data?.length || 0);
+        return data || [];
+      } catch (err) {
+        console.error('Erro ao buscar clientes:', err);
+        throw err;
+      }
+    },
+    fetchBankAccounts: async () => {
+      try {
+        if (!user?.id) return [];
+        
+        const { data, error } = await supabase
+          .from('bank_accounts')
+          .select('*')
+          .eq('user_id', user.id)
+          .order('created_at', { ascending: false });
+
+        if (error) {
+          console.error('Erro ao buscar contas bancárias:', error);
+          return [];
+        }
+        
+        return data || [];
+      } catch (err) {
+        console.error('Erro ao buscar contas bancárias:', err);
+        return [];
+      }
+    },
+    fetchCreditCards: async () => {
+      try {
+        if (!user?.id) return [];
+        
+        const { data, error } = await supabase
+          .from('credit_cards')
+          .select('*')
+          .eq('user_id', user.id)
+          .order('created_at', { ascending: false });
+
+        if (error) {
+          console.error('Erro ao buscar cartões de crédito:', error);
+          return [];
+        }
+        
+        return data || [];
+      } catch (err) {
+        console.error('Erro ao buscar cartões de crédito:', err);
+        return [];
+      }
+    },
+    fetchEmployees: async () => {
+      try {
+        console.log('Buscando funcionários do banco...');
+        const { data, error } = await supabase
+          .from('employees')
+          .select('*')
+          .eq('active', true)
+          .order('name', { ascending: true });
+
+        if (error) {
+          console.error('Erro SQL ao buscar funcionários:', error);
+          return [];
+        }
+        
+        console.log('Funcionários encontrados:', data?.length || 0);
+        return data || [];
+      } catch (err) {
+        console.error('Erro ao buscar funcionários:', err);
+        return [];
+      }
+    },
     insertTransaction,
     insertExpense: async (expense: {
       mission_id?: string;
@@ -844,7 +1000,52 @@ export const useSupabaseData = () => {
         return { data: null, error: err instanceof Error ? err.message : 'Erro desconhecido' };
       }
     },
-    insertMission,
+    insertMission: async (mission: {
+      title: string;
+      description?: string;
+      location: string;
+      start_date: string;
+      end_date?: string;
+      budget?: number;
+      service_value?: number;
+      company_percentage?: number;
+      provider_percentage?: number;
+      client_name?: string;
+      client_id?: string;
+      assigned_employees?: string[];
+      employee_names?: string[];
+      status?: string;
+    }) => {
+      try {
+        if (!user) {
+          console.error('Usuário não autenticado');
+          return { data: null, error: 'Usuário não autenticado' };
+        }
+
+        console.log('Inserindo missão:', mission);
+
+        const { data, error } = await supabase
+          .from('missions')
+          .insert({
+            ...mission,
+            created_by: user.id,
+            status: mission.status || 'planning'
+          })
+          .select()
+          .single();
+
+        if (error) {
+          console.error('Erro SQL ao inserir missão:', error);
+          return { data: null, error: error.message };
+        }
+
+        console.log('Missão inserida com sucesso:', data);
+        return { data, error: null };
+      } catch (err) {
+        console.error('Erro ao inserir missão:', err);
+        return { data: null, error: err instanceof Error ? err.message : 'Erro desconhecido' };
+      }
+    },
     updateMission: async (missionId: string, updates: any) => {
       try {
         console.log('Atualizando missão:', missionId, updates);
@@ -868,9 +1069,154 @@ export const useSupabaseData = () => {
         return { data: null, error: err instanceof Error ? err.message : 'Erro desconhecido' };
       }
     },
-    insertClient,
-    insertServiceProvider,
-    insertServiceProviderWithAccess,
-    fetchProviderAccess
+    insertClient: async (client: {
+      name: string;
+      company_name?: string;
+      email?: string;
+      phone?: string;
+      address?: string;
+    }) => {
+      try {
+        console.log('Inserindo cliente:', client);
+
+        const { data, error } = await supabase
+          .from('clients')
+          .insert(client)
+          .select()
+          .single();
+
+        if (error) {
+          console.error('Erro SQL ao inserir cliente:', error);
+          throw error;
+        }
+
+        console.log('Cliente inserido com sucesso:', data);
+        return { data, error: null };
+      } catch (err) {
+        console.error('Erro ao inserir cliente:', err);
+        return { data: null, error: err instanceof Error ? err.message : 'Erro desconhecido' };
+      }
+    },
+    insertServiceProvider: async (provider: {
+      name: string;
+      email: string;
+      phone: string;
+      service: string;
+      payment_method: string;
+      cpf_cnpj?: string;
+      address?: string;
+      hourly_rate?: number;
+    }) => {
+      try {
+        console.log('Inserindo fornecedor:', provider);
+
+        const { data, error } = await supabase
+          .from('service_providers')
+          .insert({
+            ...provider,
+            active: true
+          })
+          .select()
+          .single();
+
+        if (error) {
+          console.error('Erro SQL ao inserir fornecedor:', error);
+          throw error;
+        }
+
+        console.log('Fornecedor inserido com sucesso:', data);
+        return { data, error: null };
+      } catch (err) {
+        console.error('Erro ao inserir fornecedor:', err);
+        return { data: null, error: err instanceof Error ? err.message : 'Erro desconhecido' };
+      }
+    },
+    insertServiceProviderWithAccess: async (provider: {
+      name: string;
+      email: string;
+      phone: string;
+      service: string;
+      payment_method: string;
+      cpf_cnpj?: string;
+      address?: string;
+      specialties?: string[];
+      hourly_rate?: number;
+    }, accessData?: {
+      access_email: string;
+      password: string;
+      permissions: any;
+    }) => {
+      try {
+        console.log('Inserindo prestador com acesso:', { provider, accessData });
+
+        // Primeiro inserir o prestador
+        const { data: providerData, error: providerError } = await supabase
+          .from('service_providers')
+          .insert({
+            ...provider,
+            has_system_access: !!accessData,
+            active: true
+          })
+          .select()
+          .single();
+
+        if (providerError) {
+          console.error('Erro SQL ao inserir prestador:', providerError);
+          throw providerError;
+        }
+
+        // Se há dados de acesso, criar o acesso
+        if (accessData && providerData) {
+          const accessCode = Math.random().toString(36).substr(2, 12).toUpperCase();
+          
+          const { data: accessResult, error: accessError } = await supabase
+            .from('service_provider_access')
+            .insert({
+              provider_id: providerData.id,
+              email: accessData.access_email,
+              password_hash: btoa(accessData.password), // Em produção, usar hash apropriado
+              access_code: accessCode,
+              permissions: accessData.permissions,
+              is_active: true
+            })
+            .select()
+            .single();
+
+          if (accessError) {
+            console.error('Erro ao criar acesso:', accessError);
+            // Em caso de erro, remover o prestador criado
+            await supabase.from('service_providers').delete().eq('id', providerData.id);
+            throw accessError;
+          }
+
+          console.log('Prestador e acesso criados com sucesso:', { providerData, accessResult });
+          return { data: { provider: providerData, access: accessResult }, error: null };
+        }
+
+        console.log('Prestador criado com sucesso:', providerData);
+        return { data: { provider: providerData }, error: null };
+      } catch (err) {
+        console.error('Erro ao inserir prestador:', err);
+        return { data: null, error: err instanceof Error ? err.message : 'Erro desconhecido' };
+      }
+    },
+    fetchProviderAccess: async () => {
+      try {
+        const { data, error } = await supabase
+          .from('service_provider_access')
+          .select(`
+            *,
+            service_providers:provider_id(name, email, phone, service)
+          `)
+          .eq('is_active', true)
+          .order('created_at', { ascending: false });
+
+        if (error) throw error;
+        return data || [];
+      } catch (err) {
+        console.error('Erro ao buscar acessos de prestadores:', err);
+        return [];
+      }
+    }
   };
 };
