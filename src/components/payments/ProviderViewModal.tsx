@@ -44,7 +44,7 @@ export const ProviderViewModal = ({
   const getPendingBalance = () => {
     return data.payments
       .filter(p => p.providerId === provider.id && p.status === 'pending')
-      .reduce((sum, p) => sum + p.amount, 0);
+      .reduce((sum, p) => sum + (p.amount || 0), 0);
   };
 
   const getPaymentMethodLabel = (method: string) => {
@@ -126,13 +126,13 @@ export const ProviderViewModal = ({
               <div className="text-center p-3 bg-green-50 rounded-lg">
                 <p className="text-sm text-gray-600">Total Pago</p>
                 <p className="text-lg font-bold text-green-600">
-                  R$ {provider.totalPaid.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                  R$ {(provider.totalPaid || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                 </p>
               </div>
               <div className="text-center p-3 bg-red-50 rounded-lg">
                 <p className="text-sm text-gray-600">Saldo Pendente</p>
                 <p className="text-lg font-bold text-red-600">
-                  R$ {pendingBalance.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                  R$ {(pendingBalance || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                 </p>
               </div>
               <div className="text-center p-3 bg-blue-50 rounded-lg">
@@ -145,7 +145,7 @@ export const ProviderViewModal = ({
                 <Calendar className="w-4 h-4 text-gray-500" />
                 <span className="text-sm text-gray-600">Último Pagamento:</span>
                 <span className="text-sm font-medium">
-                  {new Date(provider.lastPayment).toLocaleDateString('pt-BR')}
+                  {provider.lastPayment ? new Date(provider.lastPayment).toLocaleDateString('pt-BR') : 'Nenhum pagamento'}
                 </span>
               </div>
             </div>
@@ -165,7 +165,7 @@ export const ProviderViewModal = ({
                   </div>
                   <div className="text-right">
                     <p className="text-sm font-bold">
-                      R$ {payment.amount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                      R$ {(payment.amount || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                     </p>
                     <Badge 
                       variant={payment.status === 'completed' ? 'default' : 'secondary'}
