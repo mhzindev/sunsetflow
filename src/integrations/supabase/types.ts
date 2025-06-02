@@ -359,7 +359,7 @@ export type Database = {
         Row: {
           approved_at: string | null
           approved_by: string | null
-          assigned_employees: string[] | null
+          assigned_providers: string[] | null
           budget: number | null
           client_id: string | null
           client_name: string | null
@@ -368,7 +368,6 @@ export type Database = {
           created_at: string | null
           created_by: string | null
           description: string | null
-          employee_names: string[] | null
           end_date: string | null
           id: string
           is_approved: boolean | null
@@ -385,7 +384,7 @@ export type Database = {
         Insert: {
           approved_at?: string | null
           approved_by?: string | null
-          assigned_employees?: string[] | null
+          assigned_providers?: string[] | null
           budget?: number | null
           client_id?: string | null
           client_name?: string | null
@@ -394,7 +393,6 @@ export type Database = {
           created_at?: string | null
           created_by?: string | null
           description?: string | null
-          employee_names?: string[] | null
           end_date?: string | null
           id?: string
           is_approved?: boolean | null
@@ -411,7 +409,7 @@ export type Database = {
         Update: {
           approved_at?: string | null
           approved_by?: string | null
-          assigned_employees?: string[] | null
+          assigned_providers?: string[] | null
           budget?: number | null
           client_id?: string | null
           client_name?: string | null
@@ -420,7 +418,6 @@ export type Database = {
           created_at?: string | null
           created_by?: string | null
           description?: string | null
-          employee_names?: string[] | null
           end_date?: string | null
           id?: string
           is_approved?: boolean | null

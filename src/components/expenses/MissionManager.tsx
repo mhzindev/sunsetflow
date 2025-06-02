@@ -152,14 +152,6 @@ export const MissionManager = ({ onMissionCreated }: MissionManagerProps) => {
     }
   };
 
-  const handleCompanyPercentageChange = (percentage: number) => {
-    setFormData(prev => ({
-      ...prev,
-      company_percentage: percentage,
-      provider_percentage: 100 - percentage
-    }));
-  };
-
   const getStatusBadge = (status: string, isApproved: boolean = false) => {
     if (isApproved) {
       return <Badge className="bg-green-100 text-green-800">✓ Aprovada</Badge>;
@@ -173,6 +165,13 @@ export const MissionManager = ({ onMissionCreated }: MissionManagerProps) => {
     
     const config = statusConfig[status as keyof typeof statusConfig] || statusConfig.planning;
     return <Badge className={config.className}>{config.label}</Badge>;
+  };
+
+  const getAssignedProvidersText = (assignedProviders: string[] | null) => {
+    if (!assignedProviders || assignedProviders.length === 0) {
+      return 'Nenhum prestador atribuído';
+    }
+    return `${assignedProviders.length} prestador(es) atribuído(s)`;
   };
 
   if (loading) {
@@ -366,6 +365,11 @@ export const MissionManager = ({ onMissionCreated }: MissionManagerProps) => {
                         {mission.client_name && (
                           <p><strong>Cliente:</strong> {mission.client_name}</p>
                         )}
+
+                        <p className="flex items-center gap-2">
+                          <Users className="w-4 h-4" />
+                          {getAssignedProvidersText(mission.assigned_providers)}
+                        </p>
                         
                         {mission.service_value && mission.service_value > 0 && (
                           <div className="space-y-1">

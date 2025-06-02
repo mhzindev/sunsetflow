@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
@@ -40,7 +41,6 @@ export const useSupabaseData = () => {
             title, 
             location, 
             client_name,
-            employee_names,
             start_date,
             end_date,
             budget,
@@ -200,20 +200,11 @@ export const useSupabaseData = () => {
     }
   };
 
-  // Função para buscar funcionários - USANDO NOVA FUNÇÃO
+  // Função para buscar funcionários - REMOVIDA (não mais necessária)
   const fetchEmployees = async () => {
     try {
-      console.log('Buscando funcionários usando função otimizada...');
-      
-      const { data, error } = await supabase.rpc('get_active_employees');
-
-      if (error) {
-        console.error('Erro ao buscar funcionários via RPC:', error);
-        return [];
-      }
-      
-      console.log('Funcionários encontrados:', data?.length || 0);
-      return data || [];
+      console.log('Aviso: fetchEmployees foi removida. Use fetchServiceProviders para prestadores de serviço.');
+      return [];
     } catch (err) {
       console.error('Erro ao buscar funcionários:', err);
       return [];
@@ -402,7 +393,7 @@ export const useSupabaseData = () => {
     }
   };
 
-  // Função para inserir missão - ATUALIZADA SEM FUNCIONÁRIOS
+  // Função para inserir missão - ATUALIZADA PARA PRESTADORES
   const insertMission = async (mission: {
     title: string;
     description?: string;
@@ -663,7 +654,7 @@ export const useSupabaseData = () => {
     fetchClients,
     fetchBankAccounts,
     fetchCreditCards,
-    fetchEmployees,
+    fetchEmployees, // Mantido para compatibilidade mas retorna array vazio
     insertTransaction,
     insertExpense,
     updateExpenseStatus,
