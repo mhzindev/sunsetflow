@@ -28,9 +28,9 @@ interface ExpenseListItem {
   isAdvanced: boolean;
   status: string;
   accommodationDetails?: {
-    actualCost?: number;
-    reimbursementAmount?: number;
-    netAmount?: number;
+    actualCost: number;
+    reimbursementAmount: number;
+    netAmount: number;
   };
   employee_role?: string;
 }
@@ -55,23 +55,32 @@ export const ExpenseList = () => {
   const { data, updateExpenseStatus } = useFinancial();
 
   // Usar dados reais do contexto financeiro
-  const expenses: ExpenseListItem[] = data.expenses.map(expense => ({
-    id: expense.id,
-    mission: expense.missions ? {
-      title: expense.missions.title || `Missão ${expense.missionId?.slice(0, 8)}`,
-      location: expense.missions.location,
-      client_name: expense.missions.client_name
-    } : `Missão ${expense.missionId?.slice(0, 8) || 'N/A'}`,
-    employee: expense.employeeName,
-    category: expense.category,
-    description: expense.description,
-    amount: expense.amount,
-    date: expense.date,
-    isAdvanced: expense.isAdvanced,
-    status: expense.status,
-    accommodationDetails: expense.accommodationDetails,
-    employee_role: expense.employee_role || 'Funcionário'
-  }));
+  const expenses: ExpenseListItem[] = data.expenses.map(expense => {
+    // Ensure accommodationDetails has the required structure if it exists
+    const accommodationDetails = expense.accommodationDetails ? {
+      actualCost: expense.accommodationDetails.actualCost || 0,
+      reimbursementAmount: expense.accommodationDetails.reimbursementAmount || 0,
+      netAmount: expense.accommodationDetails.netAmount || 0
+    } : undefined;
+
+    return {
+      id: expense.id,
+      mission: expense.missions ? {
+        title: expense.missions.title || `Missão ${expense.missionId?.slice(0, 8)}`,
+        location: expense.missions.location,
+        client_name: expense.missions.client_name
+      } : `Missão ${expense.missionId?.slice(0, 8) || 'N/A'}`,
+      employee: expense.employeeName,
+      category: expense.category,
+      description: expense.description,
+      amount: expense.amount,
+      date: expense.date,
+      isAdvanced: expense.isAdvanced,
+      status: expense.status,
+      accommodationDetails,
+      employee_role: expense.employee_role || 'Funcionário'
+    };
+  });
 
   // Função auxiliar para formatar valores com segurança
   const formatCurrency = (value?: number) => {
@@ -315,8 +324,8 @@ export const ExpenseList = () => {
                       <div className="text-xs text-gray-600 mt-1">
                         <div>Gasto: {formatCurrency(expense.accommodationDetails.actualCost)}</div>
                         <div>Ressarcimento: {formatCurrency(expense.accommodationDetails.reimbursementAmount)}</div>
-                        <div className={`font-medium ${(expense.accommodationDetails.netAmount ?? 0) >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                          Líquido: {(expense.accommodationDetails.netAmount ?? 0) >= 0 ? '+' : ''}{formatCurrency(expense.accommodationDetails.netAmount)}
+                        <div className={`font-medium ${expense.accommodationDetails.netAmount >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                          Líquido: {expense.accommodationDetails.netAmount >= 0 ? '+' : ''}{formatCurrency(expense.accommodationDetails.netAmount)}
                         </div>
                       </div>
                     )}
@@ -327,7 +336,7 @@ export const ExpenseList = () => {
                     <div>
                       <div className="text-red-600">{formatCurrency(expense.amount)}</div>
                       <div className="text-xs text-gray-500">
-                        Líquido: {(expense.accommodationDetails.netAmount ?? 0) >= 0 ? '+' : ''}{formatCurrency(expense.accommodationDetails.netAmount)}
+                        Líquido: {expense.accommodationDetails.netAmount >= 0 ? '+' : ''}{formatCurrency(expense.accommodationDetails.netAmount)}
                       </div>
                     </div>
                   ) : (
