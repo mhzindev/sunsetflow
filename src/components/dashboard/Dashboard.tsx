@@ -1,10 +1,15 @@
+
 import { CashFlowChart } from "@/components/dashboard/CashFlowChart";
 import { FinancialSummary } from "@/components/dashboard/FinancialSummary";
 import { QuickActions } from "@/components/dashboard/QuickActions";
 import { RecentTransactions } from "@/components/dashboard/RecentTransactions";
 import { FinancialSummaryDebug } from './FinancialSummaryDebug';
 
-export const Dashboard = () => {
+interface DashboardProps {
+  onNavigate: (section: string) => void;
+}
+
+export const Dashboard = ({ onNavigate }: DashboardProps) => {
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -21,7 +26,7 @@ export const Dashboard = () => {
         <RecentTransactions />
       </div>
       
-      <QuickActions />
+      <QuickActions onNavigate={onNavigate} />
     </div>
   );
 };
