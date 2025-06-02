@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -11,13 +10,15 @@ interface ClientAutocompleteProps {
   onValueChange: (value: string) => void;
   onClientSelect?: (client: any) => void;
   placeholder?: string;
+  disabled?: boolean;
 }
 
 export const ClientAutocomplete = ({ 
   value, 
   onValueChange, 
   onClientSelect, 
-  placeholder = "Digite o nome do cliente" 
+  placeholder = "Digite o nome do cliente",
+  disabled = false
 }: ClientAutocompleteProps) => {
   const [clients, setClients] = useState<any[]>([]);
   const [filteredClients, setFilteredClients] = useState<any[]>([]);
@@ -104,7 +105,7 @@ export const ClientAutocomplete = ({
       <Input
         value={value}
         onChange={(e) => onValueChange(e.target.value)}
-        onFocus={() => value && setShowSuggestions(true)}
+        onFocus={() => value && !disabled && setShowSuggestions(true)}
         onBlur={() => {
           // Delay para permitir clique nas sugestões
           setTimeout(() => {
@@ -112,9 +113,10 @@ export const ClientAutocomplete = ({
           }, 200);
         }}
         placeholder={placeholder}
+        disabled={disabled}
       />
       
-      {showSuggestions && (filteredClients.length > 0 || showCreateOption) && (
+      {showSuggestions && !disabled && (filteredClients.length > 0 || showCreateOption) && (
         <div className="absolute z-10 w-full mt-1 bg-white border border-gray-200 rounded-md shadow-lg max-h-48 overflow-y-auto">
           {filteredClients.map((client) => (
             <button

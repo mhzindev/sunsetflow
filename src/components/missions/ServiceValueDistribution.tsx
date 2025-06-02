@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -10,13 +9,15 @@ interface ServiceValueDistributionProps {
   companyPercentage: number;
   onCompanyPercentageChange: (percentage: number) => void;
   onServiceValueChange: (value: number) => void;
+  disabled?: boolean;
 }
 
 export const ServiceValueDistribution = ({
   serviceValue,
   companyPercentage,
   onCompanyPercentageChange,
-  onServiceValueChange
+  onServiceValueChange,
+  disabled = false
 }: ServiceValueDistributionProps) => {
   const [providerPercentage, setProviderPercentage] = useState(100 - companyPercentage);
   const [companyValue, setCompanyValue] = useState(0);
@@ -34,6 +35,7 @@ export const ServiceValueDistribution = ({
   }, [serviceValue, companyPercentage]);
 
   const handlePercentageChange = (value: number[]) => {
+    if (disabled) return;
     const newCompanyPercentage = value[0];
     onCompanyPercentageChange(newCompanyPercentage);
   };
@@ -58,8 +60,9 @@ export const ServiceValueDistribution = ({
             type="number"
             step="0.01"
             value={serviceValue || ''}
-            onChange={(e) => onServiceValueChange(parseFloat(e.target.value) || 0)}
+            onChange={(e) => !disabled && onServiceValueChange(parseFloat(e.target.value) || 0)}
             placeholder="0,00"
+            disabled={disabled}
           />
         </div>
 
@@ -81,6 +84,7 @@ export const ServiceValueDistribution = ({
                   min={0}
                   step={5}
                   className="w-full"
+                  disabled={disabled}
                 />
               </div>
             </div>
