@@ -7,10 +7,11 @@ export const useSupabaseData = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // Função para buscar transações - MELHORADA
+  // Função para buscar transações - CORRIGIDA
   const fetchTransactions = async () => {
     try {
       console.log('Buscando transações do banco...');
+      
       const { data, error } = await supabase
         .from('transactions')
         .select('*')
@@ -18,14 +19,13 @@ export const useSupabaseData = () => {
 
       if (error) {
         console.error('Erro SQL ao buscar transações:', error);
-        throw error;
+        return [];
       }
       
-      console.log('Transações encontradas:', data?.length || 0, data);
+      console.log('Transações encontradas:', data?.length || 0);
       return data || [];
     } catch (err) {
       console.error('Erro ao buscar transações:', err);
-      setError('Erro ao buscar transações');
       return [];
     }
   };
@@ -53,14 +53,13 @@ export const useSupabaseData = () => {
 
       if (error) {
         console.error('Erro SQL ao buscar despesas:', error);
-        throw error;
+        return [];
       }
       
-      console.log('Despesas encontradas:', data?.length || 0, data);
+      console.log('Despesas encontradas:', data?.length || 0);
       return data || [];
     } catch (err) {
       console.error('Erro ao buscar despesas:', err);
-      setError('Erro ao buscar despesas');
       return [];
     }
   };
@@ -79,19 +78,18 @@ export const useSupabaseData = () => {
 
       if (error) {
         console.error('Erro SQL ao buscar pagamentos:', error);
-        throw error;
+        return [];
       }
       
-      console.log('Pagamentos encontrados:', data?.length || 0, data);
+      console.log('Pagamentos encontrados:', data?.length || 0);
       return data || [];
     } catch (err) {
       console.error('Erro ao buscar pagamentos:', err);
-      setError('Erro ao buscar pagamentos');
       return [];
     }
   };
 
-  // Função para buscar missões com dados completos
+  // Função para buscar missões - CORRIGIDA
   const fetchMissions = async () => {
     try {
       console.log('Buscando missões do banco...');
@@ -102,19 +100,18 @@ export const useSupabaseData = () => {
 
       if (error) {
         console.error('Erro SQL ao buscar missões:', error);
-        throw error;
+        return [];
       }
       
-      console.log('Missões encontradas:', data?.length || 0, data);
+      console.log('Missões encontradas:', data?.length || 0);
       return data || [];
     } catch (err) {
       console.error('Erro ao buscar missões:', err);
-      setError('Erro ao buscar missões');
       return [];
     }
   };
 
-  // Função para buscar fornecedores - MELHORADA
+  // Função para buscar fornecedores - CORRIGIDA
   const fetchServiceProviders = async () => {
     try {
       console.log('Buscando fornecedores...');
@@ -126,14 +123,13 @@ export const useSupabaseData = () => {
 
       if (error) {
         console.error('Erro SQL ao buscar fornecedores:', error);
-        throw error;
+        return [];
       }
       
       console.log('Fornecedores encontrados:', data?.length || 0);
       return data || [];
     } catch (err) {
       console.error('Erro ao buscar fornecedores:', err);
-      setError('Erro ao buscar fornecedores');
       return [];
     }
   };
@@ -147,11 +143,15 @@ export const useSupabaseData = () => {
         .eq('active', true)
         .order('name', { ascending: true });
 
-      if (error) throw error;
+      if (error) {
+        console.error('Erro ao buscar clientes:', error);
+        return [];
+      }
+      
+      console.log('Clientes encontrados:', data?.length || 0);
       return data || [];
     } catch (err) {
       console.error('Erro ao buscar clientes:', err);
-      setError('Erro ao buscar clientes');
       return [];
     }
   };
@@ -159,17 +159,22 @@ export const useSupabaseData = () => {
   // Função para buscar contas bancárias
   const fetchBankAccounts = async () => {
     try {
+      if (!user?.id) return [];
+      
       const { data, error } = await supabase
         .from('bank_accounts')
         .select('*')
-        .eq('user_id', user?.id)
+        .eq('user_id', user.id)
         .order('created_at', { ascending: false });
 
-      if (error) throw error;
+      if (error) {
+        console.error('Erro ao buscar contas bancárias:', error);
+        return [];
+      }
+      
       return data || [];
     } catch (err) {
       console.error('Erro ao buscar contas bancárias:', err);
-      setError('Erro ao buscar contas bancárias');
       return [];
     }
   };
@@ -177,17 +182,22 @@ export const useSupabaseData = () => {
   // Função para buscar cartões de crédito
   const fetchCreditCards = async () => {
     try {
+      if (!user?.id) return [];
+      
       const { data, error } = await supabase
         .from('credit_cards')
         .select('*')
-        .eq('user_id', user?.id)
+        .eq('user_id', user.id)
         .order('created_at', { ascending: false });
 
-      if (error) throw error;
+      if (error) {
+        console.error('Erro ao buscar cartões de crédito:', error);
+        return [];
+      }
+      
       return data || [];
     } catch (err) {
       console.error('Erro ao buscar cartões de crédito:', err);
-      setError('Erro ao buscar cartões de crédito');
       return [];
     }
   };
@@ -204,19 +214,18 @@ export const useSupabaseData = () => {
 
       if (error) {
         console.error('Erro SQL ao buscar funcionários:', error);
-        throw error;
+        return [];
       }
       
-      console.log('Funcionários encontrados:', data?.length || 0, data);
+      console.log('Funcionários encontrados:', data?.length || 0);
       return data || [];
     } catch (err) {
       console.error('Erro ao buscar funcionários:', err);
-      setError('Erro ao buscar funcionários');
       return [];
     }
   };
 
-  // Função para inserir transação - MELHORADA
+  // Função para inserir transação - CORRIGIDA
   const insertTransaction = async (transaction: {
     type: 'income' | 'expense';
     category: string;
@@ -232,7 +241,10 @@ export const useSupabaseData = () => {
     account_type?: 'bank_account' | 'credit_card';
   }) => {
     try {
-      if (!user) throw new Error('Usuário não autenticado');
+      if (!user) {
+        console.error('Usuário não autenticado');
+        return { data: null, error: 'Usuário não autenticado' };
+      }
 
       console.log('Inserindo transação:', transaction);
 
@@ -249,7 +261,7 @@ export const useSupabaseData = () => {
 
       if (error) {
         console.error('Erro SQL ao inserir transação:', error);
-        throw error;
+        return { data: null, error: error.message };
       }
 
       console.log('Transação inserida com sucesso:', data);
@@ -395,7 +407,7 @@ export const useSupabaseData = () => {
     }
   };
 
-  // Função para inserir missão
+  // Função para inserir missão - CORRIGIDA
   const insertMission = async (mission: {
     title: string;
     description?: string;
@@ -410,7 +422,10 @@ export const useSupabaseData = () => {
     status?: string;
   }) => {
     try {
-      if (!user) throw new Error('Usuário não autenticado');
+      if (!user) {
+        console.error('Usuário não autenticado');
+        return { data: null, error: 'Usuário não autenticado' };
+      }
 
       console.log('Inserindo missão:', mission);
 
@@ -426,7 +441,7 @@ export const useSupabaseData = () => {
 
       if (error) {
         console.error('Erro SQL ao inserir missão:', error);
-        throw error;
+        return { data: null, error: error.message };
       }
 
       console.log('Missão inserida com sucesso:', data);

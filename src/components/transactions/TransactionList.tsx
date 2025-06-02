@@ -17,9 +17,8 @@ interface TransactionListProps {
 
 export const TransactionList = ({ transactions: externalTransactions, onView, onEdit, onDelete }: TransactionListProps) => {
   const [internalTransactions, setInternalTransactions] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [retryCount, setRetryCount] = useState(0);
 
   const { fetchTransactions } = useSupabaseData();
   const { showError, showSuccess } = useToastFeedback();
@@ -29,7 +28,6 @@ export const TransactionList = ({ transactions: externalTransactions, onView, on
       loadTransactions();
     } else {
       setInternalTransactions(externalTransactions);
-      setLoading(false);
       setError(null);
     }
   }, [externalTransactions]);
@@ -43,11 +41,10 @@ export const TransactionList = ({ transactions: externalTransactions, onView, on
     try {
       console.log('Carregando transações...');
       const data = await fetchTransactions();
-      console.log('Transações carregadas:', data?.length || 0, data);
+      console.log('Transações carregadas:', data?.length || 0);
       
       if (Array.isArray(data)) {
         setInternalTransactions(data);
-        setRetryCount(0);
         if (!silent && data.length > 0) {
           showSuccess('Dados atualizados', `${data.length} transações carregadas`);
         }
@@ -58,16 +55,9 @@ export const TransactionList = ({ transactions: externalTransactions, onView, on
     } catch (err) {
       console.error('Erro ao carregar transações:', err);
       setError('Erro ao carregar transações');
-      
-      // Auto-retry logic
-      if (retryCount < 2) {
-        console.log(`Auto-retry em 3 segundos... (tentativa ${retryCount + 1}/3)`);
-        setTimeout(() => {
-          setRetryCount(prev => prev + 1);
-          loadTransactions(true);
-        }, 3000);
-      } else if (!silent) {
-        showError('Erro', 'Erro ao carregar transações após várias tentativas');
+      setInternalTransactions([]);
+      if (!silent) {
+        showError('Erro', 'Erro ao carregar transações');
       }
     } finally {
       if (!silent) setLoading(false);
@@ -75,7 +65,6 @@ export const TransactionList = ({ transactions: externalTransactions, onView, on
   };
 
   const handleRetry = () => {
-    setRetryCount(0);
     loadTransactions();
   };
 
@@ -154,17 +143,10 @@ export const TransactionList = ({ transactions: externalTransactions, onView, on
             Erro ao carregar dados
           </h3>
           <p className="text-gray-500 mb-4">{error}</p>
-          <div className="flex gap-2 justify-center">
-            <Button onClick={handleRetry} variant="outline">
-              <RefreshCw className="w-4 h-4 mr-2" />
-              Tentar novamente
-            </Button>
-            {retryCount > 0 && (
-              <span className="text-sm text-gray-500 flex items-center">
-                Tentativa {retryCount}/3
-              </span>
-            )}
-          </div>
+          <Button onClick={handleRetry} variant="outline">
+            <RefreshCw className="w-4 h-4 mr-2" />
+            Tentar novamente
+          </Button>
         </div>
       </Card>
     );
@@ -179,7 +161,7 @@ export const TransactionList = ({ transactions: externalTransactions, onView, on
             Nenhuma transação encontrada
           </h3>
           <p className="text-gray-500 mb-4">
-            As transações registradas aparecerão aqui. Experimente registrar uma nova transação ou pagamento.
+            As transações registradas aparecerão aqui. Experimente registrar uma nova transação.
           </p>
           {!externalTransactions && (
             <Button onClick={() => loadTransactions()} variant="outline">
