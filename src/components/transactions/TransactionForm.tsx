@@ -35,7 +35,7 @@ export const TransactionForm = ({ onClose, onSubmit }: TransactionFormProps) => 
     method: 'pix' as PaymentMethod,
     date: new Date().toISOString().split('T')[0],
     account_id: '',
-    account_type: '' as 'bank_account' | 'credit_card' | '',
+    account_type: null as 'bank_account' | 'credit_card' | null,
     tags: '',
     receipt: ''
   });
@@ -76,7 +76,7 @@ export const TransactionForm = ({ onClose, onSubmit }: TransactionFormProps) => 
         method: formData.method,
         date: formData.date,
         account_id: formData.account_id || null,
-        account_type: formData.account_type === '' ? null : formData.account_type as 'bank_account' | 'credit_card',
+        account_type: formData.account_type,
         tags: formData.tags ? formData.tags.split(',').map(tag => tag.trim()) : [],
         receipt: formData.receipt || null,
         user_id: profile?.id,
@@ -106,7 +106,7 @@ export const TransactionForm = ({ onClose, onSubmit }: TransactionFormProps) => 
         method: 'pix',
         date: new Date().toISOString().split('T')[0],
         account_id: '',
-        account_type: '',
+        account_type: null,
         tags: '',
         receipt: ''
       });
@@ -122,11 +122,11 @@ export const TransactionForm = ({ onClose, onSubmit }: TransactionFormProps) => 
   };
 
   const handleAccountChange = (value: string) => {
-    if (value === '') {
+    if (value === 'none') {
       setFormData(prev => ({
         ...prev,
         account_id: '',
-        account_type: ''
+        account_type: null
       }));
       return;
     }
@@ -137,6 +137,13 @@ export const TransactionForm = ({ onClose, onSubmit }: TransactionFormProps) => 
       account_id: id,
       account_type: type as 'bank_account' | 'credit_card'
     }));
+  };
+
+  const getAccountValue = () => {
+    if (!formData.account_id || !formData.account_type) {
+      return 'none';
+    }
+    return `${formData.account_type}:${formData.account_id}`;
   };
 
   return (
@@ -251,14 +258,14 @@ export const TransactionForm = ({ onClose, onSubmit }: TransactionFormProps) => 
           <div>
             <Label htmlFor="account">Conta/Cartão</Label>
             <Select 
-              value={formData.account_id ? `${formData.account_type}:${formData.account_id}` : ''} 
+              value={getAccountValue()} 
               onValueChange={handleAccountChange}
             >
               <SelectTrigger>
                 <SelectValue placeholder="Selecionar conta ou cartão" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="nenhuma">Nenhuma conta selecionada</SelectItem>
+                <SelectItem value="none">Nenhuma conta selecionada</SelectItem>
                 {accounts.map((account) => (
                   <SelectItem key={account.id} value={`bank_account:${account.id}`}>
                     {account.name} - {account.bank}
