@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -7,7 +8,6 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { useSupabaseData } from '@/hooks/useSupabaseData';
-import { useEmployees } from '@/hooks/useEmployees';
 import { useToastFeedback } from '@/hooks/useToastFeedback';
 import { useAuth } from '@/contexts/AuthContext';
 import { ClientAutocomplete } from '@/components/clients/ClientAutocomplete';
@@ -33,14 +33,11 @@ export const MissionManager = ({ onMissionCreated }: MissionManagerProps) => {
     company_percentage: 30,
     provider_percentage: 70,
     client_name: '',
-    assigned_employees: [] as string[],
-    employee_names: [] as string[],
     assigned_providers: [] as string[],
     status: 'planning'
   });
 
   const { fetchMissions, insertMission, updateMission } = useSupabaseData();
-  const { employees } = useEmployees();
   const { showSuccess, showError } = useToastFeedback();
   const { user } = useAuth();
 
@@ -78,8 +75,8 @@ export const MissionManager = ({ onMissionCreated }: MissionManagerProps) => {
       return;
     }
 
-    if (formData.assigned_employees.length === 0) {
-      showError('Erro de Validação', 'Por favor, selecione pelo menos um funcionário');
+    if (formData.assigned_providers.length === 0) {
+      showError('Erro de Validação', 'Por favor, selecione pelo menos um prestador de serviço');
       return;
     }
 
@@ -94,8 +91,6 @@ export const MissionManager = ({ onMissionCreated }: MissionManagerProps) => {
         company_percentage: formData.company_percentage,
         provider_percentage: formData.provider_percentage,
         client_name: formData.client_name,
-        assigned_employees: formData.assigned_employees,
-        employee_names: formData.employee_names,
         assigned_providers: formData.assigned_providers,
         status: formData.status
       };
@@ -122,8 +117,6 @@ export const MissionManager = ({ onMissionCreated }: MissionManagerProps) => {
         company_percentage: 30,
         provider_percentage: 70,
         client_name: '',
-        assigned_employees: [],
-        employee_names: [],
         assigned_providers: [],
         status: 'planning'
       });
@@ -157,26 +150,6 @@ export const MissionManager = ({ onMissionCreated }: MissionManagerProps) => {
       console.error('Erro ao aprovar missão:', error);
       showError('Erro', 'Erro ao aprovar missão. Tente novamente.');
     }
-  };
-
-  const handleEmployeeToggle = (employeeId: string, employeeName: string) => {
-    setFormData(prev => {
-      const isSelected = prev.assigned_employees.includes(employeeId);
-      
-      if (isSelected) {
-        return {
-          ...prev,
-          assigned_employees: prev.assigned_employees.filter(id => id !== employeeId),
-          employee_names: prev.employee_names.filter(name => name !== employeeName)
-        };
-      } else {
-        return {
-          ...prev,
-          assigned_employees: [...prev.assigned_employees, employeeId],
-          employee_names: [...prev.employee_names, employeeName]
-        };
-      }
-    });
   };
 
   const handleCompanyPercentageChange = (percentage: number) => {
@@ -330,53 +303,10 @@ export const MissionManager = ({ onMissionCreated }: MissionManagerProps) => {
                     onServiceValueChange={(value) => setFormData({...formData, service_value: value})}
                   />
 
-                  <div>
-                    <Label>Funcionários Designados *</Label>
-                    <div className="grid grid-cols-2 md:grid-cols-3 gap-2 mt-2">
-                      {employees.map((employee) => (
-                        <label key={employee.id} className="flex items-center space-x-2 p-2 border rounded cursor-pointer hover:bg-gray-50">
-                          <input
-                            type="checkbox"
-                            checked={formData.assigned_employees.includes(employee.id)}
-                            onChange={() => {
-                              const employeeId = employee.id;
-                              const employeeName = employee.name;
-                              const isSelected = formData.assigned_employees.includes(employeeId);
-                              
-                              if (isSelected) {
-                                setFormData({
-                                  ...formData,
-                                  assigned_employees: formData.assigned_employees.filter(id => id !== employeeId),
-                                  employee_names: formData.employee_names.filter(name => name !== employeeName)
-                                });
-                              } else {
-                                setFormData({
-                                  ...formData,
-                                  assigned_employees: [...formData.assigned_employees, employeeId],
-                                  employee_names: [...formData.employee_names, employeeName]
-                                });
-                              }
-                            }}
-                            className="rounded"
-                          />
-                          <span className="text-sm">{employee.name}</span>
-                        </label>
-                      ))}
-                    </div>
-                    {formData.assigned_employees.length > 0 && (
-                      <div className="flex flex-wrap gap-2 mt-3">
-                        {formData.employee_names.map((name, index) => (
-                          <Badge key={index} variant="outline">
-                            {name}
-                          </Badge>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-
                   <ServiceProviderSelector
                     selectedProviders={formData.assigned_providers}
                     onProvidersChange={(providers) => setFormData({...formData, assigned_providers: providers})}
+                    label="Prestadores de Serviço *"
                   />
 
                   <div className="flex space-x-4 pt-4">
@@ -455,19 +385,6 @@ export const MissionManager = ({ onMissionCreated }: MissionManagerProps) => {
                                 </div>
                               </div>
                             )}
-                          </div>
-                        )}
-                        
-                        {mission.employee_names && mission.employee_names.length > 0 && (
-                          <div className="flex items-center gap-2">
-                            <Users className="w-4 h-4" />
-                            <div className="flex flex-wrap gap-1">
-                              {mission.employee_names.map((name: string, index: number) => (
-                                <Badge key={index} variant="secondary" className="text-xs">
-                                  {name}
-                                </Badge>
-                              ))}
-                            </div>
                           </div>
                         )}
 
