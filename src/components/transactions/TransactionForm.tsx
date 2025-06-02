@@ -9,7 +9,10 @@ import { Textarea } from "@/components/ui/textarea";
 import { useSupabaseData } from '@/hooks/useSupabaseData';
 import { useToastFeedback } from '@/hooks/useToastFeedback';
 import { useAuth } from '@/contexts/AuthContext';
-import { TransactionCategory, PaymentMethod } from '@/integrations/supabase/types';
+import { Database } from '@/integrations/supabase/types';
+
+type TransactionCategory = Database['public']['Enums']['transaction_category'];
+type PaymentMethod = Database['public']['Enums']['payment_method'];
 
 interface TransactionFormProps {
   onClose?: () => void;
@@ -32,7 +35,7 @@ export const TransactionForm = ({ onClose, onSubmit }: TransactionFormProps) => 
     method: 'pix' as PaymentMethod,
     date: new Date().toISOString().split('T')[0],
     account_id: '',
-    account_type: '',
+    account_type: '' as 'bank_account' | 'credit_card' | '',
     tags: '',
     receipt: ''
   });
@@ -73,12 +76,12 @@ export const TransactionForm = ({ onClose, onSubmit }: TransactionFormProps) => 
         method: formData.method,
         date: formData.date,
         account_id: formData.account_id || null,
-        account_type: formData.account_type || null,
+        account_type: formData.account_type === '' ? null : formData.account_type as 'bank_account' | 'credit_card',
         tags: formData.tags ? formData.tags.split(',').map(tag => tag.trim()) : [],
         receipt: formData.receipt || null,
         user_id: profile?.id,
         user_name: profile?.name || '',
-        status: 'completed'
+        status: 'completed' as const
       };
 
       console.log('Criando transação:', transactionData);
@@ -119,11 +122,20 @@ export const TransactionForm = ({ onClose, onSubmit }: TransactionFormProps) => 
   };
 
   const handleAccountChange = (value: string) => {
+    if (value === '') {
+      setFormData(prev => ({
+        ...prev,
+        account_id: '',
+        account_type: ''
+      }));
+      return;
+    }
+
     const [type, id] = value.split(':');
     setFormData(prev => ({
       ...prev,
       account_id: id,
-      account_type: type
+      account_type: type as 'bank_account' | 'credit_card'
     }));
   };
 
@@ -246,14 +258,14 @@ export const TransactionForm = ({ onClose, onSubmit }: TransactionFormProps) => 
                 <SelectValue placeholder="Selecionar conta ou cartão" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">Nenhuma conta selecionada</SelectItem>
+                <SelectItem value="nenhuma">Nenhuma conta selecionada</SelectItem>
                 {accounts.map((account) => (
-                  <SelectItem key={account.id} value={`bank:${account.id}`}>
+                  <SelectItem key={account.id} value={`bank_account:${account.id}`}>
                     {account.name} - {account.bank}
                   </SelectItem>
                 ))}
                 {cards.map((card) => (
-                  <SelectItem key={card.id} value={`credit:${card.id}`}>
+                  <SelectItem key={card.id} value={`credit_card:${card.id}`}>
                     {card.name} - {card.brand}
                   </SelectItem>
                 ))}
