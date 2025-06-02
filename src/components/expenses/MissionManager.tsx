@@ -13,6 +13,7 @@ import { useToastFeedback } from '@/hooks/useToastFeedback';
 import { ClientAutocomplete } from '@/components/clients/ClientAutocomplete';
 import { ServiceValueDistribution } from '@/components/missions/ServiceValueDistribution';
 import { Plus, Calendar, MapPin, Users, DollarSign, RefreshCw } from 'lucide-react';
+import { supabase } from '@/integrations/supabase/client';
 
 interface MissionManagerProps {
   onMissionCreated?: () => void;
@@ -22,6 +23,7 @@ export const MissionManager = ({ onMissionCreated }: MissionManagerProps) => {
   const [missions, setMissions] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
   const [formData, setFormData] = useState({
     title: '',
     description: '',
@@ -37,7 +39,7 @@ export const MissionManager = ({ onMissionCreated }: MissionManagerProps) => {
     status: 'planning'
   });
 
-  const { fetchMissions, insertMission } = useSupabaseData();
+  const { fetchMissions } = useSupabaseData();
   const { employees } = useEmployees();
   const { showSuccess, showError } = useToastFeedback();
 
@@ -78,31 +80,31 @@ export const MissionManager = ({ onMissionCreated }: MissionManagerProps) => {
     }
 
     try {
-      const missionData = {
-        title: formData.title,
-        description: formData.description,
-        location: formData.location,
-        start_date: formData.start_date,
-        end_date: formData.end_date || null,
-        service_value: formData.service_value || null,
-        company_percentage: formData.company_percentage,
-        provider_percentage: formData.provider_percentage,
-        client_name: formData.client_name,
-        assigned_employees: formData.assigned_employees,
-        employee_names: formData.employee_names,
-        status: formData.status
-      };
+      setSubmitting(true);
+      console.log('Criando missão:', formData);
 
-      console.log('Criando missão:', missionData);
-
-      const result = await insertMission(missionData);
+      const { data, error } = await supabase.rpc('create_mission', {
+        p_title: formData.title,
+        p_description: formData.description,
+        p_location: formData.location,
+        p_start_date: formData.start_date,
+        p_end_date: formData.end_date || null,
+        p_service_value: formData.service_value || null,
+        p_company_percentage: formData.company_percentage,
+        p_provider_percentage: formData.provider_percentage,
+        p_client_name: formData.client_name,
+        p_assigned_employees: formData.assigned_employees,
+        p_employee_names: formData.employee_names,
+        p_status: formData.status
+      });
       
-      if (result.error) {
-        console.error('Erro ao criar missão:', result.error);
-        showError('Erro', result.error);
+      if (error) {
+        console.error('Erro ao criar missão:', error);
+        showError('Erro', `Erro ao criar missão: ${error.message}`);
         return;
       }
 
+      console.log('Missão criada com sucesso:', data);
       showSuccess('Sucesso', 'Missão criada com sucesso!');
       setShowForm(false);
       setFormData({
@@ -124,6 +126,8 @@ export const MissionManager = ({ onMissionCreated }: MissionManagerProps) => {
     } catch (error) {
       console.error('Erro ao criar missão:', error);
       showError('Erro', 'Erro ao criar missão. Tente novamente.');
+    } finally {
+      setSubmitting(false);
     }
   };
 
@@ -214,6 +218,7 @@ export const MissionManager = ({ onMissionCreated }: MissionManagerProps) => {
                         id="title"
                         value={formData.title}
                         onChange={(e) => setFormData({...formData, title: e.target.value})}
+                        disabled={submitting}
                         required
                       />
                     </div>
@@ -224,6 +229,7 @@ export const MissionManager = ({ onMissionCreated }: MissionManagerProps) => {
                         id="location"
                         value={formData.location}
                         onChange={(e) => setFormData({...formData, location: e.target.value})}
+                        disabled={submitting}
                         required
                       />
                     </div>
@@ -235,6 +241,7 @@ export const MissionManager = ({ onMissionCreated }: MissionManagerProps) => {
                       id="description"
                       value={formData.description}
                       onChange={(e) => setFormData({...formData, description: e.target.value})}
+                      disabled={submitting}
                       placeholder="Descrição detalhada da missão..."
                     />
                   </div>
@@ -247,6 +254,7 @@ export const MissionManager = ({ onMissionCreated }: MissionManagerProps) => {
                         type="date"
                         value={formData.start_date}
                         onChange={(e) => setFormData({...formData, start_date: e.target.value})}
+                        disabled={submitting}
                         required
                       />
                     </div>
@@ -258,14 +266,17 @@ export const MissionManager = ({ onMissionCreated }: MissionManagerProps) => {
                         type="date"
                         value={formData.end_date}
                         onChange={(e) => setFormData({...formData, end_date: e.target.value})}
+                        disabled={submitting}
                       />
                     </div>
                     
                     <div>
                       <Label htmlFor="status">Status</Label>
-                      <Select value={formData.status} onValueChange={(value) => 
-                        setFormData({...formData, status: value})
-                      }>
+                      <Select 
+                        value={formData.status} 
+                        onValueChange={(value) => setFormData({...formData, status: value})}
+                        disabled={submitting}
+                      >
                         <SelectTrigger>
                           <SelectValue />
                         </SelectTrigger>
@@ -303,6 +314,7 @@ export const MissionManager = ({ onMissionCreated }: MissionManagerProps) => {
                             type="checkbox"
                             checked={formData.assigned_employees.includes(employee.id)}
                             onChange={() => handleEmployeeToggle(employee.id, employee.name)}
+                            disabled={submitting}
                             className="rounded"
                           />
                           <span className="text-sm">{employee.name}</span>
@@ -321,13 +333,25 @@ export const MissionManager = ({ onMissionCreated }: MissionManagerProps) => {
                   </div>
 
                   <div className="flex space-x-4 pt-4">
-                    <Button type="submit" className="flex-1">
-                      Criar Missão
+                    <Button 
+                      type="submit" 
+                      className="flex-1"
+                      disabled={submitting}
+                    >
+                      {submitting ? (
+                        <>
+                          <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
+                          Criando...
+                        </>
+                      ) : (
+                        'Criar Missão'
+                      )}
                     </Button>
                     <Button 
                       type="button" 
                       variant="outline"
                       onClick={() => setShowForm(false)}
+                      disabled={submitting}
                     >
                       Cancelar
                     </Button>

@@ -2,10 +2,10 @@
 import { Card } from "@/components/ui/card";
 import { TrendingUp, TrendingDown, Wallet, CreditCard, Receipt, AlertTriangle, Building2, Banknote } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { useFinancial } from "@/contexts/FinancialContext";
+import { useFinancialDashboard } from "@/hooks/useFinancialDashboard";
 
 export const FinancialSummary = () => {
-  const { data } = useFinancial();
+  const { data, loading, error } = useFinancialDashboard();
 
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat('pt-BR', {
@@ -22,9 +22,33 @@ export const FinancialSummary = () => {
   };
 
   // Calcular mudanças simuladas (baseado em dados históricos fictícios)
-  const previousMonthIncome = data.monthlyIncome > 0 ? data.monthlyIncome * 0.92 : 8500;
-  const previousMonthExpenses = data.monthlyExpenses > 0 ? data.monthlyExpenses * 1.03 : 7200;
+  const previousMonthIncome = data.monthlyIncome > 0 ? data.monthlyIncome * 0.92 : 1100;
+  const previousMonthExpenses = data.monthlyExpenses > 0 ? data.monthlyExpenses * 1.03 : 133;
   const previousBalance = data.totalBalance * 0.89;
+
+  if (loading) {
+    return (
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        {Array.from({ length: 8 }).map((_, index) => (
+          <Card key={index} className="p-6 animate-pulse">
+            <div className="h-4 bg-gray-200 rounded mb-2"></div>
+            <div className="h-8 bg-gray-200 rounded mb-2"></div>
+            <div className="h-3 bg-gray-200 rounded"></div>
+          </Card>
+        ))}
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <Card className="p-6">
+        <div className="text-center text-red-600">
+          Erro ao carregar dados financeiros: {error}
+        </div>
+      </Card>
+    );
+  }
 
   const summaryCards = [
     {
@@ -84,7 +108,7 @@ export const FinancialSummary = () => {
     {
       title: "Pagamentos Pendentes",
       value: formatCurrency(data.pendingPayments),
-      change: `${data.payments.filter(p => p.status === 'pending').length} pendentes`,
+      change: `Pendentes`,
       changeType: "neutral",
       icon: CreditCard,
       color: "bg-orange-600",
@@ -93,7 +117,7 @@ export const FinancialSummary = () => {
     {
       title: "Despesas Aprovadas",
       value: formatCurrency(data.approvedExpenses),
-      change: `${data.expenses.filter(e => e.status === 'approved').length} para reembolso`,
+      change: `Para reembolso`,
       changeType: data.approvedExpenses > 0 ? "warning" : "positive",
       icon: AlertTriangle,
       color: "bg-yellow-600",

@@ -10,8 +10,6 @@ interface Employee {
   phone?: string;
   role: string;
   active: boolean;
-  created_at: string;
-  updated_at: string;
 }
 
 export const useEmployees = () => {
@@ -25,14 +23,10 @@ export const useEmployees = () => {
       setLoading(true);
       console.log('Buscando funcionários...');
       
-      const { data, error } = await supabase
-        .from('employees')
-        .select('*')
-        .eq('active', true)
-        .order('name', { ascending: true });
+      const { data, error } = await supabase.rpc('get_active_employees');
 
       if (error) {
-        console.error('Erro SQL ao buscar funcionários:', error);
+        console.error('Erro ao buscar funcionários:', error);
         throw error;
       }
       
