@@ -7,18 +7,62 @@ import { TransactionList } from './TransactionList';
 import { TransactionForm } from './TransactionForm';
 import { TransactionCategories } from './TransactionCategories';
 import { useAuth } from "@/contexts/AuthContext";
-import { useFinancial } from "@/contexts/FinancialContext";
-import { useTransactionSync } from "@/hooks/useTransactionSync";
-import { Plus, RefreshCw } from "lucide-react";
+import { useSupabaseData } from "@/hooks/useSupabaseData";
+import { Plus, RefreshCw, AlertCircle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
 export const TransactionManager = () => {
   const { profile } = useAuth();
-  const { data, loading, error, refreshData } = useFinancial();
-  const { syncTransactions } = useTransactionSync();
   const { toast } = useToast();
   const [activeTab, setActiveTab] = useState('list');
-  const [refreshing, setRefreshing] = useState(false);
+  const [transactions, setTransactions] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const { fetchTransactions } = useSupabaseData();
+
+  const loadTransactions = async (showToast = false) => {
+    try {
+      setLoading(true);
+      setError(null);
+      
+      console.log('Iniciando carregamento de transações...');
+      const data = await fetchTransactions();
+      
+      if (Array.isArray(data)) {
+        setTransactions(data);
+        console.log(`${data.length} transações carregadas com sucesso`);
+        
+        if (showToast && data.length > 0) {
+          toast({
+            title: "Transações carregadas",
+            description: `${data.length} transações encontradas.`,
+          });
+        }
+      } else {
+        console.warn('Dados retornados não são um array:', data);
+        setTransactions([]);
+      }
+    } catch (err: any) {
+      console.error('Erro ao carregar transações:', err);
+      const errorMessage = err?.message || 'Erro desconhecido ao carregar transações';
+      setError(errorMessage);
+      setTransactions([]);
+      
+      if (showToast) {
+        toast({
+          title: "Erro ao carregar",
+          description: errorMessage,
+          variant: "destructive"
+        });
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadTransactions();
+  }, []);
 
   const handleNewTransaction = () => {
     setActiveTab('new');
@@ -26,8 +70,7 @@ export const TransactionManager = () => {
 
   const handleTransactionSubmitted = async () => {
     setActiveTab('list');
-    // Sincronizar dados após criar transação
-    await syncTransactions();
+    await loadTransactions(true);
     toast({
       title: "Transação criada",
       description: "A transação foi registrada com sucesso.",
@@ -35,23 +78,7 @@ export const TransactionManager = () => {
   };
 
   const handleRefresh = async () => {
-    try {
-      setRefreshing(true);
-      await Promise.all([refreshData(), syncTransactions()]);
-      toast({
-        title: "Dados atualizados",
-        description: "As transações foram recarregadas.",
-      });
-    } catch (err) {
-      console.error('Erro ao atualizar dados:', err);
-      toast({
-        title: "Erro",
-        description: "Não foi possível atualizar os dados.",
-        variant: "destructive"
-      });
-    } finally {
-      setRefreshing(false);
-    }
+    await loadTransactions(true);
   };
 
   const handleViewTransaction = (id: string) => {
@@ -70,7 +97,7 @@ export const TransactionManager = () => {
   };
 
   // Mapear transações para o formato esperado pelo TransactionList
-  const mappedTransactions = data.transactions.map(t => ({
+  const mappedTransactions = transactions.map(t => ({
     id: t.id,
     type: t.type,
     description: t.description,
@@ -79,15 +106,22 @@ export const TransactionManager = () => {
     paymentMethod: t.method,
     date: t.date,
     status: t.status as 'pending' | 'completed' | 'cancelled',
-    employeeName: t.userName
+    employeeName: t.user_name,
+    receipt: t.receipt,
+    tags: t.tags,
+    method: t.method
   }));
 
-  if (error) {
+  if (error && !loading) {
     return (
       <Card className="p-6">
-        <div className="text-center">
-          <p className="text-red-600 mb-4">Erro ao carregar dados: {error}</p>
-          <Button onClick={handleRefresh} variant="outline">
+        <div className="text-center py-8">
+          <AlertCircle className="w-12 h-12 text-red-400 mx-auto mb-4" />
+          <h3 className="text-lg font-semibold text-red-600 mb-2">
+            Erro ao carregar transações
+          </h3>
+          <p className="text-gray-500 mb-4">{error}</p>
+          <Button onClick={() => loadTransactions(true)} variant="outline">
             <RefreshCw className="w-4 h-4 mr-2" />
             Tentar novamente
           </Button>
@@ -119,10 +153,10 @@ export const TransactionManager = () => {
               onClick={handleRefresh}
               variant="outline"
               size="sm"
-              disabled={loading || refreshing}
+              disabled={loading}
             >
-              <RefreshCw className={`w-4 h-4 mr-2 ${(loading || refreshing) ? 'animate-spin' : ''}`} />
-              Sincronizar
+              <RefreshCw className={`w-4 h-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
+              Atualizar
             </Button>
             <Button 
               onClick={handleNewTransaction}
@@ -146,19 +180,12 @@ export const TransactionManager = () => {
           </TabsList>
 
           <TabsContent value="list" className="mt-6">
-            {loading ? (
-              <div className="text-center py-8">
-                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
-                <p className="text-slate-600 mt-2">Carregando transações...</p>
-              </div>
-            ) : (
-              <TransactionList 
-                transactions={mappedTransactions}
-                onView={handleViewTransaction}
-                onEdit={handleEditTransaction}
-                onDelete={handleDeleteTransaction}
-              />
-            )}
+            <TransactionList 
+              transactions={mappedTransactions}
+              onView={handleViewTransaction}
+              onEdit={handleEditTransaction}
+              onDelete={handleDeleteTransaction}
+            />
           </TabsContent>
 
           <TabsContent value="new" className="mt-6">

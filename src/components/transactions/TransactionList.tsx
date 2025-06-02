@@ -1,73 +1,20 @@
+
 import { useState, useEffect } from 'react';
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { useSupabaseData } from '@/hooks/useSupabaseData';
-import { useToastFeedback } from '@/hooks/useToastFeedback';
 import { Eye, FileText, RefreshCw, AlertCircle } from 'lucide-react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 
 interface TransactionListProps {
-  transactions?: any[];
+  transactions: any[];
   onView?: (id: string) => void;
   onEdit?: (id: string) => void;
   onDelete?: (id: string) => void;
 }
 
-export const TransactionList = ({ transactions: externalTransactions, onView, onEdit, onDelete }: TransactionListProps) => {
-  const [internalTransactions, setInternalTransactions] = useState<any[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  const { fetchTransactions } = useSupabaseData();
-  const { showError, showSuccess } = useToastFeedback();
-
-  useEffect(() => {
-    if (!externalTransactions) {
-      loadTransactions();
-    } else {
-      setInternalTransactions(externalTransactions);
-      setError(null);
-    }
-  }, [externalTransactions]);
-
-  const transactions = externalTransactions || internalTransactions;
-
-  const loadTransactions = async (silent: boolean = false) => {
-    if (!silent) setLoading(true);
-    setError(null);
-    
-    try {
-      console.log('Carregando transações...');
-      const data = await fetchTransactions();
-      console.log('Transações carregadas:', data?.length || 0);
-      
-      if (Array.isArray(data)) {
-        setInternalTransactions(data);
-        if (!silent && data.length > 0) {
-          showSuccess('Dados atualizados', `${data.length} transações carregadas`);
-        }
-      } else {
-        console.warn('Dados de transações não são um array:', data);
-        setInternalTransactions([]);
-      }
-    } catch (err) {
-      console.error('Erro ao carregar transações:', err);
-      setError('Erro ao carregar transações');
-      setInternalTransactions([]);
-      if (!silent) {
-        showError('Erro', 'Erro ao carregar transações');
-      }
-    } finally {
-      if (!silent) setLoading(false);
-    }
-  };
-
-  const handleRetry = () => {
-    loadTransactions();
-  };
-
+export const TransactionList = ({ transactions, onView, onEdit, onDelete }: TransactionListProps) => {
   const getStatusBadgeColor = (status: string) => {
     switch (status) {
       case 'completed': return 'bg-green-100 text-green-800';
@@ -123,35 +70,6 @@ export const TransactionList = ({ transactions: externalTransactions, onView, on
     return methods[method] || method;
   };
 
-  if (loading) {
-    return (
-      <Card className="p-6">
-        <div className="flex items-center justify-center py-8">
-          <RefreshCw className="w-6 h-6 animate-spin text-blue-600" />
-          <span className="ml-2">Carregando transações...</span>
-        </div>
-      </Card>
-    );
-  }
-
-  if (error) {
-    return (
-      <Card className="p-6">
-        <div className="text-center py-8">
-          <AlertCircle className="w-12 h-12 text-red-400 mx-auto mb-4" />
-          <h3 className="text-lg font-semibold text-red-600 mb-2">
-            Erro ao carregar dados
-          </h3>
-          <p className="text-gray-500 mb-4">{error}</p>
-          <Button onClick={handleRetry} variant="outline">
-            <RefreshCw className="w-4 h-4 mr-2" />
-            Tentar novamente
-          </Button>
-        </div>
-      </Card>
-    );
-  }
-
   if (!transactions || transactions.length === 0) {
     return (
       <Card className="p-6">
@@ -163,12 +81,6 @@ export const TransactionList = ({ transactions: externalTransactions, onView, on
           <p className="text-gray-500 mb-4">
             As transações registradas aparecerão aqui. Experimente registrar uma nova transação.
           </p>
-          {!externalTransactions && (
-            <Button onClick={() => loadTransactions()} variant="outline">
-              <RefreshCw className="w-4 h-4 mr-2" />
-              Atualizar
-            </Button>
-          )}
         </div>
       </Card>
     );
@@ -180,12 +92,6 @@ export const TransactionList = ({ transactions: externalTransactions, onView, on
         <h3 className="text-lg font-semibold">
           Transações ({transactions.length})
         </h3>
-        {!externalTransactions && (
-          <Button onClick={() => loadTransactions()} variant="outline" size="sm">
-            <RefreshCw className="w-4 h-4 mr-2" />
-            Atualizar
-          </Button>
-        )}
       </div>
 
       <div className="grid gap-4">
@@ -207,7 +113,9 @@ export const TransactionList = ({ transactions: externalTransactions, onView, on
                   <p>Categoria: {getCategoryText(transaction.category)}</p>
                   <p>Método: {getMethodText(transaction.method || transaction.paymentMethod)}</p>
                   <p>Data: {format(new Date(transaction.date), 'dd/MM/yyyy', { locale: ptBR })}</p>
-                  <p>Usuário: {transaction.user_name || transaction.employeeName}</p>
+                  {transaction.employeeName && (
+                    <p>Usuário: {transaction.employeeName}</p>
+                  )}
                   
                   {transaction.tags && transaction.tags.length > 0 && (
                     <div className="flex flex-wrap gap-1 mt-2">
