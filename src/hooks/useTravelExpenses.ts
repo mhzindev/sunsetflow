@@ -62,8 +62,8 @@ export const useTravelExpenses = () => {
           // Transformar os dados para o formato esperado
           const transformedData = expensesData?.map(expense => ({
             ...expense,
-            mission_title: expense.missions?.title || null,
-            mission_location: expense.missions?.location || null,
+            mission_title: expense.missions ? (expense.missions as any)?.title || null : null,
+            mission_location: expense.missions ? (expense.missions as any)?.location || null : null,
             missions: undefined // Remove a propriedade aninhada
           })) || [];
           
