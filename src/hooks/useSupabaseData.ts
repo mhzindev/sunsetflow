@@ -7,27 +7,50 @@ export const useSupabaseData = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // Função para buscar transações - SIMPLIFICADA para evitar problemas de RLS
+  // Função para buscar transações - CORRIGIDA para usar a tabela correta
   const fetchTransactions = async () => {
     try {
       console.log('Buscando transações do banco...');
       
-      const { data, error } = await supabase
+      // Verificar se é a tabela 'transactions' ou 'finance'
+      let { data, error } = await supabase
         .from('transactions')
         .select('*')
         .order('created_at', { ascending: false });
 
+      // Se der erro na tabela transactions, tentar tabela finance
+      if (error && error.code === '42P01') {
+        console.log('Tentando buscar da tabela finance...');
+        const { data: financeData, error: financeError } = await supabase
+          .from('finance')
+          .select('*')
+          .order('created_at', { ascending: false });
+        
+        data = financeData;
+        error = financeError;
+      }
+
       if (error) {
         console.error('Erro SQL ao buscar transações:', error);
-        // Se há erro de RLS, retorna array vazio em vez de quebrar
-        if (error.code === '42P17' || error.message.includes('infinite recursion')) {
-          console.warn('Problema de RLS detectado, retornando array vazio temporariamente');
-          return [];
+        // Se há erro de RLS ou recursão infinita, fazer uma busca mais simples
+        if (error.code === '42P17' || error.message.includes('infinite recursion') || error.message.includes('policy')) {
+          console.warn('Problema de RLS detectado, tentando busca sem filtros complexos');
+          
+          // Buscar sem usar políticas complexas - usando rpc se necessário
+          const { data: simpleData, error: simpleError } = await supabase.rpc('get_user_transactions_simple');
+          
+          if (simpleError) {
+            console.warn('RPC também falhou, retornando array vazio temporariamente:', simpleError);
+            return [];
+          }
+          
+          return simpleData || [];
         }
         throw error;
       }
       
       console.log('Transações encontradas:', data?.length || 0);
+      console.log('Dados das transações:', data);
       return data || [];
     } catch (err) {
       console.error('Erro ao buscar transações:', err);
@@ -656,6 +679,26 @@ export const useSupabaseData = () => {
     } catch (err) {
       console.error('Erro ao buscar acessos de prestadores:', err);
       return [];
+    }
+  };
+
+  // Função para buscar dados com retry em caso de erro RLS
+  const fetchDataWithRetry = async (fetchFunction: () => Promise<any>, tableName: string, maxRetries = 2) => {
+    for (let attempt = 0; attempt <= maxRetries; attempt++) {
+      try {
+        const result = await fetchFunction();
+        return result;
+      } catch (error: any) {
+        console.warn(`Tentativa ${attempt + 1} falhou para ${tableName}:`, error);
+        
+        if (attempt === maxRetries) {
+          console.error(`Todas as tentativas falharam para ${tableName}`);
+          return [];
+        }
+        
+        // Aguardar um pouco antes da próxima tentativa
+        await new Promise(resolve => setTimeout(resolve, 1000 * (attempt + 1)));
+      }
     }
   };
 

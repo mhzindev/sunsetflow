@@ -8,45 +8,60 @@ import { TransactionForm } from './TransactionForm';
 import { TransactionCategories } from './TransactionCategories';
 import { useAuth } from "@/contexts/AuthContext";
 import { useSupabaseData } from "@/hooks/useSupabaseData";
-import { Plus, RefreshCw, AlertCircle } from "lucide-react";
+import { Plus, RefreshCw, AlertCircle, Info } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 
 export const TransactionManager = () => {
-  const { profile } = useAuth();
+  const { profile, user } = useAuth();
   const { toast } = useToast();
   const [activeTab, setActiveTab] = useState('list');
   const [transactions, setTransactions] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [debugInfo, setDebugInfo] = useState<string>('');
   const { fetchTransactions } = useSupabaseData();
 
   const loadTransactions = async (showToast = false) => {
     try {
       setLoading(true);
       setError(null);
+      setDebugInfo('');
       
-      console.log('Iniciando carregamento de transações...');
+      console.log('=== DEBUG: Iniciando carregamento de transações ===');
+      console.log('User ID:', user?.id);
+      console.log('User email:', user?.email);
+      console.log('Profile:', profile);
+      
       const data = await fetchTransactions();
+      
+      console.log('=== DEBUG: Dados retornados ===');
+      console.log('Tipo dos dados:', typeof data);
+      console.log('É array?', Array.isArray(data));
+      console.log('Quantidade de items:', data?.length);
+      console.log('Primeiros 3 items:', data?.slice(0, 3));
       
       if (Array.isArray(data)) {
         setTransactions(data);
-        console.log(`${data.length} transações carregadas com sucesso`);
+        setDebugInfo(`Carregados ${data.length} registros do banco de dados`);
         
-        if (showToast && data.length > 0) {
+        if (showToast) {
           toast({
-            title: "Transações carregadas",
-            description: `${data.length} transações encontradas.`,
+            title: "Transações atualizadas",
+            description: `${data.length} transações carregadas com sucesso.`,
           });
         }
       } else {
         console.warn('Dados retornados não são um array:', data);
         setTransactions([]);
+        setDebugInfo('Dados retornados não são um array válido');
       }
     } catch (err: any) {
-      console.error('Erro ao carregar transações:', err);
+      console.error('=== DEBUG: Erro ao carregar transações ===', err);
       const errorMessage = err?.message || 'Erro desconhecido ao carregar transações';
       setError(errorMessage);
       setTransactions([]);
+      setDebugInfo(`Erro: ${errorMessage}`);
       
       if (showToast) {
         toast({
@@ -61,8 +76,9 @@ export const TransactionManager = () => {
   };
 
   useEffect(() => {
+    console.log('=== DEBUG: useEffect executado ===');
     loadTransactions();
-  }, []);
+  }, [user]); // Dependência do user para recarregar quando mudar
 
   const handleNewTransaction = () => {
     setActiveTab('new');
@@ -103,13 +119,13 @@ export const TransactionManager = () => {
     description: t.description,
     amount: t.amount,
     category: t.category,
-    paymentMethod: t.method,
+    paymentMethod: t.method || t.payment_method,
     date: t.date,
     status: t.status as 'pending' | 'completed' | 'cancelled',
     employeeName: t.user_name,
     receipt: t.receipt,
     tags: t.tags,
-    method: t.method
+    method: t.method || t.payment_method
   }));
 
   if (error && !loading) {
@@ -121,6 +137,14 @@ export const TransactionManager = () => {
             Erro ao carregar transações
           </h3>
           <p className="text-gray-500 mb-4">{error}</p>
+          {debugInfo && (
+            <Alert className="mb-4 text-left">
+              <Info className="h-4 w-4" />
+              <AlertDescription>
+                Debug: {debugInfo}
+              </AlertDescription>
+            </Alert>
+          )}
           <Button onClick={() => loadTransactions(true)} variant="outline">
             <RefreshCw className="w-4 h-4 mr-2" />
             Tentar novamente
@@ -144,9 +168,12 @@ export const TransactionManager = () => {
                 : 'Registre suas despesas de viagem e visualize seus lançamentos.'
               }
             </p>
-            <p className="text-sm text-slate-500 mt-1">
-              Total de transações carregadas: {mappedTransactions.length}
-            </p>
+            <div className="text-sm text-slate-500 mt-1 space-y-1">
+              <p>Total de transações carregadas: {mappedTransactions.length}</p>
+              {debugInfo && (
+                <p className="text-blue-600">Debug: {debugInfo}</p>
+              )}
+            </div>
           </div>
           <div className="flex gap-2">
             <Button 
@@ -180,12 +207,22 @@ export const TransactionManager = () => {
           </TabsList>
 
           <TabsContent value="list" className="mt-6">
-            <TransactionList 
-              transactions={mappedTransactions}
-              onView={handleViewTransaction}
-              onEdit={handleEditTransaction}
-              onDelete={handleDeleteTransaction}
-            />
+            {loading ? (
+              <div className="text-center py-8">
+                <RefreshCw className="w-8 h-8 animate-spin mx-auto mb-4 text-blue-500" />
+                <p className="text-slate-600">Carregando transações...</p>
+                {debugInfo && (
+                  <p className="text-sm text-blue-500 mt-2">Debug: {debugInfo}</p>
+                )}
+              </div>
+            ) : (
+              <TransactionList 
+                transactions={mappedTransactions}
+                onView={handleViewTransaction}
+                onEdit={handleEditTransaction}
+                onDelete={handleDeleteTransaction}
+              />
+            )}
           </TabsContent>
 
           <TabsContent value="new" className="mt-6">
