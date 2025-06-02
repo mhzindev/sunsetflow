@@ -8,7 +8,7 @@ import { TransactionForm } from './TransactionForm';
 import { TransactionCategories } from './TransactionCategories';
 import { useAuth } from "@/contexts/AuthContext";
 import { useSupabaseData } from "@/hooks/useSupabaseData";
-import { Plus, RefreshCw, AlertCircle, Info } from "lucide-react";
+import { Plus, RefreshCw, AlertCircle, Info, CheckCircle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 
@@ -43,7 +43,7 @@ export const TransactionManager = () => {
       
       if (Array.isArray(data)) {
         setTransactions(data);
-        setDebugInfo(`Carregados ${data.length} registros do banco de dados`);
+        setDebugInfo(`Carregados ${data.length} registros via RPC`);
         
         if (showToast) {
           toast({
@@ -169,7 +169,12 @@ export const TransactionManager = () => {
               }
             </p>
             <div className="text-sm text-slate-500 mt-1 space-y-1">
-              <p>Total de transações carregadas: {mappedTransactions.length}</p>
+              <div className="flex items-center gap-2">
+                <span>Total de transações carregadas: {mappedTransactions.length}</span>
+                {!loading && mappedTransactions.length > 0 && (
+                  <CheckCircle className="w-4 h-4 text-green-500" />
+                )}
+              </div>
               {debugInfo && (
                 <p className="text-blue-600">Debug: {debugInfo}</p>
               )}
@@ -211,6 +216,7 @@ export const TransactionManager = () => {
               <div className="text-center py-8">
                 <RefreshCw className="w-8 h-8 animate-spin mx-auto mb-4 text-blue-500" />
                 <p className="text-slate-600">Carregando transações...</p>
+                <p className="text-sm text-blue-500 mt-2">Usando nova função RPC para evitar problemas de RLS</p>
                 {debugInfo && (
                   <p className="text-sm text-blue-500 mt-2">Debug: {debugInfo}</p>
                 )}

@@ -7,49 +7,20 @@ export const useSupabaseData = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // Função para buscar transações - CORRIGIDA para usar a tabela correta
+  // Função para buscar transações - CORRIGIDA para usar RPC
   const fetchTransactions = async () => {
     try {
-      console.log('Buscando transações do banco...');
+      console.log('Buscando transações usando RPC...');
       
-      // Verificar se é a tabela 'transactions' ou 'finance'
-      let { data, error } = await supabase
-        .from('transactions')
-        .select('*')
-        .order('created_at', { ascending: false });
-
-      // Se der erro na tabela transactions, tentar tabela finance
-      if (error && error.code === '42P01') {
-        console.log('Tentando buscar da tabela finance...');
-        const { data: financeData, error: financeError } = await supabase
-          .from('finance')
-          .select('*')
-          .order('created_at', { ascending: false });
-        
-        data = financeData;
-        error = financeError;
-      }
+      // Usar a nova função RPC que não tem problemas de RLS
+      const { data, error } = await supabase.rpc('get_user_transactions_simple');
 
       if (error) {
-        console.error('Erro SQL ao buscar transações:', error);
-        // Se há erro de RLS ou recursão infinita, fazer uma busca mais simples
-        if (error.code === '42P17' || error.message.includes('infinite recursion') || error.message.includes('policy')) {
-          console.warn('Problema de RLS detectado, tentando busca sem filtros complexos');
-          
-          // Buscar sem usar políticas complexas - usando rpc se necessário
-          const { data: simpleData, error: simpleError } = await supabase.rpc('get_user_transactions_simple');
-          
-          if (simpleError) {
-            console.warn('RPC também falhou, retornando array vazio temporariamente:', simpleError);
-            return [];
-          }
-          
-          return simpleData || [];
-        }
+        console.error('Erro RPC ao buscar transações:', error);
         throw error;
       }
       
-      console.log('Transações encontradas:', data?.length || 0);
+      console.log('Transações encontradas via RPC:', data?.length || 0);
       console.log('Dados das transações:', data);
       return data || [];
     } catch (err) {
@@ -706,11 +677,138 @@ export const useSupabaseData = () => {
     loading,
     error,
     fetchTransactions,
-    fetchExpenses,
-    fetchPayments,
-    fetchMissions,
-    fetchServiceProviders,
-    fetchClients,
+    fetchExpenses: async () => {
+      try {
+        console.log('Buscando despesas do banco...');
+        const { data, error } = await supabase
+          .from('expenses')
+          .select(`
+            *,
+            missions:mission_id(
+              title, 
+              location, 
+              client_name,
+              employee_names,
+              start_date,
+              end_date,
+              budget,
+              total_expenses
+            )
+          `)
+          .order('created_at', { ascending: false });
+
+        if (error) {
+          console.error('Erro SQL ao buscar despesas:', error);
+          if (error.code === '42P17' || error.message.includes('infinite recursion')) {
+            console.warn('Problema de RLS detectado, retornando array vazio temporariamente');
+            return [];
+          }
+          throw error;
+        }
+        
+        console.log('Despesas encontradas:', data?.length || 0);
+        return data || [];
+      } catch (err) {
+        console.error('Erro ao buscar despesas:', err);
+        return [];
+      }
+    },
+    fetchPayments: async () => {
+      try {
+        console.log('Buscando pagamentos do banco...');
+        const { data, error } = await supabase
+          .from('payments')
+          .select(`
+            *,
+            service_providers:provider_id(name, email, phone, service)
+          `)
+          .order('due_date', { ascending: true });
+
+        if (error) {
+          console.error('Erro SQL ao buscar pagamentos:', error);
+          if (error.code === '42P17' || error.message.includes('infinite recursion')) {
+            console.warn('Problema de RLS detectado, retornando array vazio temporariamente');
+            return [];
+          }
+          throw error;
+        }
+        
+        console.log('Pagamentos encontrados:', data?.length || 0);
+        return data || [];
+      } catch (err) {
+        console.error('Erro ao buscar pagamentos:', err);
+        return [];
+      }
+    },
+    fetchMissions: async () => {
+      try {
+        console.log('Buscando missões do banco...');
+        const { data, error } = await supabase
+          .from('missions')
+          .select('*')
+          .order('start_date', { ascending: false });
+
+        if (error) {
+          console.error('Erro SQL ao buscar missões:', error);
+          if (error.code === '42P17' || error.message.includes('infinite recursion')) {
+            console.warn('Problema de RLS detectado, retornando array vazio temporariamente');
+            return [];
+          }
+          throw error;
+        }
+        
+        console.log('Missões encontradas:', data?.length || 0);
+        return data || [];
+      } catch (err) {
+        console.error('Erro ao buscar missões:', err);
+        return [];
+      }
+    },
+    fetchServiceProviders: async () => {
+      try {
+        console.log('Buscando fornecedores...');
+        const { data, error } = await supabase
+          .from('service_providers')
+          .select('*')
+          .eq('active', true)
+          .order('name', { ascending: true });
+
+        if (error) {
+          console.error('Erro SQL ao buscar fornecedores:', error);
+          if (error.code === '42P17' || error.message.includes('infinite recursion')) {
+            console.warn('Problema de RLS detectado, retornando array vazio temporariamente');
+            return [];
+          }
+          throw error;
+        }
+        
+        console.log('Fornecedores encontrados:', data?.length || 0);
+        return data || [];
+      } catch (err) {
+        console.error('Erro ao buscar fornecedores:', err);
+        return [];
+      }
+    },
+    fetchClients: async () => {
+      try {
+        const { data, error } = await supabase
+          .from('clients')
+          .select('*')
+          .eq('active', true)
+          .order('name', { ascending: true });
+
+        if (error) {
+          console.error('Erro ao buscar clientes:', error);
+          throw error;
+        }
+        
+        console.log('Clientes encontrados:', data?.length || 0);
+        return data || [];
+      } catch (err) {
+        console.error('Erro ao buscar clientes:', err);
+        throw err;
+      }
+    },
     fetchBankAccounts: async () => {
       try {
         if (!user?.id) return [];

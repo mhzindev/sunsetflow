@@ -720,6 +720,28 @@ export type Database = {
           monthly_expenses: number
         }[]
       }
+      get_user_transactions_simple: {
+        Args: Record<PropertyKey, never>
+        Returns: {
+          id: string
+          type: string
+          category: string
+          amount: number
+          description: string
+          date: string
+          method: string
+          status: string
+          user_id: string
+          user_name: string
+          receipt: string
+          tags: string[]
+          mission_id: string
+          account_id: string
+          account_type: string
+          created_at: string
+          updated_at: string
+        }[]
+      }
       use_access_code: {
         Args: { access_code: string }
         Returns: Json
