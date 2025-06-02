@@ -171,8 +171,7 @@ export const ExpenseForm = ({ onSave, onCancel }: ExpenseFormProps) => {
 
   // Helper function to safely convert checkbox value to boolean
   const handleCheckboxChange = (checked: boolean | "indeterminate") => {
-    // Ensure we always get a boolean value for is_advanced
-    const booleanValue = typeof checked === 'boolean' ? checked : false;
+    const booleanValue = checked === true;
     setFormData(prev => ({ ...prev, is_advanced: booleanValue }));
   };
 
