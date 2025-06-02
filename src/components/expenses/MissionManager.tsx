@@ -40,30 +40,42 @@ export const MissionManager = ({ onMissionCreated }: MissionManagerProps) => {
   });
 
   const { fetchMissions } = useSupabaseData();
-  const { employees } = useEmployees();
+  const { employees, loading: employeesLoading, error: employeesError } = useEmployees();
   const { showSuccess, showError } = useToastFeedback();
 
+  // Separar o carregamento de missões do carregamento de funcionários
   useEffect(() => {
-    loadData();
+    loadMissions();
   }, []);
 
-  const loadData = async () => {
+  const loadMissions = async () => {
     try {
       setLoading(true);
-      const missionsData = await fetchMissions();
+      console.log('Carregando missões...');
       
-      console.log('Dados carregados:', { missions: missionsData });
-      setMissions(missionsData || []);
+      // Buscar missões diretamente, sem depender de funcionários
+      const { data: missionsData, error } = await supabase
+        .from('missions')
+        .select('*')
+        .order('start_date', { ascending: false });
+
+      if (error) {
+        console.error('Erro ao carregar missões:', error);
+        setMissions([]);
+      } else {
+        console.log('Missões carregadas:', missionsData?.length || 0);
+        setMissions(missionsData || []);
+      }
     } catch (error) {
-      console.error('Erro ao carregar dados:', error);
-      showError('Erro', 'Não foi possível carregar os dados');
+      console.error('Erro ao carregar missões:', error);
+      setMissions([]);
     } finally {
       setLoading(false);
     }
   };
 
   const handleRefresh = () => {
-    loadData();
+    loadMissions();
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -83,7 +95,8 @@ export const MissionManager = ({ onMissionCreated }: MissionManagerProps) => {
       setSubmitting(true);
       console.log('Criando missão:', formData);
 
-      const { data, error } = await supabase.rpc('create_mission', {
+      // Tentar usar a RPC primeiro
+      const { data, error: rpcError } = await supabase.rpc('create_mission', {
         p_title: formData.title,
         p_description: formData.description,
         p_location: formData.location,
@@ -98,13 +111,40 @@ export const MissionManager = ({ onMissionCreated }: MissionManagerProps) => {
         p_status: formData.status
       });
       
-      if (error) {
-        console.error('Erro ao criar missão:', error);
-        showError('Erro', `Erro ao criar missão: ${error.message}`);
-        return;
+      if (rpcError) {
+        console.warn('RPC create_mission falhou, tentando inserção direta:', rpcError);
+        
+        // Fallback: inserção direta na tabela
+        const { data: directData, error: directError } = await supabase
+          .from('missions')
+          .insert({
+            title: formData.title,
+            description: formData.description,
+            location: formData.location,
+            start_date: formData.start_date,
+            end_date: formData.end_date || null,
+            service_value: formData.service_value || null,
+            company_percentage: formData.company_percentage,
+            provider_percentage: formData.provider_percentage,
+            client_name: formData.client_name,
+            assigned_employees: formData.assigned_employees,
+            employee_names: formData.employee_names,
+            status: formData.status
+          })
+          .select()
+          .single();
+
+        if (directError) {
+          console.error('Erro ao criar missão diretamente:', directError);
+          showError('Erro', `Erro ao criar missão: ${directError.message}`);
+          return;
+        }
+
+        console.log('Missão criada com sucesso via inserção direta:', directData);
+      } else {
+        console.log('Missão criada com sucesso via RPC:', data);
       }
 
-      console.log('Missão criada com sucesso:', data);
       showSuccess('Sucesso', 'Missão criada com sucesso!');
       setShowForm(false);
       setFormData({
@@ -121,7 +161,7 @@ export const MissionManager = ({ onMissionCreated }: MissionManagerProps) => {
         employee_names: [],
         status: 'planning'
       });
-      loadData();
+      loadMissions();
       onMissionCreated?.();
     } catch (error) {
       console.error('Erro ao criar missão:', error);
@@ -208,6 +248,11 @@ export const MissionManager = ({ onMissionCreated }: MissionManagerProps) => {
             <Card className="mb-6">
               <CardHeader>
                 <CardTitle>Nova Missão</CardTitle>
+                {employeesError && (
+                  <div className="text-sm text-amber-600 bg-amber-50 p-2 rounded">
+                    Aviso: Problemas ao carregar funcionários. Usando lista padrão.
+                  </div>
+                )}
               </CardHeader>
               <CardContent>
                 <form onSubmit={handleSubmit} className="space-y-4">
@@ -307,20 +352,27 @@ export const MissionManager = ({ onMissionCreated }: MissionManagerProps) => {
 
                   <div>
                     <Label>Funcionários Designados *</Label>
-                    <div className="grid grid-cols-2 md:grid-cols-3 gap-2 mt-2">
-                      {employees.map((employee) => (
-                        <label key={employee.id} className="flex items-center space-x-2 p-2 border rounded cursor-pointer hover:bg-gray-50">
-                          <input
-                            type="checkbox"
-                            checked={formData.assigned_employees.includes(employee.id)}
-                            onChange={() => handleEmployeeToggle(employee.id, employee.name)}
-                            disabled={submitting}
-                            className="rounded"
-                          />
-                          <span className="text-sm">{employee.name}</span>
-                        </label>
-                      ))}
-                    </div>
+                    {employeesLoading ? (
+                      <div className="flex items-center gap-2 p-4 border rounded">
+                        <RefreshCw className="w-4 h-4 animate-spin" />
+                        <span>Carregando funcionários...</span>
+                      </div>
+                    ) : (
+                      <div className="grid grid-cols-2 md:grid-cols-3 gap-2 mt-2">
+                        {employees.map((employee) => (
+                          <label key={employee.id} className="flex items-center space-x-2 p-2 border rounded cursor-pointer hover:bg-gray-50">
+                            <input
+                              type="checkbox"
+                              checked={formData.assigned_employees.includes(employee.id)}
+                              onChange={() => handleEmployeeToggle(employee.id, employee.name)}
+                              disabled={submitting}
+                              className="rounded"
+                            />
+                            <span className="text-sm">{employee.name}</span>
+                          </label>
+                        ))}
+                      </div>
+                    )}
                     {formData.assigned_employees.length > 0 && (
                       <div className="flex flex-wrap gap-2 mt-3">
                         {formData.employee_names.map((name, index) => (
@@ -336,7 +388,7 @@ export const MissionManager = ({ onMissionCreated }: MissionManagerProps) => {
                     <Button 
                       type="submit" 
                       className="flex-1"
-                      disabled={submitting}
+                      disabled={submitting || employeesLoading}
                     >
                       {submitting ? (
                         <>
