@@ -24,14 +24,14 @@ interface ProviderEditModalProps {
   isOpen: boolean;
   onClose: () => void;
   provider: Provider | null;
-  onSave: (provider: Provider) => void;
+  onSuccess: (provider: Provider) => void;
 }
 
 export const ProviderEditModal = ({ 
   isOpen, 
   onClose, 
   provider, 
-  onSave 
+  onSuccess 
 }: ProviderEditModalProps) => {
   const { showSuccess, showError } = useToastFeedback();
   const [isLoading, setIsLoading] = useState(false);
@@ -76,7 +76,7 @@ export const ProviderEditModal = ({
         ...formData
       };
 
-      onSave(updatedProvider);
+      onSuccess(updatedProvider);
       showSuccess('Sucesso', 'Prestador atualizado com sucesso!');
       onClose();
     } catch (error) {

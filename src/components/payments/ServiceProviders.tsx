@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -59,6 +58,11 @@ export const ServiceProviders = () => {
   const handleEditProvider = (provider: any) => {
     setSelectedProvider(provider);
     setIsEditModalOpen(true);
+  };
+
+  const handlePayProvider = (provider: any) => {
+    // TODO: Implementar lógica de pagamento
+    console.log('Pagar prestador:', provider);
   };
 
   const handleProviderCreated = () => {
@@ -201,6 +205,7 @@ export const ServiceProviders = () => {
           setIsViewModalOpen(false);
           setIsEditModalOpen(true);
         }}
+        onPay={handlePayProvider}
       />
 
       <ProviderEditModal

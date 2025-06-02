@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -12,7 +11,11 @@ import { useEmployees } from '@/hooks/useEmployees';
 import { useToastFeedback } from '@/hooks/useToastFeedback';
 import { Plus, Calendar, MapPin, Users, DollarSign, RefreshCw } from 'lucide-react';
 
-export const MissionManager = () => {
+interface MissionManagerProps {
+  onMissionCreated?: () => void;
+}
+
+export const MissionManager = ({ onMissionCreated }: MissionManagerProps) => {
   const [missions, setMissions] = useState<any[]>([]);
   const [clients, setClients] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -116,6 +119,7 @@ export const MissionManager = () => {
         status: 'planning'
       });
       loadData();
+      onMissionCreated?.();
     } catch (error) {
       console.error('Erro ao criar missão:', error);
       showError('Erro', 'Erro ao criar missão. Tente novamente.');

@@ -13,10 +13,10 @@ interface NewProviderModalProps {
   onProviderCreated?: () => void;
   isOpen?: boolean;
   onClose?: () => void;
-  onSave?: (newProvider: any) => void;
+  onSuccess?: () => void;
 }
 
-export const NewProviderModal = ({ onProviderCreated, isOpen, onClose, onSave }: NewProviderModalProps) => {
+export const NewProviderModal = ({ onProviderCreated, isOpen, onClose, onSuccess }: NewProviderModalProps) => {
   const [internalOpen, setInternalOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState({
@@ -73,7 +73,7 @@ export const NewProviderModal = ({ onProviderCreated, isOpen, onClose, onSave }:
       
       // Call callbacks
       onProviderCreated?.();
-      onSave?.(data);
+      onSuccess?.();
     } catch (error) {
       console.error('Erro inesperado ao criar prestador:', error);
       showError('Erro', 'Erro inesperado ao criar prestador');
