@@ -355,7 +355,7 @@ export const ExpenseForm = ({ onSave, onCancel }: ExpenseFormProps) => {
             <Button type="button" variant="outline" onClick={onCancel}>
               Cancelar
             </Button>
-          )}
+            )}
         </div>
       </form>
     </Card>
