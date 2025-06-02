@@ -24,6 +24,7 @@ export const ClientAutocomplete = ({
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [showCreateOption, setShowCreateOption] = useState(false);
   const [creating, setCreating] = useState(false);
+  const [inputFocused, setInputFocused] = useState(false);
 
   const { fetchClients, insertClient } = useSupabaseData();
   const { showSuccess, showError } = useToastFeedback();
@@ -33,24 +34,27 @@ export const ClientAutocomplete = ({
   }, []);
 
   useEffect(() => {
-    if (value) {
+    if (value && value.trim().length > 0) {
       const filtered = clients.filter(client =>
         client.name.toLowerCase().includes(value.toLowerCase())
       );
       setFilteredClients(filtered);
-      setShowSuggestions(true);
       
       // Verifica se o valor digitado é exatamente igual a algum cliente existente
       const exactMatch = clients.find(client => 
         client.name.toLowerCase() === value.toLowerCase()
       );
       setShowCreateOption(!exactMatch && value.trim().length > 2);
+      
+      if (inputFocused) {
+        setShowSuggestions(true);
+      }
     } else {
       setFilteredClients([]);
       setShowSuggestions(false);
       setShowCreateOption(false);
     }
-  }, [value, clients]);
+  }, [value, clients, inputFocused]);
 
   const loadClients = async () => {
     try {
@@ -58,12 +62,14 @@ export const ClientAutocomplete = ({
       setClients(data || []);
     } catch (error) {
       console.error('Erro ao carregar clientes:', error);
+      showError('Erro', 'Não foi possível carregar os clientes');
     }
   };
 
   const handleClientSelect = (client: any) => {
     onValueChange(client.name);
     setShowSuggestions(false);
+    setInputFocused(false);
     if (onClientSelect) {
       onClientSelect(client);
     }
@@ -87,6 +93,7 @@ export const ClientAutocomplete = ({
       await loadClients();
       setShowSuggestions(false);
       setShowCreateOption(false);
+      setInputFocused(false);
       
       if (onClientSelect && data) {
         onClientSelect(data);
@@ -99,18 +106,28 @@ export const ClientAutocomplete = ({
     }
   };
 
+  const handleInputFocus = () => {
+    setInputFocused(true);
+    if (value && (filteredClients.length > 0 || showCreateOption)) {
+      setShowSuggestions(true);
+    }
+  };
+
+  const handleInputBlur = () => {
+    // Delay para permitir clique nas sugestões
+    setTimeout(() => {
+      setInputFocused(false);
+      setShowSuggestions(false);
+    }, 200);
+  };
+
   return (
     <div className="relative">
       <Input
         value={value}
         onChange={(e) => onValueChange(e.target.value)}
-        onFocus={() => value && setShowSuggestions(true)}
-        onBlur={() => {
-          // Delay para permitir clique nas sugestões
-          setTimeout(() => {
-            setShowSuggestions(false);
-          }, 200);
-        }}
+        onFocus={handleInputFocus}
+        onBlur={handleInputBlur}
         placeholder={placeholder}
       />
       

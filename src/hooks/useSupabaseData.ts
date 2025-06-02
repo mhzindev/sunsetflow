@@ -402,7 +402,7 @@ export const useSupabaseData = () => {
     }
   };
 
-  // Função para inserir missão - ATUALIZADA COM NOVOS CAMPOS
+  // Função para inserir missão - ATUALIZADA COM PRESTADORES
   const insertMission = async (mission: {
     title: string;
     description?: string;
@@ -417,6 +417,7 @@ export const useSupabaseData = () => {
     client_id?: string;
     assigned_employees?: string[];
     employee_names?: string[];
+    assigned_providers?: string[];
     status?: string;
   }) => {
     try {

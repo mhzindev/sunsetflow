@@ -12,6 +12,7 @@ import { useToastFeedback } from '@/hooks/useToastFeedback';
 import { useAuth } from '@/contexts/AuthContext';
 import { ClientAutocomplete } from '@/components/clients/ClientAutocomplete';
 import { ServiceValueDistribution } from '@/components/missions/ServiceValueDistribution';
+import { ServiceProviderSelector } from '@/components/missions/ServiceProviderSelector';
 import { Plus, Calendar, MapPin, Users, DollarSign, RefreshCw, CheckCircle, Clock } from 'lucide-react';
 
 interface MissionManagerProps {
@@ -34,6 +35,7 @@ export const MissionManager = ({ onMissionCreated }: MissionManagerProps) => {
     client_name: '',
     assigned_employees: [] as string[],
     employee_names: [] as string[],
+    assigned_providers: [] as string[],
     status: 'planning'
   });
 
@@ -94,6 +96,7 @@ export const MissionManager = ({ onMissionCreated }: MissionManagerProps) => {
         client_name: formData.client_name,
         assigned_employees: formData.assigned_employees,
         employee_names: formData.employee_names,
+        assigned_providers: formData.assigned_providers,
         status: formData.status
       };
 
@@ -121,6 +124,7 @@ export const MissionManager = ({ onMissionCreated }: MissionManagerProps) => {
         client_name: '',
         assigned_employees: [],
         employee_names: [],
+        assigned_providers: [],
         status: 'planning'
       });
       loadData();
@@ -322,7 +326,7 @@ export const MissionManager = ({ onMissionCreated }: MissionManagerProps) => {
                   <ServiceValueDistribution
                     serviceValue={formData.service_value}
                     companyPercentage={formData.company_percentage}
-                    onCompanyPercentageChange={handleCompanyPercentageChange}
+                    onCompanyPercentageChange={(percentage) => setFormData({...formData, company_percentage: percentage, provider_percentage: 100 - percentage})}
                     onServiceValueChange={(value) => setFormData({...formData, service_value: value})}
                   />
 
@@ -334,7 +338,25 @@ export const MissionManager = ({ onMissionCreated }: MissionManagerProps) => {
                           <input
                             type="checkbox"
                             checked={formData.assigned_employees.includes(employee.id)}
-                            onChange={() => handleEmployeeToggle(employee.id, employee.name)}
+                            onChange={() => {
+                              const employeeId = employee.id;
+                              const employeeName = employee.name;
+                              const isSelected = formData.assigned_employees.includes(employeeId);
+                              
+                              if (isSelected) {
+                                setFormData({
+                                  ...formData,
+                                  assigned_employees: formData.assigned_employees.filter(id => id !== employeeId),
+                                  employee_names: formData.employee_names.filter(name => name !== employeeName)
+                                });
+                              } else {
+                                setFormData({
+                                  ...formData,
+                                  assigned_employees: [...formData.assigned_employees, employeeId],
+                                  employee_names: [...formData.employee_names, employeeName]
+                                });
+                              }
+                            }}
                             className="rounded"
                           />
                           <span className="text-sm">{employee.name}</span>
@@ -351,6 +373,11 @@ export const MissionManager = ({ onMissionCreated }: MissionManagerProps) => {
                       </div>
                     )}
                   </div>
+
+                  <ServiceProviderSelector
+                    selectedProviders={formData.assigned_providers}
+                    onProvidersChange={(providers) => setFormData({...formData, assigned_providers: providers})}
+                  />
 
                   <div className="flex space-x-4 pt-4">
                     <Button type="submit" className="flex-1">
