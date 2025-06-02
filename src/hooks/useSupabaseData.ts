@@ -21,7 +21,7 @@ export const useSupabaseData = () => {
         throw error;
       }
       
-      console.log('Transações encontradas:', data?.length || 0);
+      console.log('Transações encontradas:', data?.length || 0, data);
       return data || [];
     } catch (err) {
       console.error('Erro ao buscar transações:', err);
@@ -33,6 +33,7 @@ export const useSupabaseData = () => {
   // Função para buscar despesas com dados de missões
   const fetchExpenses = async () => {
     try {
+      console.log('Buscando despesas do banco...');
       const { data, error } = await supabase
         .from('expenses')
         .select(`
@@ -50,7 +51,12 @@ export const useSupabaseData = () => {
         `)
         .order('created_at', { ascending: false });
 
-      if (error) throw error;
+      if (error) {
+        console.error('Erro SQL ao buscar despesas:', error);
+        throw error;
+      }
+      
+      console.log('Despesas encontradas:', data?.length || 0, data);
       return data || [];
     } catch (err) {
       console.error('Erro ao buscar despesas:', err);
@@ -62,6 +68,7 @@ export const useSupabaseData = () => {
   // Função para buscar pagamentos
   const fetchPayments = async () => {
     try {
+      console.log('Buscando pagamentos do banco...');
       const { data, error } = await supabase
         .from('payments')
         .select(`
@@ -70,7 +77,12 @@ export const useSupabaseData = () => {
         `)
         .order('due_date', { ascending: true });
 
-      if (error) throw error;
+      if (error) {
+        console.error('Erro SQL ao buscar pagamentos:', error);
+        throw error;
+      }
+      
+      console.log('Pagamentos encontrados:', data?.length || 0, data);
       return data || [];
     } catch (err) {
       console.error('Erro ao buscar pagamentos:', err);
@@ -82,12 +94,18 @@ export const useSupabaseData = () => {
   // Função para buscar missões com dados completos
   const fetchMissions = async () => {
     try {
+      console.log('Buscando missões do banco...');
       const { data, error } = await supabase
         .from('missions')
         .select('*')
         .order('start_date', { ascending: false });
 
-      if (error) throw error;
+      if (error) {
+        console.error('Erro SQL ao buscar missões:', error);
+        throw error;
+      }
+      
+      console.log('Missões encontradas:', data?.length || 0, data);
       return data || [];
     } catch (err) {
       console.error('Erro ao buscar missões:', err);
@@ -224,6 +242,7 @@ export const useSupabaseData = () => {
     category: string;
     description: string;
     amount: number;
+    invoice_amount?: number;
     date: string;
     is_advanced?: boolean;
     receipt?: string;

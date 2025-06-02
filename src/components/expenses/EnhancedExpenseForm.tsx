@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -25,7 +26,7 @@ interface EnhancedExpenseFormProps {
 
 export const EnhancedExpenseForm: React.FC<EnhancedExpenseFormProps> = ({ onSave, onCancel }) => {
   const { user } = useAuth();
-  const { insertExpense, fetchMissions, fetchBankAccounts, fetchCreditCards } = useSupabaseData();
+  const { insertExpense, insertTransaction, fetchMissions, fetchBankAccounts, fetchCreditCards } = useSupabaseData();
   const { showSuccess, showError } = useToastFeedback();
 
   const [missions, setMissions] = useState<any[]>([]);
@@ -37,8 +38,7 @@ export const EnhancedExpenseForm: React.FC<EnhancedExpenseFormProps> = ({ onSave
     missionId: '',
     description: '',
     amount: '',
-    receiptAmount: '',
-    actualAmount: '',
+    invoiceAmount: '', // Campo para valor da nota
     category: '',
     date: new Date(),
     isAdvanced: false,
@@ -52,10 +52,10 @@ export const EnhancedExpenseForm: React.FC<EnhancedExpenseFormProps> = ({ onSave
   });
 
   const categories = [
-    { value: 'fuel', label: 'Combustível', icon: '⛽' },
+    { value: 'fuel', label: 'Deslocamento', icon: '⛽', hasDetails: true },
     { value: 'accommodation', label: 'Hospedagem', icon: '🏨', hasDetails: true },
     { value: 'meals', label: 'Alimentação', icon: '🍽️' },
-    { value: 'transportation', label: 'Deslocamento', icon: '🚗', hasDetails: true },
+    { value: 'transportation', label: 'Transporte', icon: '🚗' },
     { value: 'materials', label: 'Materiais', icon: '🔧' },
     { value: 'maintenance', label: 'Manutenção', icon: '⚙️' },
     { value: 'other', label: 'Outros', icon: '📝' }
@@ -82,15 +82,15 @@ export const EnhancedExpenseForm: React.FC<EnhancedExpenseFormProps> = ({ onSave
           id: account.id,
           name: account.name,
           type: 'bank_account' as const,
-          displayName: `${account.bank} - ${account.name} (Saldo: R$ ${account.balance.toLocaleString('pt-BR', { minimumFractionDigits: 2 })})`,
-          available: account.balance
+          displayName: `${account.bank} - ${account.name} (Saldo: R$ ${(account.balance || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })})`,
+          available: account.balance || 0
         })),
         ...creditCardsData.map((card: any) => ({
           id: card.id,
           name: card.name,
           type: 'credit_card' as const,
-          displayName: `${card.brand.toUpperCase()} - ${card.name} (Disponível: R$ ${card.available_limit.toLocaleString('pt-BR', { minimumFractionDigits: 2 })})`,
-          available: card.available_limit
+          displayName: `${card.brand.toUpperCase()} - ${card.name} (Disponível: R$ ${(card.available_limit || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })})`,
+          available: card.available_limit || 0
         }))
       ];
 
@@ -104,7 +104,7 @@ export const EnhancedExpenseForm: React.FC<EnhancedExpenseFormProps> = ({ onSave
   };
 
   const selectedCategory = categories.find(cat => cat.value === formData.category);
-  const showDetailedAmounts = selectedCategory?.hasDetails;
+  const isDisplacementCategory = formData.category === 'fuel';
 
   const handleAccountChange = (value: string) => {
     if (value === 'none') {
@@ -126,12 +126,6 @@ export const EnhancedExpenseForm: React.FC<EnhancedExpenseFormProps> = ({ onSave
     }
   };
 
-  const calculateNetAmount = () => {
-    const receipt = parseFloat(formData.receiptAmount) || 0;
-    const actual = parseFloat(formData.actualAmount) || 0;
-    return receipt - actual;
-  };
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
@@ -146,52 +140,80 @@ export const EnhancedExpenseForm: React.FC<EnhancedExpenseFormProps> = ({ onSave
       return;
     }
 
-    if (showDetailedAmounts) {
-      const receiptAmount = parseFloat(formData.receiptAmount);
-      const actualAmount = parseFloat(formData.actualAmount);
-      
-      if (!receiptAmount || !actualAmount) {
-        showError('Valores Obrigatórios', 'Para despesas de hospedagem e deslocamento, informe o valor da nota e o valor gasto');
-        return;
-      }
-    }
-
     setIsLoading(true);
 
     try {
-      const expenseData = {
-        mission_id: formData.missionId || undefined,
-        category: formData.category,
-        description: formData.description,
-        amount: amount,
-        receipt_amount: showDetailedAmounts ? parseFloat(formData.receiptAmount) || null : null,
-        actual_amount: showDetailedAmounts ? parseFloat(formData.actualAmount) || null : null,
-        date: formatDateForDatabase(formData.date),
-        is_advanced: formData.isAdvanced,
-        account_id: formData.accountId || undefined,
-        account_type: formData.accountType || undefined,
-        accommodation_details: showDetailedAmounts ? {
-          outsourcingCompany: formData.accommodationDetails.outsourcingCompany,
-          invoiceNumber: formData.accommodationDetails.invoiceNumber,
-          notes: formData.accommodationDetails.notes,
-          receiptAmount: parseFloat(formData.receiptAmount) || 0,
-          actualAmount: parseFloat(formData.actualAmount) || 0,
-          netAmount: calculateNetAmount()
-        } : undefined,
-        employee_role: 'Funcionário'
-      };
+      // Se é deslocamento, criar transação de receita
+      if (isDisplacementCategory) {
+        if (!formData.invoiceAmount) {
+          showError('Campo Obrigatório', 'Para deslocamento, informe o valor da nota fiscal');
+          return;
+        }
 
-      const result = await insertExpense(expenseData);
+        const invoiceAmount = parseFloat(formData.invoiceAmount);
+        const actualAmount = amount;
+        const difference = invoiceAmount - actualAmount;
 
-      if (result.error) {
-        throw new Error(result.error);
+        if (difference > 0) {
+          const transactionData = {
+            type: 'income' as const,
+            category: 'fuel' as const,
+            description: `Economia em deslocamento: ${formData.description}`,
+            amount: difference,
+            date: formatDateForDatabase(formData.date),
+            method: 'transfer' as const,
+            mission_id: formData.missionId || undefined,
+            account_id: formData.accountId || undefined,
+            account_type: formData.accountType || undefined,
+            status: 'completed' as const
+          };
+
+          const result = await insertTransaction(transactionData);
+
+          if (result.error) {
+            throw new Error(result.error);
+          }
+
+          showSuccess('Receita Registrada', 'A receita de deslocamento foi registrada com sucesso!');
+        } else {
+          showError('Sem Economia', 'Não há economia no deslocamento para registrar como receita');
+          return;
+        }
+      } else {
+        // Para outras categorias, registrar como despesa
+        const expenseData = {
+          mission_id: formData.missionId || undefined,
+          category: formData.category,
+          description: formData.description,
+          amount: amount,
+          invoice_amount: formData.invoiceAmount ? parseFloat(formData.invoiceAmount) : undefined,
+          date: formatDateForDatabase(formData.date),
+          is_advanced: formData.isAdvanced,
+          account_id: formData.accountId || undefined,
+          account_type: formData.accountType || undefined,
+          accommodation_details: selectedCategory?.hasDetails ? {
+            outsourcingCompany: formData.accommodationDetails.outsourcingCompany,
+            invoiceNumber: formData.accommodationDetails.invoiceNumber,
+            notes: formData.accommodationDetails.notes,
+            invoiceAmount: parseFloat(formData.invoiceAmount) || 0,
+            actualAmount: amount
+          } : undefined,
+          employee_role: 'Funcionário'
+        };
+
+        const result = await insertExpense(expenseData);
+
+        if (result.error) {
+          throw new Error(result.error);
+        }
+
+        showSuccess('Despesa Registrada', 'A despesa foi registrada com sucesso!');
       }
-
-      showSuccess('Despesa Registrada', 'A despesa foi registrada com sucesso!');
+      
       onSave();
     } catch (error) {
-      console.error('Erro ao salvar despesa:', error);
-      showError('Erro', 'Erro ao registrar despesa. Tente novamente.');
+      console.error('Erro ao salvar:', error);
+      showError('Erro', 'Erro ao registrar. Tente novamente.');
     } finally {
       setIsLoading(false);
     }
@@ -213,14 +235,16 @@ export const EnhancedExpenseForm: React.FC<EnhancedExpenseFormProps> = ({ onSave
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Registrar Nova Despesa</CardTitle>
+        <CardTitle>
+          {isDisplacementCategory ? 'Registrar Deslocamento' : 'Registrar Nova Despesa'}
+        </CardTitle>
       </CardHeader>
       <CardContent className="space-y-6">
         <form onSubmit={handleSubmit} className="space-y-6">
           {/* Missão */}
           <div>
             <Label htmlFor="mission">Missão (Opcional)</Label>
-            <Select value={formData.missionId} onValueChange={(value) => setFormData({...formData, missionId: value})}>
+            <Select value={formData.missionId || 'none'} onValueChange={(value) => setFormData({...formData, missionId: value === 'none' ? '' : value})}>
               <SelectTrigger>
                 <SelectValue placeholder="Selecione uma missão" />
               </SelectTrigger>
@@ -254,7 +278,7 @@ export const EnhancedExpenseForm: React.FC<EnhancedExpenseFormProps> = ({ onSave
                     <div className="text-2xl mb-1">{category.icon}</div>
                     <div className="text-sm font-medium">{category.label}</div>
                     {category.hasDetails && (
-                      <Badge variant="secondary" className="text-xs mt-1">Detalhado</Badge>
+                      <Badge variant="secondary" className="text-xs mt-1">Especial</Badge>
                     )}
                   </div>
                 </div>
@@ -267,7 +291,7 @@ export const EnhancedExpenseForm: React.FC<EnhancedExpenseFormProps> = ({ onSave
             <Label htmlFor="description">Descrição *</Label>
             <Textarea
               id="description"
-              placeholder="Detalhes da despesa"
+              placeholder={isDisplacementCategory ? "Detalhes do deslocamento" : "Detalhes da despesa"}
               value={formData.description}
               onChange={(e) => setFormData({...formData, description: e.target.value})}
               rows={3}
@@ -277,75 +301,30 @@ export const EnhancedExpenseForm: React.FC<EnhancedExpenseFormProps> = ({ onSave
 
           {/* Valores */}
           <div className="space-y-4">
-            {showDetailedAmounts ? (
-              <div>
-                <Label className="text-base font-medium mb-3 block">Valores Detalhados</Label>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <Label htmlFor="receiptAmount" className="flex items-center gap-2">
-                      <Receipt className="w-4 h-4" />
-                      Valor da Nota/Recibo *
-                    </Label>
-                    <Input
-                      id="receiptAmount"
-                      type="number"
-                      step="0.01"
-                      placeholder="0.00"
-                      value={formData.receiptAmount}
-                      onChange={(e) => setFormData({...formData, receiptAmount: e.target.value})}
-                      required
-                    />
-                  </div>
-                  <div>
-                    <Label htmlFor="actualAmount" className="flex items-center gap-2">
-                      <Calculator className="w-4 h-4" />
-                      Valor Gasto Real *
-                    </Label>
-                    <Input
-                      id="actualAmount"
-                      type="number"
-                      step="0.01"
-                      placeholder="0.00"
-                      value={formData.actualAmount}
-                      onChange={(e) => setFormData({...formData, actualAmount: e.target.value})}
-                      required
-                    />
-                  </div>
-                </div>
-                
-                {formData.receiptAmount && formData.actualAmount && (
-                  <div className="mt-3 p-3 bg-gray-50 rounded-lg">
-                    <div className="flex justify-between items-center">
-                      <span className="font-medium">Valor Líquido:</span>
-                      <span className={cn(
-                        "font-bold",
-                        calculateNetAmount() >= 0 ? "text-green-600" : "text-red-600"
-                      )}>
-                        {calculateNetAmount() >= 0 ? '+' : ''}R$ {calculateNetAmount().toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                      </span>
-                    </div>
-                    <p className="text-xs text-gray-600 mt-1">
-                      {calculateNetAmount() >= 0 ? 'Economia realizada' : 'Valor excedente'}
-                    </p>
-                  </div>
-                )}
-
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {/* Campo para valor da nota (obrigatório para deslocamento e hospedagem) */}
+              {(isDisplacementCategory || formData.category === 'accommodation') && (
                 <div>
-                  <Label htmlFor="amount">Valor para Reembolso *</Label>
+                  <Label htmlFor="invoiceAmount" className="flex items-center gap-2">
+                    <Receipt className="w-4 h-4" />
+                    Valor da Nota Fiscal *
+                  </Label>
                   <Input
-                    id="amount"
+                    id="invoiceAmount"
                     type="number"
                     step="0.01"
                     placeholder="0.00"
-                    value={formData.amount}
-                    onChange={(e) => setFormData({...formData, amount: e.target.value})}
+                    value={formData.invoiceAmount}
+                    onChange={(e) => setFormData({...formData, invoiceAmount: e.target.value})}
                     required
                   />
                 </div>
-              </div>
-            ) : (
+              )}
+              
               <div>
-                <Label htmlFor="amount">Valor *</Label>
+                <Label htmlFor="amount">
+                  {isDisplacementCategory ? 'Valor Gasto Real *' : 'Valor *'}
+                </Label>
                 <Input
                   id="amount"
                   type="number"
@@ -355,6 +334,26 @@ export const EnhancedExpenseForm: React.FC<EnhancedExpenseFormProps> = ({ onSave
                   onChange={(e) => setFormData({...formData, amount: e.target.value})}
                   required
                 />
+              </div>
+            </div>
+            
+            {/* Mostrar diferença para deslocamento */}
+            {isDisplacementCategory && formData.invoiceAmount && formData.amount && (
+              <div className="p-3 bg-blue-50 rounded-lg">
+                <div className="flex justify-between items-center">
+                  <span className="font-medium">Economia/Prejuízo:</span>
+                  <span className={cn(
+                    "font-bold",
+                    (parseFloat(formData.invoiceAmount) - parseFloat(formData.amount)) >= 0 ? "text-green-600" : "text-red-600"
+                  )}>
+                    R$ {(parseFloat(formData.invoiceAmount) - parseFloat(formData.amount)).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                  </span>
+                </div>
+                <p className="text-xs text-gray-600 mt-1">
+                  {(parseFloat(formData.invoiceAmount) - parseFloat(formData.amount)) >= 0 
+                    ? 'Será registrado como receita' 
+                    : 'Valor excedente ao previsto'}
+                </p>
               </div>
             )}
           </div>
@@ -384,13 +383,13 @@ export const EnhancedExpenseForm: React.FC<EnhancedExpenseFormProps> = ({ onSave
             </Select>
           </div>
 
-          {/* Detalhes adicionais para hospedagem e deslocamento */}
-          {showDetailedAmounts && (
+          {/* Detalhes adicionais para hospedagem */}
+          {formData.category === 'accommodation' && (
             <div className="space-y-4">
-              <Label className="text-base font-medium">Detalhes Adicionais</Label>
+              <Label className="text-base font-medium">Detalhes da Hospedagem</Label>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <Label htmlFor="outsourcingCompany">Empresa/Fornecedor</Label>
+                  <Label htmlFor="outsourcingCompany">Hotel/Pousada</Label>
                   <Input
                     id="outsourcingCompany"
                     value={formData.accommodationDetails.outsourcingCompany}
@@ -401,7 +400,7 @@ export const EnhancedExpenseForm: React.FC<EnhancedExpenseFormProps> = ({ onSave
                         outsourcingCompany: e.target.value
                       }
                     })}
-                    placeholder="Nome da empresa"
+                    placeholder="Nome do estabelecimento"
                   />
                 </div>
                 <div>
@@ -441,7 +440,7 @@ export const EnhancedExpenseForm: React.FC<EnhancedExpenseFormProps> = ({ onSave
 
           {/* Data */}
           <div>
-            <Label>Data da Despesa *</Label>
+            <Label>Data *</Label>
             <Popover>
               <PopoverTrigger asChild>
                 <Button
@@ -467,15 +466,17 @@ export const EnhancedExpenseForm: React.FC<EnhancedExpenseFormProps> = ({ onSave
             </Popover>
           </div>
 
-          {/* Adiantamento */}
-          <div className="flex items-center space-x-2">
-            <Switch
-              id="isAdvanced"
-              checked={formData.isAdvanced}
-              onCheckedChange={(checked) => setFormData({...formData, isAdvanced: checked})}
-            />
-            <Label htmlFor="isAdvanced">Esta é uma despesa com adiantamento</Label>
-          </div>
+          {/* Adiantamento (só para despesas, não para deslocamento) */}
+          {!isDisplacementCategory && (
+            <div className="flex items-center space-x-2">
+              <Switch
+                id="isAdvanced"
+                checked={formData.isAdvanced}
+                onCheckedChange={(checked) => setFormData({...formData, isAdvanced: checked})}
+              />
+              <Label htmlFor="isAdvanced">Esta é uma despesa com adiantamento</Label>
+            </div>
+          )}
 
           {/* Ações */}
           <div className="flex justify-end space-x-2 pt-4">
@@ -485,7 +486,7 @@ export const EnhancedExpenseForm: React.FC<EnhancedExpenseFormProps> = ({ onSave
             </Button>
             <Button type="submit" disabled={isLoading}>
               <Save className="w-4 h-4 mr-2" />
-              {isLoading ? 'Salvando...' : 'Registrar Despesa'}
+              {isLoading ? 'Salvando...' : (isDisplacementCategory ? 'Registrar Receita' : 'Registrar Despesa')}
             </Button>
           </div>
         </form>

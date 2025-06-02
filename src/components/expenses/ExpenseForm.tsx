@@ -21,6 +21,7 @@ export const ExpenseForm = ({ onSave, onCancel }: ExpenseFormProps) => {
     category: '',
     description: '',
     amount: '',
+    invoice_amount: '', // Novo campo para valor da nota
     date: new Date().toISOString().split('T')[0],
     is_advanced: false,
     receipt: '',
@@ -35,7 +36,7 @@ export const ExpenseForm = ({ onSave, onCancel }: ExpenseFormProps) => {
   const [missions, setMissions] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
 
-  const { fetchMissions, insertExpense } = useSupabaseData();
+  const { fetchMissions, insertExpense, insertTransaction } = useSupabaseData();
   const { showSuccess, showError } = useToastFeedback();
 
   useEffect(() => {
@@ -74,36 +75,77 @@ export const ExpenseForm = ({ onSave, onCancel }: ExpenseFormProps) => {
 
     setLoading(true);
     try {
-      const expenseData = {
-        mission_id: formData.mission_id === 'none' ? null : formData.mission_id || null,
-        category: formData.category,
-        description: formData.description,
-        amount: parseFloat(formData.amount),
-        date: formData.date,
-        is_advanced: formData.is_advanced,
-        receipt: formData.receipt || null,
-        // Campos específicos para deslocamento
-        travel_km: formData.travel_km ? parseFloat(formData.travel_km) : null,
-        travel_km_rate: formData.travel_km_rate ? parseFloat(formData.travel_km_rate) : null,
-        travel_total_value: formData.travel_total_value ? parseFloat(formData.travel_total_value) : null,
-        // Detalhes de hospedagem com reembolso opcional
-        accommodation_details: formData.category === 'accommodation' && formData.accommodation_reimbursement 
-          ? { reimbursement: parseFloat(formData.accommodation_reimbursement) }
-          : null
-      };
+      // Se é deslocamento, criar uma transação de receita ao invés de despesa
+      if (formData.category === 'fuel') {
+        if (!formData.invoice_amount || !formData.amount) {
+          showError('Erro', 'Para deslocamento, informe o valor da nota e o valor gasto');
+          return;
+        }
 
-      console.log('Enviando despesa:', expenseData);
+        const invoiceAmount = parseFloat(formData.invoice_amount);
+        const actualAmount = parseFloat(formData.amount);
+        const difference = invoiceAmount - actualAmount;
 
-      const { data, error } = await insertExpense(expenseData);
-      
-      if (error) {
-        console.error('Erro ao inserir despesa:', error);
-        showError('Erro', `Erro ao salvar despesa: ${error}`);
-        return;
+        if (difference > 0) {
+          // Criar transação de receita para a diferença
+          const transactionData = {
+            type: 'income' as const,
+            category: 'fuel' as const,
+            description: `Economia em deslocamento: ${formData.description}`,
+            amount: difference,
+            date: formData.date,
+            method: 'transfer' as const,
+            mission_id: formData.mission_id === 'none' ? null : formData.mission_id || null,
+            receipt: formData.receipt || null,
+            status: 'completed' as const
+          };
+
+          console.log('Criando transação de receita para deslocamento:', transactionData);
+          
+          const { data: transactionResult, error: transactionError } = await insertTransaction(transactionData);
+          
+          if (transactionError) {
+            console.error('Erro ao criar transação de receita:', transactionError);
+            showError('Erro', `Erro ao registrar receita de deslocamento: ${transactionError}`);
+            return;
+          }
+
+          console.log('Transação de receita criada com sucesso:', transactionResult);
+          showSuccess('Sucesso', 'Receita de deslocamento registrada com sucesso!');
+        } else {
+          showError('Aviso', 'Não há economia no deslocamento para registrar como receita');
+          return;
+        }
+      } else {
+        // Para outras categorias, registrar como despesa
+        const expenseData = {
+          mission_id: formData.mission_id === 'none' ? null : formData.mission_id || null,
+          category: formData.category,
+          description: formData.description,
+          amount: parseFloat(formData.amount),
+          invoice_amount: formData.invoice_amount ? parseFloat(formData.invoice_amount) : null,
+          date: formData.date,
+          is_advanced: formData.is_advanced,
+          receipt: formData.receipt || null,
+          // Campos específicos para deslocamento
+          travel_km: formData.travel_km ? parseFloat(formData.travel_km) : null,
+          travel_km_rate: formData.travel_km_rate ? parseFloat(formData.travel_km_rate) : null,
+          travel_total_value: formData.travel_total_value ? parseFloat(formData.travel_total_value) : null
+        };
+
+        console.log('Enviando despesa:', expenseData);
+
+        const { data, error } = await insertExpense(expenseData);
+        
+        if (error) {
+          console.error('Erro ao inserir despesa:', error);
+          showError('Erro', `Erro ao salvar despesa: ${error}`);
+          return;
+        }
+
+        console.log('Despesa salva com sucesso:', data);
+        showSuccess('Sucesso', 'Despesa registrada com sucesso!');
       }
-
-      console.log('Despesa salva com sucesso:', data);
-      showSuccess('Sucesso', 'Despesa registrada com sucesso!');
       
       // Reset form
       setFormData({
@@ -111,6 +153,7 @@ export const ExpenseForm = ({ onSave, onCancel }: ExpenseFormProps) => {
         category: '',
         description: '',
         amount: '',
+        invoice_amount: '',
         date: new Date().toISOString().split('T')[0],
         is_advanced: false,
         receipt: '',
@@ -122,8 +165,8 @@ export const ExpenseForm = ({ onSave, onCancel }: ExpenseFormProps) => {
 
       onSave?.();
     } catch (error) {
-      console.error('Erro ao salvar despesa:', error);
-      showError('Erro', 'Erro inesperado ao salvar despesa');
+      console.error('Erro ao salvar:', error);
+      showError('Erro', 'Erro inesperado ao salvar');
     } finally {
       setLoading(false);
     }
@@ -163,7 +206,16 @@ export const ExpenseForm = ({ onSave, onCancel }: ExpenseFormProps) => {
             <Select 
               value={formData.category} 
               onValueChange={(value) => 
-                setFormData(prev => ({ ...prev, category: value, amount: '', travel_km: '', travel_km_rate: '', travel_total_value: '', accommodation_reimbursement: '' }))
+                setFormData(prev => ({ 
+                  ...prev, 
+                  category: value, 
+                  amount: '', 
+                  invoice_amount: '',
+                  travel_km: '', 
+                  travel_km_rate: '', 
+                  travel_total_value: '', 
+                  accommodation_reimbursement: '' 
+                }))
               }
             >
               <SelectTrigger>
@@ -220,34 +272,36 @@ export const ExpenseForm = ({ onSave, onCancel }: ExpenseFormProps) => {
             </>
           )}
 
-          {/* Campo de valor geral (para outras categorias) */}
-          {!isDisplacementCategory && (
+          {/* Campo obrigatório para valor da nota em deslocamento e hospedagem */}
+          {(isDisplacementCategory || isAccommodationCategory) && (
             <div>
-              <Label htmlFor="amount">Valor *</Label>
+              <Label htmlFor="invoice_amount">Valor da Nota Fiscal *</Label>
               <Input
                 type="number"
                 step="0.01"
-                value={formData.amount}
-                onChange={(e) => setFormData(prev => ({ ...prev, amount: e.target.value }))}
+                value={formData.invoice_amount}
+                onChange={(e) => setFormData(prev => ({ ...prev, invoice_amount: e.target.value }))}
                 placeholder="0,00"
                 required
               />
             </div>
           )}
 
-          {/* Campo específico para reembolso de hospedagem */}
-          {isAccommodationCategory && (
-            <div>
-              <Label htmlFor="accommodation_reimbursement">Reembolso (opcional)</Label>
-              <Input
-                type="number"
-                step="0.01"
-                value={formData.accommodation_reimbursement}
-                onChange={(e) => setFormData(prev => ({ ...prev, accommodation_reimbursement: e.target.value }))}
-                placeholder="Valor quando nota < valor gasto"
-              />
-            </div>
-          )}
+          {/* Campo de valor gasto */}
+          <div>
+            <Label htmlFor="amount">
+              {isDisplacementCategory ? 'Valor Gasto Real *' : 'Valor *'}
+            </Label>
+            <Input
+              type="number"
+              step="0.01"
+              value={formData.amount}
+              onChange={(e) => setFormData(prev => ({ ...prev, amount: e.target.value }))}
+              placeholder="0,00"
+              required
+              readOnly={isDisplacementCategory && formData.travel_total_value}
+            />
+          </div>
 
           <div>
             <Label htmlFor="date">Data *</Label>
@@ -265,7 +319,7 @@ export const ExpenseForm = ({ onSave, onCancel }: ExpenseFormProps) => {
           <Textarea
             value={formData.description}
             onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
-            placeholder="Descreva a despesa..."
+            placeholder="Descreva a despesa/deslocamento..."
             required
           />
         </div>
@@ -280,20 +334,22 @@ export const ExpenseForm = ({ onSave, onCancel }: ExpenseFormProps) => {
           />
         </div>
 
-        <div className="flex items-center space-x-2">
-          <Checkbox
-            id="is_advanced"
-            checked={formData.is_advanced}
-            onCheckedChange={(checked) => 
-              setFormData(prev => ({ ...prev, is_advanced: checked as boolean }))
-            }
-          />
-          <Label htmlFor="is_advanced">Adiantamento</Label>
-        </div>
+        {!isDisplacementCategory && (
+          <div className="flex items-center space-x-2">
+            <Checkbox
+              id="is_advanced"
+              checked={formData.is_advanced}
+              onCheckedChange={(checked) => 
+                setFormData(prev => ({ ...prev, is_advanced: checked as boolean }))
+              }
+            />
+            <Label htmlFor="is_advanced">Adiantamento</Label>
+          </div>
+        )}
 
         <div className="flex gap-4 pt-4">
           <Button type="submit" disabled={loading}>
-            {loading ? 'Salvando...' : 'Salvar Despesa'}
+            {loading ? 'Salvando...' : (isDisplacementCategory ? 'Registrar Receita' : 'Salvar Despesa')}
           </Button>
           {onCancel && (
             <Button type="button" variant="outline" onClick={onCancel}>

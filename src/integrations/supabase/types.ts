@@ -244,6 +244,7 @@ export type Database = {
           employee_name: string
           employee_role: string | null
           id: string
+          invoice_amount: number | null
           is_advanced: boolean | null
           mission_id: string | null
           receipt: string | null
@@ -268,6 +269,7 @@ export type Database = {
           employee_name: string
           employee_role?: string | null
           id?: string
+          invoice_amount?: number | null
           is_advanced?: boolean | null
           mission_id?: string | null
           receipt?: string | null
@@ -292,6 +294,7 @@ export type Database = {
           employee_name?: string
           employee_role?: string | null
           id?: string
+          invoice_amount?: number | null
           is_advanced?: boolean | null
           mission_id?: string | null
           receipt?: string | null
