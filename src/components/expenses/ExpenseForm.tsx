@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -168,6 +169,13 @@ export const ExpenseForm = ({ onSave, onCancel }: ExpenseFormProps) => {
     }
   };
 
+  // Helper function to safely convert checkbox value to boolean
+  const handleCheckboxChange = (checked: boolean | "indeterminate") => {
+    // Ensure we always get a boolean value for is_advanced
+    const booleanValue = typeof checked === 'boolean' ? checked : false;
+    setFormData(prev => ({ ...prev, is_advanced: booleanValue }));
+  };
+
   const isDisplacementCategory = formData.category === 'fuel';
   const isAccommodationCategory = formData.category === 'accommodation';
 
@@ -335,9 +343,7 @@ export const ExpenseForm = ({ onSave, onCancel }: ExpenseFormProps) => {
             <Checkbox
               id="is_advanced"
               checked={formData.is_advanced}
-              onCheckedChange={(checked) => 
-                setFormData(prev => ({ ...prev, is_advanced: checked === true }))
-              }
+              onCheckedChange={handleCheckboxChange}
             />
             <Label htmlFor="is_advanced">Adiantamento</Label>
           </div>
