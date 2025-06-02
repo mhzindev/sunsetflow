@@ -11,10 +11,13 @@ import { Plus } from 'lucide-react';
 
 interface NewProviderModalProps {
   onProviderCreated?: () => void;
+  isOpen?: boolean;
+  onClose?: () => void;
+  onSave?: (newProvider: any) => void;
 }
 
-export const NewProviderModal = ({ onProviderCreated }: NewProviderModalProps) => {
-  const [open, setOpen] = useState(false);
+export const NewProviderModal = ({ onProviderCreated, isOpen, onClose, onSave }: NewProviderModalProps) => {
+  const [internalOpen, setInternalOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState({
     name: '',
@@ -26,6 +29,10 @@ export const NewProviderModal = ({ onProviderCreated }: NewProviderModalProps) =
 
   const { insertServiceProvider } = useSupabaseData();
   const { showSuccess, showError } = useToastFeedback();
+
+  // Use external open state if provided, otherwise use internal
+  const open = isOpen !== undefined ? isOpen : internalOpen;
+  const setOpen = isOpen !== undefined ? (onClose || (() => {})) : setInternalOpen;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -57,8 +64,16 @@ export const NewProviderModal = ({ onProviderCreated }: NewProviderModalProps) =
         payment_method: 'pix'
       });
       
-      setOpen(false);
+      // Close modal
+      if (isOpen !== undefined && onClose) {
+        onClose();
+      } else {
+        setInternalOpen(false);
+      }
+      
+      // Call callbacks
       onProviderCreated?.();
+      onSave?.(data);
     } catch (error) {
       console.error('Erro inesperado ao criar prestador:', error);
       showError('Erro', 'Erro inesperado ao criar prestador');
@@ -67,14 +82,26 @@ export const NewProviderModal = ({ onProviderCreated }: NewProviderModalProps) =
     }
   };
 
+  const handleOpenChange = (newOpen: boolean) => {
+    if (isOpen !== undefined) {
+      if (!newOpen && onClose) {
+        onClose();
+      }
+    } else {
+      setInternalOpen(newOpen);
+    }
+  };
+
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild>
-        <Button>
-          <Plus className="w-4 h-4 mr-2" />
-          Novo Prestador
-        </Button>
-      </DialogTrigger>
+    <Dialog open={open} onOpenChange={handleOpenChange}>
+      {isOpen === undefined && (
+        <DialogTrigger asChild>
+          <Button>
+            <Plus className="w-4 h-4 mr-2" />
+            Novo Prestador
+          </Button>
+        </DialogTrigger>
+      )}
       <DialogContent className="sm:max-w-[500px]">
         <DialogHeader>
           <DialogTitle>Novo Prestador de Serviços</DialogTitle>
@@ -154,7 +181,7 @@ export const NewProviderModal = ({ onProviderCreated }: NewProviderModalProps) =
             <Button 
               type="button" 
               variant="outline" 
-              onClick={() => setOpen(false)}
+              onClick={() => handleOpenChange(false)}
               className="flex-1"
             >
               Cancelar

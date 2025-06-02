@@ -9,16 +9,30 @@ import { Eye, FileText, RefreshCw } from 'lucide-react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 
-export const TransactionList = () => {
-  const [transactions, setTransactions] = useState<any[]>([]);
+interface TransactionListProps {
+  transactions?: any[];
+  onView?: (id: string) => void;
+  onEdit?: (id: string) => void;
+  onDelete?: (id: string) => void;
+}
+
+export const TransactionList = ({ transactions: externalTransactions, onView, onEdit, onDelete }: TransactionListProps) => {
+  const [internalTransactions, setInternalTransactions] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
   const { fetchTransactions } = useSupabaseData();
   const { showError } = useToastFeedback();
 
   useEffect(() => {
-    loadTransactions();
-  }, []);
+    if (!externalTransactions) {
+      loadTransactions();
+    } else {
+      setInternalTransactions(externalTransactions);
+      setLoading(false);
+    }
+  }, [externalTransactions]);
+
+  const transactions = externalTransactions || internalTransactions;
 
   const loadTransactions = async () => {
     setLoading(true);
@@ -26,7 +40,7 @@ export const TransactionList = () => {
       console.log('Carregando transações...');
       const data = await fetchTransactions();
       console.log('Transações carregadas:', data);
-      setTransactions(data);
+      setInternalTransactions(data);
     } catch (error) {
       console.error('Erro ao carregar transações:', error);
       showError('Erro', 'Erro ao carregar transações');
@@ -112,14 +126,16 @@ export const TransactionList = () => {
           <p className="text-gray-500">
             As transações registradas aparecerão aqui
           </p>
-          <Button 
-            onClick={loadTransactions} 
-            className="mt-4"
-            variant="outline"
-          >
-            <RefreshCw className="w-4 h-4 mr-2" />
-            Atualizar
-          </Button>
+          {!externalTransactions && (
+            <Button 
+              onClick={loadTransactions} 
+              className="mt-4"
+              variant="outline"
+            >
+              <RefreshCw className="w-4 h-4 mr-2" />
+              Atualizar
+            </Button>
+          )}
         </div>
       </Card>
     );
@@ -131,10 +147,12 @@ export const TransactionList = () => {
         <h3 className="text-lg font-semibold">
           Transações ({transactions.length})
         </h3>
-        <Button onClick={loadTransactions} variant="outline" size="sm">
-          <RefreshCw className="w-4 h-4 mr-2" />
-          Atualizar
-        </Button>
+        {!externalTransactions && (
+          <Button onClick={loadTransactions} variant="outline" size="sm">
+            <RefreshCw className="w-4 h-4 mr-2" />
+            Atualizar
+          </Button>
+        )}
       </div>
 
       <div className="grid gap-4">
@@ -154,9 +172,9 @@ export const TransactionList = () => {
                 <div className="space-y-1 text-sm text-gray-600">
                   <p className="font-medium text-gray-800">{transaction.description}</p>
                   <p>Categoria: {getCategoryText(transaction.category)}</p>
-                  <p>Método: {getMethodText(transaction.method)}</p>
+                  <p>Método: {getMethodText(transaction.method || transaction.paymentMethod)}</p>
                   <p>Data: {format(new Date(transaction.date), 'dd/MM/yyyy', { locale: ptBR })}</p>
-                  <p>Usuário: {transaction.user_name}</p>
+                  <p>Usuário: {transaction.user_name || transaction.employeeName}</p>
                   
                   {transaction.tags && transaction.tags.length > 0 && (
                     <div className="flex flex-wrap gap-1 mt-2">
@@ -182,6 +200,36 @@ export const TransactionList = () => {
                   >
                     <Eye className="w-4 h-4 mr-1" />
                     Comprovante
+                  </Button>
+                )}
+                
+                {onView && (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => onView(transaction.id)}
+                  >
+                    Ver
+                  </Button>
+                )}
+                
+                {onEdit && (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => onEdit(transaction.id)}
+                  >
+                    Editar
+                  </Button>
+                )}
+                
+                {onDelete && (
+                  <Button
+                    size="sm"
+                    variant="destructive"
+                    onClick={() => onDelete(transaction.id)}
+                  >
+                    Excluir
                   </Button>
                 )}
               </div>

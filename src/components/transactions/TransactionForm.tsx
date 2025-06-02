@@ -8,55 +8,57 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Textarea } from "@/components/ui/textarea";
 import { useSupabaseData } from '@/hooks/useSupabaseData';
 import { useToastFeedback } from '@/hooks/useToastFeedback';
+import { useAuth } from '@/contexts/AuthContext';
+import { TransactionCategory, PaymentMethod } from '@/integrations/supabase/types';
 
 interface TransactionFormProps {
-  onSave?: () => void;
-  onCancel?: () => void;
+  onClose?: () => void;
+  onSubmit?: (transaction: any) => void;
 }
 
-export const TransactionForm = ({ onSave, onCancel }: TransactionFormProps) => {
+export const TransactionForm = ({ onClose, onSubmit }: TransactionFormProps) => {
+  const { profile } = useAuth();
+  const { insertTransaction, fetchBankAccounts, fetchCreditCards } = useSupabaseData();
+  const { showSuccess, showError } = useToastFeedback();
+  
+  const [loading, setLoading] = useState(false);
+  const [accounts, setAccounts] = useState<any[]>([]);
+  const [cards, setCards] = useState<any[]>([]);
   const [formData, setFormData] = useState({
-    type: 'income' as 'income' | 'expense',
-    category: 'service_payment' as any,
-    amount: '',
+    type: 'expense' as 'income' | 'expense',
     description: '',
+    amount: '',
+    category: 'other' as TransactionCategory,
+    method: 'pix' as PaymentMethod,
     date: new Date().toISOString().split('T')[0],
-    method: 'pix' as any,
     account_id: '',
-    account_type: '' as 'bank_account' | 'credit_card' | '',
-    tags: [] as string[],
+    account_type: '',
+    tags: '',
     receipt: ''
   });
 
-  const [bankAccounts, setBankAccounts] = useState<any[]>([]);
-  const [creditCards, setCreditCards] = useState<any[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [newTag, setNewTag] = useState('');
-
-  const { fetchBankAccounts, fetchCreditCards, insertTransaction } = useSupabaseData();
-  const { showSuccess, showError } = useToastFeedback();
-
   useEffect(() => {
-    loadAccounts();
+    loadAccountsAndCards();
   }, []);
 
-  const loadAccounts = async () => {
+  const loadAccountsAndCards = async () => {
     try {
-      const [accounts, cards] = await Promise.all([
+      const [accountsData, cardsData] = await Promise.all([
         fetchBankAccounts(),
         fetchCreditCards()
       ]);
-      setBankAccounts(accounts);
-      setCreditCards(cards);
+      setAccounts(accountsData);
+      setCards(cardsData);
     } catch (error) {
-      console.error('Erro ao carregar contas:', error);
+      console.error('Erro ao carregar contas e cartões:', error);
       showError('Erro', 'Erro ao carregar contas e cartões');
     }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!formData.amount || !formData.description) {
+    
+    if (!formData.description || !formData.amount || !formData.category) {
       showError('Erro', 'Preencha todos os campos obrigatórios');
       return;
     }
@@ -65,98 +67,70 @@ export const TransactionForm = ({ onSave, onCancel }: TransactionFormProps) => {
     try {
       const transactionData = {
         type: formData.type,
-        category: formData.category,
-        amount: parseFloat(formData.amount),
         description: formData.description,
-        date: formData.date,
+        amount: parseFloat(formData.amount),
+        category: formData.category,
         method: formData.method,
+        date: formData.date,
         account_id: formData.account_id || null,
         account_type: formData.account_type || null,
-        tags: formData.tags,
+        tags: formData.tags ? formData.tags.split(',').map(tag => tag.trim()) : [],
         receipt: formData.receipt || null,
-        status: 'completed' as const
+        user_id: profile?.id,
+        user_name: profile?.name || '',
+        status: 'completed'
       };
 
-      console.log('Enviando transação:', transactionData);
-
+      console.log('Criando transação:', transactionData);
+      
       const { data, error } = await insertTransaction(transactionData);
       
       if (error) {
-        console.error('Erro ao inserir transação:', error);
-        showError('Erro', `Erro ao salvar transação: ${error}`);
+        console.error('Erro ao criar transação:', error);
+        showError('Erro', `Erro ao criar transação: ${error}`);
         return;
       }
 
-      console.log('Transação salva com sucesso:', data);
+      console.log('Transação criada com sucesso:', data);
       showSuccess('Sucesso', 'Transação registrada com sucesso!');
       
       // Reset form
       setFormData({
-        type: 'income',
-        category: 'service_payment',
-        amount: '',
+        type: 'expense',
         description: '',
-        date: new Date().toISOString().split('T')[0],
+        amount: '',
+        category: 'other',
         method: 'pix',
+        date: new Date().toISOString().split('T')[0],
         account_id: '',
         account_type: '',
-        tags: [],
+        tags: '',
         receipt: ''
       });
-
-      onSave?.();
+      
+      onSubmit?.(data);
+      onClose?.();
     } catch (error) {
-      console.error('Erro ao salvar transação:', error);
-      showError('Erro', 'Erro inesperado ao salvar transação');
+      console.error('Erro inesperado ao criar transação:', error);
+      showError('Erro', 'Erro inesperado ao criar transação');
     } finally {
       setLoading(false);
     }
   };
 
-  const addTag = () => {
-    if (newTag.trim() && !formData.tags.includes(newTag.trim())) {
-      setFormData(prev => ({
-        ...prev,
-        tags: [...prev.tags, newTag.trim()]
-      }));
-      setNewTag('');
-    }
-  };
-
-  const removeTag = (tag: string) => {
+  const handleAccountChange = (value: string) => {
+    const [type, id] = value.split(':');
     setFormData(prev => ({
       ...prev,
-      tags: prev.tags.filter(t => t !== tag)
+      account_id: id,
+      account_type: type
     }));
-  };
-
-  const handleAccountChange = (accountId: string) => {
-    const bankAccount = bankAccounts.find(acc => acc.id === accountId);
-    const creditCard = creditCards.find(card => card.id === accountId);
-    
-    if (bankAccount) {
-      setFormData(prev => ({
-        ...prev,
-        account_id: accountId,
-        account_type: 'bank_account'
-      }));
-    } else if (creditCard) {
-      setFormData(prev => ({
-        ...prev,
-        account_id: accountId,
-        account_type: 'credit_card'
-      }));
-    } else {
-      setFormData(prev => ({
-        ...prev,
-        account_id: '',
-        account_type: ''
-      }));
-    }
   };
 
   return (
     <Card className="p-6">
+      <h3 className="text-lg font-semibold mb-4">Nova Transação</h3>
+      
       <form onSubmit={handleSubmit} className="space-y-4">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
@@ -178,10 +152,36 @@ export const TransactionForm = ({ onSave, onCancel }: TransactionFormProps) => {
           </div>
 
           <div>
+            <Label htmlFor="amount">Valor *</Label>
+            <Input
+              id="amount"
+              type="number"
+              step="0.01"
+              value={formData.amount}
+              onChange={(e) => setFormData(prev => ({ ...prev, amount: e.target.value }))}
+              placeholder="0,00"
+              required
+            />
+          </div>
+        </div>
+
+        <div>
+          <Label htmlFor="description">Descrição *</Label>
+          <Input
+            id="description"
+            value={formData.description}
+            onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
+            placeholder="Descrição da transação"
+            required
+          />
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
             <Label htmlFor="category">Categoria *</Label>
             <Select 
               value={formData.category} 
-              onValueChange={(value) => 
+              onValueChange={(value: TransactionCategory) => 
                 setFormData(prev => ({ ...prev, category: value }))
               }
             >
@@ -203,32 +203,10 @@ export const TransactionForm = ({ onSave, onCancel }: TransactionFormProps) => {
           </div>
 
           <div>
-            <Label htmlFor="amount">Valor *</Label>
-            <Input
-              type="number"
-              step="0.01"
-              value={formData.amount}
-              onChange={(e) => setFormData(prev => ({ ...prev, amount: e.target.value }))}
-              placeholder="0,00"
-              required
-            />
-          </div>
-
-          <div>
-            <Label htmlFor="date">Data *</Label>
-            <Input
-              type="date"
-              value={formData.date}
-              onChange={(e) => setFormData(prev => ({ ...prev, date: e.target.value }))}
-              required
-            />
-          </div>
-
-          <div>
             <Label htmlFor="method">Método de Pagamento *</Label>
             <Select 
               value={formData.method} 
-              onValueChange={(value) => 
+              onValueChange={(value: PaymentMethod) => 
                 setFormData(prev => ({ ...prev, method: value }))
               }
             >
@@ -244,25 +222,38 @@ export const TransactionForm = ({ onSave, onCancel }: TransactionFormProps) => {
               </SelectContent>
             </Select>
           </div>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <Label htmlFor="date">Data *</Label>
+            <Input
+              id="date"
+              type="date"
+              value={formData.date}
+              onChange={(e) => setFormData(prev => ({ ...prev, date: e.target.value }))}
+              required
+            />
+          </div>
 
           <div>
             <Label htmlFor="account">Conta/Cartão</Label>
             <Select 
-              value={formData.account_id} 
+              value={formData.account_id ? `${formData.account_type}:${formData.account_id}` : ''} 
               onValueChange={handleAccountChange}
             >
               <SelectTrigger>
-                <SelectValue placeholder="Selecione uma conta" />
+                <SelectValue placeholder="Selecionar conta ou cartão" />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="">Nenhuma conta selecionada</SelectItem>
-                {bankAccounts.map(account => (
-                  <SelectItem key={account.id} value={account.id}>
+                {accounts.map((account) => (
+                  <SelectItem key={account.id} value={`bank:${account.id}`}>
                     {account.name} - {account.bank}
                   </SelectItem>
                 ))}
-                {creditCards.map(card => (
-                  <SelectItem key={card.id} value={card.id}>
+                {cards.map((card) => (
+                  <SelectItem key={card.id} value={`credit:${card.id}`}>
                     {card.name} - {card.brand}
                   </SelectItem>
                 ))}
@@ -272,63 +263,37 @@ export const TransactionForm = ({ onSave, onCancel }: TransactionFormProps) => {
         </div>
 
         <div>
-          <Label htmlFor="description">Descrição *</Label>
-          <Textarea
-            value={formData.description}
-            onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
-            placeholder="Descreva a transação..."
-            required
+          <Label htmlFor="tags">Tags (separadas por vírgula)</Label>
+          <Input
+            id="tags"
+            value={formData.tags}
+            onChange={(e) => setFormData(prev => ({ ...prev, tags: e.target.value }))}
+            placeholder="tag1, tag2, tag3"
           />
         </div>
 
         <div>
-          <Label htmlFor="receipt">Comprovante (URL)</Label>
+          <Label htmlFor="receipt">URL do Comprovante</Label>
           <Input
+            id="receipt"
             type="url"
             value={formData.receipt}
             onChange={(e) => setFormData(prev => ({ ...prev, receipt: e.target.value }))}
-            placeholder="https://..."
+            placeholder="https://exemplo.com/comprovante.pdf"
           />
         </div>
 
-        <div>
-          <Label>Tags</Label>
-          <div className="flex gap-2 mb-2">
-            <Input
-              value={newTag}
-              onChange={(e) => setNewTag(e.target.value)}
-              placeholder="Nova tag"
-              onKeyPress={(e) => e.key === 'Enter' && (e.preventDefault(), addTag())}
-            />
-            <Button type="button" onClick={addTag} variant="outline">
-              Adicionar
-            </Button>
-          </div>
-          <div className="flex flex-wrap gap-2">
-            {formData.tags.map(tag => (
-              <span
-                key={tag}
-                className="bg-blue-100 text-blue-800 px-2 py-1 rounded-md text-sm flex items-center gap-1"
-              >
-                {tag}
-                <button
-                  type="button"
-                  onClick={() => removeTag(tag)}
-                  className="text-blue-600 hover:text-blue-800"
-                >
-                  ×
-                </button>
-              </span>
-            ))}
-          </div>
-        </div>
-
         <div className="flex gap-4 pt-4">
-          <Button type="submit" disabled={loading}>
+          <Button type="submit" disabled={loading} className="flex-1">
             {loading ? 'Salvando...' : 'Salvar Transação'}
           </Button>
-          {onCancel && (
-            <Button type="button" variant="outline" onClick={onCancel}>
+          {onClose && (
+            <Button 
+              type="button" 
+              variant="outline" 
+              onClick={onClose}
+              className="flex-1"
+            >
               Cancelar
             </Button>
           )}
