@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
@@ -329,7 +328,7 @@ export const useSupabaseData = () => {
     }
   };
 
-  // Função para inserir pagamento
+  // Função para inserir pagamento - CORRIGIDA COM MELHOR TRATAMENTO DE ERROS
   const insertPayment = async (payment: {
     provider_id?: string;
     provider_name: string;
@@ -347,24 +346,83 @@ export const useSupabaseData = () => {
     account_type?: 'bank_account' | 'credit_card';
   }) => {
     try {
-      console.log('Inserindo pagamento:', payment);
+      console.log('=== useSupabaseData.insertPayment ===');
+      console.log('Payload recebido:', payment);
+
+      // Validações antes do envio
+      if (!payment.provider_name || !payment.provider_name.trim()) {
+        throw new Error('Nome do prestador é obrigatório');
+      }
+
+      if (!payment.amount || payment.amount <= 0) {
+        throw new Error('Valor deve ser maior que zero');
+      }
+
+      if (!payment.due_date) {
+        throw new Error('Data de vencimento é obrigatória');
+      }
+
+      if (!payment.description || !payment.description.trim()) {
+        throw new Error('Descrição é obrigatória');
+      }
+
+      // Preparar dados finais com limpeza adicional
+      const cleanedPayment = {
+        provider_id: payment.provider_id || null,
+        provider_name: payment.provider_name.trim(),
+        amount: payment.amount,
+        due_date: payment.due_date,
+        payment_date: payment.payment_date || null,
+        status: payment.status || 'pending',
+        type: payment.type || 'full',
+        description: payment.description.trim(),
+        installments: payment.installments || null,
+        current_installment: payment.current_installment || null,
+        tags: payment.tags || null,
+        notes: payment.notes?.trim() || null,
+        account_id: payment.account_id || null,
+        account_type: payment.account_type || null
+      };
+
+      console.log('Dados limpos para envio:', cleanedPayment);
 
       const { data, error } = await supabase
         .from('payments')
-        .insert(payment)
+        .insert(cleanedPayment)
         .select()
         .single();
 
       if (error) {
-        console.error('Erro SQL ao inserir pagamento:', error);
-        throw error;
+        console.error('Erro do Supabase:', error);
+        console.error('Código do erro:', error.code);
+        console.error('Detalhes do erro:', error.details);
+        console.error('Dica do erro:', error.hint);
+        console.error('Mensagem do erro:', error.message);
+        
+        // Tratar erros específicos
+        if (error.code === '23505') {
+          throw new Error('Já existe um pagamento com estes dados');
+        } else if (error.code === '23502') {
+          throw new Error('Campo obrigatório em branco');
+        } else if (error.code === '23514') {
+          throw new Error('Valor inválido para o campo');
+        } else if (error.message?.includes('violates row-level security')) {
+          throw new Error('Permissão negada para criar pagamento');
+        } else {
+          throw new Error(error.message || 'Erro desconhecido do banco de dados');
+        }
       }
 
       console.log('Pagamento inserido com sucesso:', data);
       return { data, error: null };
     } catch (err) {
-      console.error('Erro ao inserir pagamento:', err);
-      return { data: null, error: err instanceof Error ? err.message : 'Erro desconhecido' };
+      console.error('Erro na função insertPayment:', err);
+      
+      if (err instanceof Error) {
+        return { data: null, error: err.message };
+      } else {
+        return { data: null, error: 'Erro desconhecido na inserção do pagamento' };
+      }
     }
   };
 

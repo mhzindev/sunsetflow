@@ -69,34 +69,57 @@ export const PaymentForm = ({ onSubmit, onCancel }: PaymentFormProps) => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    console.log('Iniciando submissão do formulário...', formData);
+    console.log('=== INÍCIO DA SUBMISSÃO ===');
+    console.log('Dados do formulário:', formData);
     
-    // Validação do formulário
+    // Validação completa do formulário
     const validationErrors = validateForm();
     if (validationErrors.length > 0) {
+      console.error('Erros de validação:', validationErrors);
       showError('Erro de Validação', validationErrors.join(', '));
       return;
     }
 
+    // Validação adicional do valor
     const amount = parseFloat(formData.amount);
-    if (isNaN(amount)) {
-      showError('Valor Inválido', 'Por favor, insira um valor numérico válido');
+    if (isNaN(amount) || amount <= 0) {
+      console.error('Valor inválido:', formData.amount);
+      showError('Valor Inválido', 'Por favor, insira um valor numérico válido maior que zero');
+      return;
+    }
+
+    // Validação da data
+    if (!formData.due_date) {
+      console.error('Data de vencimento não informada');
+      showError('Data Obrigatória', 'Data de vencimento é obrigatória');
       return;
     }
 
     setLoading(true);
+    
     try {
-      // Preparar dados do pagamento com valores limpos
+      // Preparar dados do pagamento de forma mais robusta
       const paymentData = {
+        // IDs e referências
         provider_id: formData.provider_id || null,
         provider_name: formData.provider_name.trim(),
-        amount: amount,
+        
+        // Valores monetários
+        amount: Number(amount.toFixed(2)), // Garantir precisão decimal
+        
+        // Datas
         due_date: formData.due_date,
         payment_date: formData.payment_date || null,
+        
+        // Status e tipo
         status: formData.status,
         type: formData.type,
+        
+        // Textos
         description: formData.description.trim(),
         notes: formData.notes?.trim() || null,
+        
+        // Campos opcionais inicializados como null
         tags: null,
         installments: null,
         current_installment: null,
@@ -104,28 +127,43 @@ export const PaymentForm = ({ onSubmit, onCancel }: PaymentFormProps) => {
         account_type: null
       };
 
-      console.log('Dados limpos do pagamento:', paymentData);
+      console.log('=== DADOS PREPARADOS PARA ENVIO ===');
+      console.log('Payload final:', JSON.stringify(paymentData, null, 2));
       
+      // Verificação final antes do envio
+      if (!paymentData.provider_name || !paymentData.description || !paymentData.due_date || !paymentData.amount) {
+        throw new Error('Dados obrigatórios em branco após preparação');
+      }
+      
+      console.log('=== ENVIANDO PARA SUPABASE ===');
       const { data, error } = await insertPayment(paymentData);
       
       if (error) {
-        console.error('Erro detalhado ao criar pagamento:', error);
-        let errorMessage = 'Erro desconhecido';
+        console.error('=== ERRO RETORNADO DO SUPABASE ===');
+        console.error('Tipo do erro:', typeof error);
+        console.error('Erro completo:', error);
+        
+        let errorMessage = 'Erro desconhecido ao criar pagamento';
         
         if (typeof error === 'string') {
           errorMessage = error;
-        } else if (error.message) {
+        } else if (error?.message) {
           errorMessage = error.message;
+        } else if (error?.details) {
+          errorMessage = error.details;
         }
         
+        console.error('Mensagem de erro final:', errorMessage);
         showError('Erro ao Criar Pagamento', errorMessage);
         return;
       }
 
-      console.log('Pagamento criado com sucesso:', data);
+      console.log('=== PAGAMENTO CRIADO COM SUCESSO ===');
+      console.log('Dados retornados:', data);
+      
       showSuccess('Sucesso', 'Pagamento registrado com sucesso!');
       
-      // Reset form
+      // Reset do formulário
       setFormData({
         provider_id: '',
         provider_name: '',
@@ -139,20 +177,38 @@ export const PaymentForm = ({ onSubmit, onCancel }: PaymentFormProps) => {
       });
       setSelectedProvider(null);
       
-      onSubmit?.(data);
+      // Chamar callback se fornecido
+      if (onSubmit) {
+        onSubmit(data);
+      }
+      
     } catch (error) {
-      console.error('Erro inesperado ao criar pagamento:', error);
-      let errorMessage = 'Falha na criação do pagamento';
+      console.error('=== ERRO INESPERADO ===');
+      console.error('Erro capturado:', error);
+      console.error('Stack trace:', error instanceof Error ? error.stack : 'N/A');
+      
+      let errorMessage = 'Falha inesperada na criação do pagamento';
       
       if (error instanceof Error) {
         errorMessage = error.message;
+      } else if (typeof error === 'string') {
+        errorMessage = error;
       }
       
       showError('Erro Inesperado', errorMessage);
     } finally {
       setLoading(false);
+      console.log('=== FIM DA SUBMISSÃO ===');
     }
   };
+
+  // Verificar se o formulário é válido para habilitar/desabilitar o botão
+  const isFormValid = 
+    formData.provider_name.trim() && 
+    formData.amount && 
+    parseFloat(formData.amount) > 0 && 
+    formData.due_date && 
+    formData.description.trim();
 
   return (
     <Card>
@@ -277,7 +333,7 @@ export const PaymentForm = ({ onSubmit, onCancel }: PaymentFormProps) => {
           <div className="flex gap-4 pt-4">
             <Button 
               type="submit" 
-              disabled={loading || !formData.provider_name || !formData.amount || !formData.description} 
+              disabled={loading || !isFormValid} 
               className="flex-1"
             >
               {loading ? 'Salvando...' : 'Salvar Pagamento'}
@@ -288,6 +344,7 @@ export const PaymentForm = ({ onSubmit, onCancel }: PaymentFormProps) => {
                 variant="outline" 
                 onClick={onCancel}
                 className="flex-1"
+                disabled={loading}
               >
                 Cancelar
               </Button>

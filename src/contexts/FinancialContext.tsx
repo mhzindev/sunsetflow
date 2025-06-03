@@ -1,4 +1,3 @@
-
 import React, { createContext, useContext, useState, useEffect, ReactNode, useCallback } from 'react';
 import { useSupabaseData } from '@/hooks/useSupabaseData';
 import { useAccounts } from '@/hooks/useAccounts';
@@ -79,6 +78,7 @@ export const FinancialProvider = ({ children }: FinancialProviderProps) => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [lastRefresh, setLastRefresh] = useState<number>(0);
+  const [isRefreshing, setIsRefreshing] = useState(false);
 
   const calculateFinancialData = useCallback((
     transactions: any[], 
@@ -187,13 +187,21 @@ export const FinancialProvider = ({ children }: FinancialProviderProps) => {
 
   const refreshData = useCallback(async () => {
     const now = Date.now();
-    // Evitar refresh muito frequente (mínimo 10 segundos entre refreshes)
-    if (now - lastRefresh < 10000) {
+    
+    // Evitar refresh muito frequente (mínimo 15 segundos entre refreshes)
+    if (now - lastRefresh < 15000) {
       console.log('Refresh ignorado - muito recente');
       return;
     }
 
+    // Evitar múltiplos refreshes simultâneos
+    if (isRefreshing) {
+      console.log('Refresh já em andamento, ignorando...');
+      return;
+    }
+
     try {
+      setIsRefreshing(true);
       setLoading(true);
       setError(null);
       setLastRefresh(now);
@@ -228,8 +236,9 @@ export const FinancialProvider = ({ children }: FinancialProviderProps) => {
       setError('Erro ao carregar dados financeiros');
     } finally {
       setLoading(false);
+      setIsRefreshing(false);
     }
-  }, [supabaseData, getAccountSummary, refreshAccounts, calculateFinancialData, lastRefresh]);
+  }, [supabaseData, getAccountSummary, refreshAccounts, calculateFinancialData, lastRefresh, isRefreshing]);
 
   useEffect(() => {
     if (!accountsLoading) {
@@ -252,7 +261,8 @@ export const FinancialProvider = ({ children }: FinancialProviderProps) => {
       try {
         const result = await supabaseData.insertTransaction(transaction);
         if (!result.error) {
-          await refreshData();
+          // Aguardar um pouco antes de fazer refresh para evitar conflitos
+          setTimeout(() => refreshData(), 1000);
         }
         return result;
       } catch (err) {
@@ -266,7 +276,8 @@ export const FinancialProvider = ({ children }: FinancialProviderProps) => {
         const result = await supabaseData.insertPayment(payment);
         if (!result.error) {
           console.log('Pagamento criado com sucesso, atualizando dados...');
-          await refreshData();
+          // Aguardar um pouco antes de fazer refresh para evitar conflitos
+          setTimeout(() => refreshData(), 1000);
         }
         return result;
       } catch (err) {
@@ -280,7 +291,7 @@ export const FinancialProvider = ({ children }: FinancialProviderProps) => {
         const result = await supabaseData.updatePayment(paymentId, updates);
         if (!result.error) {
           console.log('Pagamento atualizado com sucesso, refreshing data...');
-          await refreshData();
+          setTimeout(() => refreshData(), 1000);
         }
         return result;
       } catch (err) {

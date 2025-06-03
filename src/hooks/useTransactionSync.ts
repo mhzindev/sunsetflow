@@ -1,5 +1,5 @@
 
-import { useEffect, useCallback, useState } from 'react';
+import { useEffect, useCallback, useState, useRef } from 'react';
 import { useSupabaseData } from './useSupabaseData';
 import { useFinancial } from '@/contexts/FinancialContext';
 import { useToastFeedback } from './useToastFeedback';
@@ -10,12 +10,31 @@ export const useTransactionSync = () => {
   const { showError } = useToastFeedback();
   const [retryCount, setRetryCount] = useState(0);
   const [isRetrying, setIsRetrying] = useState(false);
+  const [isSyncing, setIsSyncing] = useState(false);
+  const lastSyncRef = useRef<number>(0);
 
   const syncTransactions = useCallback(async (silent: boolean = false) => {
+    // Evitar sincronizações simultâneas
+    if (isSyncing) {
+      console.log('Sincronização já em andamento, ignorando...');
+      return { success: false, error: 'Sync already in progress' };
+    }
+
+    // Throttle: evitar sync muito frequente (mínimo 30 segundos)
+    const now = Date.now();
+    const timeSinceLastSync = now - lastSyncRef.current;
+    if (timeSinceLastSync < 30000 && !silent) {
+      console.log(`Sync muito recente (${Math.round(timeSinceLastSync/1000)}s atrás), ignorando...`);
+      return { success: false, error: 'Too soon since last sync' };
+    }
+
+    setIsSyncing(true);
+    lastSyncRef.current = now;
+
     try {
       console.log('Iniciando sincronização de transações...');
       
-      // Buscar transações atualizadas com retry
+      // Buscar transações atualizadas com retry limitado
       const transactions = await fetchTransactions();
       console.log('Transações sincronizadas:', transactions?.length || 0);
       
@@ -36,42 +55,48 @@ export const useTransactionSync = () => {
     } catch (error) {
       console.error('Erro na sincronização:', error);
       
-      if (!silent && retryCount < 3) {
-        console.log(`Tentando novamente... (tentativa ${retryCount + 1}/3)`);
+      if (!silent && retryCount < 2) { // Reduzido de 3 para 2 tentativas
+        console.log(`Tentando novamente... (tentativa ${retryCount + 1}/2)`);
         setRetryCount(prev => prev + 1);
         setIsRetrying(true);
         
-        // Retry com delay exponencial
+        // Retry com delay exponencial (máximo 8 segundos)
         setTimeout(() => {
           syncTransactions(true);
-        }, Math.pow(2, retryCount) * 1000);
+        }, Math.min(Math.pow(2, retryCount) * 2000, 8000));
       } else if (!silent) {
-        showError('Erro de Sincronização', 'Não foi possível sincronizar os dados após várias tentativas');
+        showError('Erro de Sincronização', 'Não foi possível sincronizar os dados');
         setIsRetrying(false);
       }
       
       return { success: false, error };
+    } finally {
+      setIsSyncing(false);
     }
-  }, [fetchTransactions, fetchPayments, refreshData, showError, retryCount]);
+  }, [fetchTransactions, fetchPayments, refreshData, showError, retryCount, isSyncing]);
 
-  // Auto-sync com intervalo MUITO maior - apenas 5 minutos
+  // Auto-sync com intervalo MUITO maior - 10 minutos
   useEffect(() => {
-    syncTransactions(true); // Initial sync (silent)
+    // Initial sync apenas se não estiver fazendo retry
+    if (!isRetrying) {
+      syncTransactions(true);
+    }
     
-    // Sync a cada 5 minutos (300 segundos) se não estiver fazendo retry
+    // Sync a cada 10 minutos (600 segundos) se não estiver fazendo retry ou sync
     const interval = setInterval(() => {
-      if (!isRetrying) {
-        console.log('Sincronização automática (5 minutos)');
+      if (!isRetrying && !isSyncing) {
+        console.log('Sincronização automática (10 minutos)');
         syncTransactions(true);
       }
-    }, 300000); // 5 minutos
+    }, 600000); // 10 minutos
 
     return () => clearInterval(interval);
-  }, [syncTransactions, isRetrying]);
+  }, [syncTransactions, isRetrying, isSyncing]);
 
   return {
     syncTransactions,
     isRetrying,
-    retryCount
+    retryCount,
+    isSyncing
   };
 };
