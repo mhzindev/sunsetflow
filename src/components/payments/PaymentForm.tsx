@@ -26,6 +26,19 @@ interface PaymentFormProps {
   onCancel?: () => void;
 }
 
+// Interface para o estado do formulário com tipos corretos
+interface FormDataState {
+  provider_id: string;
+  provider_name: string;
+  amount: string;
+  due_date: string;
+  payment_date: string;
+  status: PaymentStatus; // Usar o tipo union
+  type: PaymentType; // Usar o tipo union
+  description: string;
+  notes: string;
+}
+
 // Opções do formulário com validação rigorosa - VALORES EXATOS DO BANCO
 const PAYMENT_STATUS_OPTIONS: { value: PaymentStatus; label: string }[] = [
   { value: PAYMENT_STATUS_VALUES.PENDING, label: 'Pendente' },
@@ -44,14 +57,16 @@ const PAYMENT_TYPE_OPTIONS: { value: PaymentType; label: string }[] = [
 export const PaymentForm = ({ onSubmit, onCancel }: PaymentFormProps) => {
   const [loading, setLoading] = useState(false);
   const [selectedProvider, setSelectedProvider] = useState<any>(null);
-  const [formData, setFormData] = useState({
+  
+  // Estado com tipagem correta usando a interface
+  const [formData, setFormData] = useState<FormDataState>({
     provider_id: '',
     provider_name: '',
     amount: '',
     due_date: new Date().toISOString().split('T')[0],
     payment_date: '',
-    status: PAYMENT_STATUS_VALUES.PENDING, // Usar constante
-    type: PAYMENT_TYPE_VALUES.FULL, // Usar constante
+    status: PAYMENT_STATUS_VALUES.PENDING, // Valor válido do enum
+    type: PAYMENT_TYPE_VALUES.FULL, // Valor válido do enum
     description: '',
     notes: ''
   });
@@ -104,7 +119,7 @@ export const PaymentForm = ({ onSubmit, onCancel }: PaymentFormProps) => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    console.log('=== SUBMISSÃO FORMULÁRIO - VERSÃO CORRIGIDA TIPOS ===');
+    console.log('=== SUBMISSÃO FORMULÁRIO - VERSÃO TIPAGEM CORRIGIDA ===');
     console.log('Dados do formulário ANTES da validação:', formData);
     
     // Validação do formulário
