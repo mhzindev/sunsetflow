@@ -7,7 +7,8 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Users, Plus, Key, Copy, Eye, EyeOff, Trash2, UserPlus } from "lucide-react";
+import { Switch } from "@/components/ui/switch";
+import { Users, Plus, Key, Copy, Eye, EyeOff, Trash2, UserPlus, ToggleLeft, ToggleRight } from "lucide-react";
 import { useEmployeeManagement } from "@/hooks/useEmployeeManagement";
 import { useAuth } from "@/contexts/AuthContext";
 
@@ -17,7 +18,9 @@ export const UserManagement = () => {
     employees, 
     accessCodes, 
     loading, 
-    createAccessCode, 
+    createAccessCode,
+    toggleAccessCode,
+    deleteAccessCode, 
     deactivateEmployee, 
     copyToClipboard 
   } = useEmployeeManagement();
@@ -44,6 +47,16 @@ export const UserManagement = () => {
   const handleDeactivateEmployee = async (employeeId: string, employeeName: string) => {
     if (window.confirm(`Tem certeza que deseja desativar ${employeeName}?`)) {
       await deactivateEmployee(employeeId);
+    }
+  };
+
+  const handleToggleAccessCode = async (codeId: string, currentStatus: boolean) => {
+    await toggleAccessCode(codeId, currentStatus);
+  };
+
+  const handleDeleteAccessCode = async (codeId: string, employeeName: string) => {
+    if (window.confirm(`Tem certeza que deseja excluir o código de acesso de ${employeeName}?`)) {
+      await deleteAccessCode(codeId);
     }
   };
 
@@ -225,6 +238,7 @@ export const UserManagement = () => {
                   <li>O funcionário deve acessar o sistema e usar o código na tela de login</li>
                   <li>Após o primeiro uso, o código será invalidado automaticamente</li>
                   <li>Códigos não utilizados expiram em 7 dias</li>
+                  <li>Use os botões abaixo para gerenciar os códigos (ativar/desativar/excluir)</li>
                 </ol>
               </div>
               
@@ -254,7 +268,7 @@ export const UserManagement = () => {
                         <TableCell>{code.employeeEmail}</TableCell>
                         <TableCell>
                           <Badge variant={code.isUsed ? "secondary" : "default"}>
-                            {code.isUsed ? "Usado" : "Pendente"}
+                            {code.isUsed ? "Usado/Inativo" : "Ativo"}
                           </Badge>
                         </TableCell>
                         <TableCell>{new Date(code.createdAt).toLocaleDateString('pt-BR')}</TableCell>
@@ -262,14 +276,36 @@ export const UserManagement = () => {
                           {code.expires_at ? new Date(code.expires_at).toLocaleDateString('pt-BR') : '-'}
                         </TableCell>
                         <TableCell>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => copyToClipboard(code.code)}
-                            disabled={code.isUsed}
-                          >
-                            <Copy className="w-4 h-4" />
-                          </Button>
+                          <div className="flex gap-1">
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => copyToClipboard(code.code)}
+                              title="Copiar código"
+                            >
+                              <Copy className="w-4 h-4" />
+                            </Button>
+                            
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => handleToggleAccessCode(code.id, code.isUsed)}
+                              title={code.isUsed ? "Ativar código" : "Desativar código"}
+                              className={code.isUsed ? "text-green-600 hover:text-green-700" : "text-orange-600 hover:text-orange-700"}
+                            >
+                              {code.isUsed ? <ToggleRight className="w-4 h-4" /> : <ToggleLeft className="w-4 h-4" />}
+                            </Button>
+                            
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => handleDeleteAccessCode(code.id, code.employeeName)}
+                              title="Excluir código"
+                              className="text-red-600 hover:text-red-700"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </Button>
+                          </div>
                         </TableCell>
                       </TableRow>
                     ))}

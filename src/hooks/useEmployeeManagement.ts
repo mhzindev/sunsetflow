@@ -104,6 +104,56 @@ export const useEmployeeManagement = () => {
     }
   };
 
+  const toggleAccessCode = async (codeId: string, currentStatus: boolean) => {
+    try {
+      const { error } = await supabase
+        .from('employee_access_codes')
+        .update({ is_used: !currentStatus })
+        .eq('id', codeId);
+
+      if (error) throw error;
+
+      toast({
+        title: "Status atualizado",
+        description: `Código ${!currentStatus ? 'desativado' : 'ativado'} com sucesso`,
+      });
+
+      await fetchAccessCodes();
+    } catch (err) {
+      console.error('Erro ao alterar status do código:', err);
+      toast({
+        title: "Erro",
+        description: "Erro ao alterar status do código",
+        variant: "destructive"
+      });
+    }
+  };
+
+  const deleteAccessCode = async (codeId: string) => {
+    try {
+      const { error } = await supabase
+        .from('employee_access_codes')
+        .delete()
+        .eq('id', codeId);
+
+      if (error) throw error;
+
+      toast({
+        title: "Código excluído",
+        description: "Código de acesso excluído com sucesso",
+      });
+
+      await fetchAccessCodes();
+    } catch (err) {
+      console.error('Erro ao excluir código:', err);
+      toast({
+        title: "Erro",
+        description: "Erro ao excluir código de acesso",
+        variant: "destructive"
+      });
+    }
+  };
+
   const deactivateEmployee = async (employeeId: string) => {
     try {
       const { error } = await supabase
@@ -160,6 +210,8 @@ export const useEmployeeManagement = () => {
     accessCodes,
     loading,
     createAccessCode,
+    toggleAccessCode,
+    deleteAccessCode,
     deactivateEmployee,
     copyToClipboard,
     refetch: () => Promise.all([fetchEmployees(), fetchAccessCodes()])
