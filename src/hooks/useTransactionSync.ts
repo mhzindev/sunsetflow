@@ -23,8 +23,10 @@ export const useTransactionSync = () => {
       const payments = await fetchPayments();
       console.log('Pagamentos sincronizados:', payments?.length || 0);
       
-      // Forçar atualização do contexto financeiro
-      await refreshData();
+      // Forçar atualização do contexto financeiro apenas se necessário
+      if (!silent) {
+        await refreshData();
+      }
       
       console.log('Sincronização concluída com sucesso');
       setRetryCount(0); // Reset retry count on success
@@ -52,16 +54,17 @@ export const useTransactionSync = () => {
     }
   }, [fetchTransactions, fetchPayments, refreshData, showError, retryCount]);
 
-  // Auto-sync com intervalo
+  // Auto-sync com intervalo MUITO maior - apenas 5 minutos
   useEffect(() => {
     syncTransactions(true); // Initial sync (silent)
     
-    // Sync a cada 30 segundos se não estiver fazendo retry
+    // Sync a cada 5 minutos (300 segundos) se não estiver fazendo retry
     const interval = setInterval(() => {
       if (!isRetrying) {
+        console.log('Sincronização automática (5 minutos)');
         syncTransactions(true);
       }
-    }, 30000);
+    }, 300000); // 5 minutos
 
     return () => clearInterval(interval);
   }, [syncTransactions, isRetrying]);

@@ -1,3 +1,4 @@
+
 import React, { createContext, useContext, useState, useEffect, ReactNode, useCallback } from 'react';
 import { useSupabaseData } from '@/hooks/useSupabaseData';
 import { useAccounts } from '@/hooks/useAccounts';
@@ -77,6 +78,7 @@ export const FinancialProvider = ({ children }: FinancialProviderProps) => {
   });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [lastRefresh, setLastRefresh] = useState<number>(0);
 
   const calculateFinancialData = useCallback((
     transactions: any[], 
@@ -184,9 +186,19 @@ export const FinancialProvider = ({ children }: FinancialProviderProps) => {
   }, []);
 
   const refreshData = useCallback(async () => {
+    const now = Date.now();
+    // Evitar refresh muito frequente (mínimo 10 segundos entre refreshes)
+    if (now - lastRefresh < 10000) {
+      console.log('Refresh ignorado - muito recente');
+      return;
+    }
+
     try {
       setLoading(true);
       setError(null);
+      setLastRefresh(now);
+
+      console.log('Refreshing financial data...');
 
       await refreshAccounts();
 
@@ -210,13 +222,14 @@ export const FinancialProvider = ({ children }: FinancialProviderProps) => {
       );
 
       setData(financialData);
+      console.log('Financial data refreshed successfully');
     } catch (err) {
       console.error('Erro ao carregar dados financeiros:', err);
       setError('Erro ao carregar dados financeiros');
     } finally {
       setLoading(false);
     }
-  }, [supabaseData, getAccountSummary, refreshAccounts, calculateFinancialData]);
+  }, [supabaseData, getAccountSummary, refreshAccounts, calculateFinancialData, lastRefresh]);
 
   useEffect(() => {
     if (!accountsLoading) {

@@ -34,6 +34,7 @@ export const PaymentForm = ({ onSubmit, onCancel }: PaymentFormProps) => {
   const { showSuccess, showError } = useToastFeedback();
 
   const handleProviderSelect = (provider: any) => {
+    console.log('Prestador selecionado:', provider);
     setSelectedProvider(provider);
     setFormData(prev => ({
       ...prev,
@@ -46,25 +47,45 @@ export const PaymentForm = ({ onSubmit, onCancel }: PaymentFormProps) => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!formData.provider_id || !formData.amount || !formData.description) {
-      showError('Erro', 'Preencha todos os campos obrigatórios');
+    console.log('Iniciando submissão do formulário...', formData);
+    
+    if (!formData.provider_name || !formData.amount || !formData.description) {
+      showError('Erro de Validação', 'Preencha todos os campos obrigatórios');
+      return;
+    }
+
+    const amount = parseFloat(formData.amount);
+    if (isNaN(amount) || amount <= 0) {
+      showError('Valor Inválido', 'Por favor, insira um valor válido maior que zero');
       return;
     }
 
     setLoading(true);
     try {
       const paymentData = {
-        ...formData,
-        amount: parseFloat(formData.amount)
+        provider_id: formData.provider_id || null,
+        provider_name: formData.provider_name,
+        amount: amount,
+        due_date: formData.due_date,
+        payment_date: formData.payment_date || null,
+        status: formData.status,
+        type: formData.type,
+        description: formData.description,
+        notes: formData.notes || null,
+        tags: null,
+        installments: null,
+        current_installment: null,
+        account_id: null,
+        account_type: null
       };
 
-      console.log('Criando pagamento:', paymentData);
+      console.log('Dados do pagamento a serem inseridos:', paymentData);
       
       const { data, error } = await insertPayment(paymentData);
       
       if (error) {
-        console.error('Erro ao criar pagamento:', error);
-        showError('Erro', `Erro ao criar pagamento: ${error}`);
+        console.error('Erro detalhado ao criar pagamento:', error);
+        showError('Erro ao Criar Pagamento', `Detalhes: ${error}`);
         return;
       }
 
@@ -88,7 +109,7 @@ export const PaymentForm = ({ onSubmit, onCancel }: PaymentFormProps) => {
       onSubmit?.(data);
     } catch (error) {
       console.error('Erro inesperado ao criar pagamento:', error);
-      showError('Erro', 'Erro inesperado ao criar pagamento');
+      showError('Erro Inesperado', `Falha na criação do pagamento: ${error instanceof Error ? error.message : 'Erro desconhecido'}`);
     } finally {
       setLoading(false);
     }
