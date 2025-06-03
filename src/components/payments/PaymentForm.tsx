@@ -44,34 +44,59 @@ export const PaymentForm = ({ onSubmit, onCancel }: PaymentFormProps) => {
     }));
   };
 
+  const validateForm = () => {
+    const errors = [];
+    
+    if (!formData.provider_name.trim()) {
+      errors.push('Prestador de serviço é obrigatório');
+    }
+    
+    if (!formData.amount || parseFloat(formData.amount) <= 0) {
+      errors.push('Valor deve ser maior que zero');
+    }
+    
+    if (!formData.due_date) {
+      errors.push('Data de vencimento é obrigatória');
+    }
+    
+    if (!formData.description.trim()) {
+      errors.push('Descrição é obrigatória');
+    }
+
+    return errors;
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
     console.log('Iniciando submissão do formulário...', formData);
     
-    if (!formData.provider_name || !formData.amount || !formData.description) {
-      showError('Erro de Validação', 'Preencha todos os campos obrigatórios');
+    // Validação do formulário
+    const validationErrors = validateForm();
+    if (validationErrors.length > 0) {
+      showError('Erro de Validação', validationErrors.join(', '));
       return;
     }
 
     const amount = parseFloat(formData.amount);
-    if (isNaN(amount) || amount <= 0) {
-      showError('Valor Inválido', 'Por favor, insira um valor válido maior que zero');
+    if (isNaN(amount)) {
+      showError('Valor Inválido', 'Por favor, insira um valor numérico válido');
       return;
     }
 
     setLoading(true);
     try {
+      // Preparar dados do pagamento com valores limpos
       const paymentData = {
         provider_id: formData.provider_id || null,
-        provider_name: formData.provider_name,
+        provider_name: formData.provider_name.trim(),
         amount: amount,
         due_date: formData.due_date,
         payment_date: formData.payment_date || null,
         status: formData.status,
         type: formData.type,
-        description: formData.description,
-        notes: formData.notes || null,
+        description: formData.description.trim(),
+        notes: formData.notes?.trim() || null,
         tags: null,
         installments: null,
         current_installment: null,
@@ -79,13 +104,21 @@ export const PaymentForm = ({ onSubmit, onCancel }: PaymentFormProps) => {
         account_type: null
       };
 
-      console.log('Dados do pagamento a serem inseridos:', paymentData);
+      console.log('Dados limpos do pagamento:', paymentData);
       
       const { data, error } = await insertPayment(paymentData);
       
       if (error) {
         console.error('Erro detalhado ao criar pagamento:', error);
-        showError('Erro ao Criar Pagamento', `Detalhes: ${error}`);
+        let errorMessage = 'Erro desconhecido';
+        
+        if (typeof error === 'string') {
+          errorMessage = error;
+        } else if (error.message) {
+          errorMessage = error.message;
+        }
+        
+        showError('Erro ao Criar Pagamento', errorMessage);
         return;
       }
 
@@ -109,7 +142,13 @@ export const PaymentForm = ({ onSubmit, onCancel }: PaymentFormProps) => {
       onSubmit?.(data);
     } catch (error) {
       console.error('Erro inesperado ao criar pagamento:', error);
-      showError('Erro Inesperado', `Falha na criação do pagamento: ${error instanceof Error ? error.message : 'Erro desconhecido'}`);
+      let errorMessage = 'Falha na criação do pagamento';
+      
+      if (error instanceof Error) {
+        errorMessage = error.message;
+      }
+      
+      showError('Erro Inesperado', errorMessage);
     } finally {
       setLoading(false);
     }
@@ -130,6 +169,9 @@ export const PaymentForm = ({ onSubmit, onCancel }: PaymentFormProps) => {
               onProviderSelect={handleProviderSelect}
               placeholder="Selecionar prestador"
             />
+            {!formData.provider_name && (
+              <p className="text-sm text-red-500 mt-1">Prestador de serviço é obrigatório</p>
+            )}
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -139,11 +181,15 @@ export const PaymentForm = ({ onSubmit, onCancel }: PaymentFormProps) => {
                 id="amount"
                 type="number"
                 step="0.01"
+                min="0.01"
                 value={formData.amount}
                 onChange={(e) => setFormData(prev => ({ ...prev, amount: e.target.value }))}
                 placeholder="0,00"
                 required
               />
+              {formData.amount && parseFloat(formData.amount) <= 0 && (
+                <p className="text-sm text-red-500 mt-1">Valor deve ser maior que zero</p>
+              )}
             </div>
 
             <div>
@@ -213,6 +259,9 @@ export const PaymentForm = ({ onSubmit, onCancel }: PaymentFormProps) => {
               placeholder="Descrição do pagamento"
               required
             />
+            {!formData.description.trim() && (
+              <p className="text-sm text-red-500 mt-1">Descrição é obrigatória</p>
+            )}
           </div>
 
           <div>
@@ -226,7 +275,11 @@ export const PaymentForm = ({ onSubmit, onCancel }: PaymentFormProps) => {
           </div>
 
           <div className="flex gap-4 pt-4">
-            <Button type="submit" disabled={loading} className="flex-1">
+            <Button 
+              type="submit" 
+              disabled={loading || !formData.provider_name || !formData.amount || !formData.description} 
+              className="flex-1"
+            >
               {loading ? 'Salvando...' : 'Salvar Pagamento'}
             </Button>
             {onCancel && (
