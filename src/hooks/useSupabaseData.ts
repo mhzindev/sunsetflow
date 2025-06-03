@@ -328,15 +328,15 @@ export const useSupabaseData = () => {
     }
   };
 
-  // Função para inserir pagamento - CORRIGIDA COM TIPOS ESPECÍFICOS DO BANCO
+  // Função para inserir pagamento - VERSÃO FINAL CORRIGIDA
   const insertPayment = async (payment: {
     provider_id?: string;
     provider_name: string;
     amount: number;
     due_date: string;
     payment_date?: string;
-    status: 'pending' | 'partial' | 'completed' | 'overdue' | 'cancelled'; // Enum específico
-    type: 'full' | 'installment' | 'advance'; // Enum específico
+    status: 'pending' | 'partial' | 'completed' | 'overdue' | 'cancelled';
+    type: 'full' | 'installment' | 'advance';
     description: string;
     installments?: number;
     current_installment?: number;
@@ -346,11 +346,11 @@ export const useSupabaseData = () => {
     account_type?: 'bank_account' | 'credit_card';
   }) => {
     try {
-      console.log('=== useSupabaseData.insertPayment ===');
+      console.log('=== useSupabaseData.insertPayment - VERSÃO CORRIGIDA ===');
       console.log('Payload recebido:', payment);
 
-      // Validações antes do envio
-      if (!payment.provider_name || !payment.provider_name.trim()) {
+      // Validações rigorosas
+      if (!payment.provider_name?.trim()) {
         throw new Error('Nome do prestador é obrigatório');
       }
 
@@ -362,33 +362,33 @@ export const useSupabaseData = () => {
         throw new Error('Data de vencimento é obrigatória');
       }
 
-      if (!payment.description || !payment.description.trim()) {
+      if (!payment.description?.trim()) {
         throw new Error('Descrição é obrigatória');
       }
 
-      // Validar se o status é um dos valores válidos do enum
-      const validStatuses = ['pending', 'partial', 'completed', 'overdue', 'cancelled'];
-      if (!validStatuses.includes(payment.status)) {
+      // Validar enums com valores EXATOS do banco
+      const validStatuses = ['pending', 'partial', 'completed', 'overdue', 'cancelled'] as const;
+      const validTypes = ['full', 'installment', 'advance'] as const;
+
+      if (!validStatuses.includes(payment.status as any)) {
         console.error('Status inválido:', payment.status);
         throw new Error(`Status inválido: ${payment.status}. Valores aceitos: ${validStatuses.join(', ')}`);
       }
 
-      // Validar se o type é um dos valores válidos do enum
-      const validTypes = ['full', 'installment', 'advance'];
-      if (!validTypes.includes(payment.type)) {
+      if (!validTypes.includes(payment.type as any)) {
         console.error('Tipo inválido:', payment.type);
         throw new Error(`Tipo inválido: ${payment.type}. Valores aceitos: ${validTypes.join(', ')}`);
       }
 
-      // Preparar dados finais garantindo tipos corretos
+      // Limpar dados removendo undefined e garantindo tipos corretos
       const cleanedPayment = {
         provider_id: payment.provider_id || null,
         provider_name: payment.provider_name.trim(),
         amount: payment.amount,
         due_date: payment.due_date,
         payment_date: payment.payment_date || null,
-        status: payment.status, // Garantido como enum correto
-        type: payment.type, // Garantido como enum correto
+        status: payment.status, // Enum validado
+        type: payment.type, // Enum validado
         description: payment.description.trim(),
         installments: payment.installments || null,
         current_installment: payment.current_installment || null,
@@ -398,10 +398,12 @@ export const useSupabaseData = () => {
         account_type: payment.account_type || null
       };
 
-      console.log('Dados limpos para envio:', cleanedPayment);
-      console.log('Status sendo enviado:', cleanedPayment.status, typeof cleanedPayment.status);
-      console.log('Type sendo enviado:', cleanedPayment.type, typeof cleanedPayment.type);
+      console.log('=== DADOS FINAIS PARA INSERÇÃO ===');
+      console.log('Payload limpo:', JSON.stringify(cleanedPayment, null, 2));
+      console.log('Status final:', cleanedPayment.status, '- Tipo:', typeof cleanedPayment.status);
+      console.log('Type final:', cleanedPayment.type, '- Tipo:', typeof cleanedPayment.type);
 
+      // Inserção no Supabase
       const { data, error } = await supabase
         .from('payments')
         .insert(cleanedPayment)
@@ -409,34 +411,37 @@ export const useSupabaseData = () => {
         .single();
 
       if (error) {
-        console.error('Erro do Supabase:', error);
-        console.error('Código do erro:', error.code);
-        console.error('Detalhes do erro:', error.details);
-        console.error('Dica do erro:', error.hint);
-        console.error('Mensagem do erro:', error.message);
+        console.error('=== ERRO DO SUPABASE ===');
+        console.error('Erro completo:', error);
+        console.error('Código:', error.code);
+        console.error('Detalhes:', error.details);
+        console.error('Mensagem:', error.message);
         
-        // Tratar erros específicos
+        // Tratamento específico de erros
         if (error.code === '23505') {
           throw new Error('Já existe um pagamento com estes dados');
         } else if (error.code === '23502') {
-          throw new Error('Campo obrigatório em branco');
+          throw new Error('Campo obrigatório está vazio');
         } else if (error.code === '23514') {
-          throw new Error('Valor inválido para o campo');
+          throw new Error('Valor inválido para algum campo');
         } else if (error.code === '42804') {
-          throw new Error('Tipo de dados incompatível. Verifique os valores de status e tipo.');
+          throw new Error('Erro de tipo de dados - status ou tipo inválido');
         } else if (error.message?.includes('violates row-level security')) {
           throw new Error('Permissão negada para criar pagamento');
-        } else if (error.message?.includes('transaction_status')) {
-          throw new Error('Erro de tipo: status deve ser um dos valores válidos (pending, partial, completed, overdue, cancelled)');
+        } else if (error.message?.includes('enum')) {
+          throw new Error('Valor inválido para status ou tipo de pagamento');
         } else {
           throw new Error(error.message || 'Erro desconhecido do banco de dados');
         }
       }
 
-      console.log('Pagamento inserido com sucesso:', data);
+      console.log('=== SUCESSO ===');
+      console.log('Pagamento inserido:', data);
       return { data, error: null };
+
     } catch (err) {
-      console.error('Erro na função insertPayment:', err);
+      console.error('=== ERRO NA FUNÇÃO insertPayment ===');
+      console.error('Erro:', err);
       
       if (err instanceof Error) {
         return { data: null, error: err.message };
