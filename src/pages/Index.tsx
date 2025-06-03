@@ -16,17 +16,9 @@ import { FinancialProvider } from "@/contexts/FinancialContext";
 
 export type PageSection = 'dashboard' | 'transactions' | 'payments' | 'expenses' | 'cashflow' | 'accounts' | 'reports' | 'settings';
 
-const Index = () => {
-  const { isAuthenticated, loading } = useAuth();
-  const navigate = useNavigate();
+const IndexContent = () => {
   const [activeSection, setActiveSection] = useState<PageSection>('dashboard');
   const [sidebarOpen, setSidebarOpen] = useState(true);
-
-  useEffect(() => {
-    if (!loading && !isAuthenticated) {
-      navigate('/auth');
-    }
-  }, [isAuthenticated, loading, navigate]);
 
   const handleNavigate = (section: string) => {
     setActiveSection(section as PageSection);
@@ -55,6 +47,40 @@ const Index = () => {
     }
   };
 
+  return (
+    <div className="min-h-screen bg-slate-50 flex">
+      <Sidebar 
+        activeSection={activeSection} 
+        setActiveSection={setActiveSection}
+        isOpen={sidebarOpen}
+        setIsOpen={setSidebarOpen}
+      />
+      
+      <div className={`flex-1 flex flex-col transition-all duration-300 ${sidebarOpen ? 'ml-64' : 'ml-16'}`}>
+        <TopBar 
+          activeSection={activeSection}
+          sidebarOpen={sidebarOpen}
+          setSidebarOpen={setSidebarOpen}
+        />
+        
+        <main className="flex-1 p-6">
+          {renderContent()}
+        </main>
+      </div>
+    </div>
+  );
+};
+
+const Index = () => {
+  const { isAuthenticated, loading } = useAuth();
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    if (!loading && !isAuthenticated) {
+      navigate('/auth');
+    }
+  }, [isAuthenticated, loading, navigate]);
+
   if (loading) {
     return (
       <div className="min-h-screen bg-slate-50 flex items-center justify-center">
@@ -74,26 +100,7 @@ const Index = () => {
 
   return (
     <FinancialProvider>
-      <div className="min-h-screen bg-slate-50 flex">
-        <Sidebar 
-          activeSection={activeSection} 
-          setActiveSection={setActiveSection}
-          isOpen={sidebarOpen}
-          setIsOpen={setSidebarOpen}
-        />
-        
-        <div className={`flex-1 flex flex-col transition-all duration-300 ${sidebarOpen ? 'ml-64' : 'ml-16'}`}>
-          <TopBar 
-            activeSection={activeSection}
-            sidebarOpen={sidebarOpen}
-            setSidebarOpen={setSidebarOpen}
-          />
-          
-          <main className="flex-1 p-6">
-            {renderContent()}
-          </main>
-        </div>
-      </div>
+      <IndexContent />
     </FinancialProvider>
   );
 };
