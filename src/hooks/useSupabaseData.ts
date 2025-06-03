@@ -328,7 +328,7 @@ export const useSupabaseData = () => {
     }
   };
 
-  // Função para inserir pagamento - VERSÃO FINAL COM CASTING EXPLÍCITO
+  // Função para inserir pagamento - VERSÃO FINAL COM ORDEM CORRETA DOS PARÂMETROS
   const insertPayment = async (payment: {
     provider_id?: string;
     provider_name: string;
@@ -346,7 +346,7 @@ export const useSupabaseData = () => {
     account_type?: 'bank_account' | 'credit_card';
   }) => {
     try {
-      console.log('=== useSupabaseData.insertPayment - VERSÃO COM CASTING EXPLÍCITO ===');
+      console.log('=== useSupabaseData.insertPayment - VERSÃO COM ORDEM CORRETA ===');
       console.log('Payload recebido:', payment);
 
       // Validações básicas
@@ -366,7 +366,7 @@ export const useSupabaseData = () => {
         throw new Error('Descrição é obrigatória');
       }
 
-      // Validação rigorosa dos ENUMs - usando os valores exatos
+      // Validação rigorosa dos ENUMs
       const validStatuses = ['pending', 'partial', 'completed', 'overdue', 'cancelled'] as const;
       const validTypes = ['full', 'installment', 'advance'] as const;
 
@@ -380,19 +380,21 @@ export const useSupabaseData = () => {
         throw new Error(`Tipo inválido: ${payment.type}. Valores aceitos: ${validTypes.join(', ')}`);
       }
 
-      console.log('=== INSERÇÃO COM CASTING EXPLÍCITO ===');
+      console.log('=== INSERÇÃO COM RPC E ORDEM CORRETA ===');
       console.log('Status:', payment.status, 'Type:', payment.type);
 
-      // Usar SQL direto com casting explícito para garantir tipos corretos
+      // Usar SQL direto com parâmetros na ordem correta (obrigatórios primeiro)
       const { data, error } = await supabase.rpc('insert_payment_with_casting', {
-        p_provider_id: payment.provider_id || null,
+        // PARÂMETROS OBRIGATÓRIOS PRIMEIRO (sem DEFAULT)
         p_provider_name: payment.provider_name.trim(),
         p_amount: payment.amount,
         p_due_date: payment.due_date,
-        p_payment_date: payment.payment_date || null,
         p_status: payment.status,
         p_type: payment.type,
         p_description: payment.description.trim(),
+        // PARÂMETROS OPCIONAIS DEPOIS (com DEFAULT)
+        p_provider_id: payment.provider_id || null,
+        p_payment_date: payment.payment_date || null,
         p_installments: payment.installments || null,
         p_current_installment: payment.current_installment || null,
         p_tags: payment.tags || null,
