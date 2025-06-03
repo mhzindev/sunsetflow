@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -30,6 +29,7 @@ export const ProviderManagement = () => {
   const [showNewProvider, setShowNewProvider] = useState(false);
   const [selectedProvider, setSelectedProvider] = useState<any>(null);
   const [showAccessModal, setShowAccessModal] = useState(false);
+  const [isCreating, setIsCreating] = useState(false);
 
   // Formulário de novo prestador
   const [newProviderForm, setNewProviderForm] = useState({
@@ -73,8 +73,8 @@ export const ProviderManagement = () => {
         fetchServiceProviders(),
         fetchProviderAccess()
       ]);
-      setProviders(providersData);
-      setProviderAccess(accessData);
+      setProviders(providersData || []);
+      setProviderAccess(accessData || []);
     } catch (error) {
       console.error('Erro ao carregar dados:', error);
       showError('Erro', 'Erro ao carregar dados dos prestadores');
@@ -90,35 +90,42 @@ export const ProviderManagement = () => {
       return;
     }
 
+    setIsCreating(true);
     try {
       const providerData = {
         ...newProviderForm,
-        hourly_rate: newProviderForm.hourly_rate ? parseFloat(newProviderForm.hourly_rate) : null
+        hourly_rate: newProviderForm.hourly_rate ? parseFloat(newProviderForm.hourly_rate) : undefined
       };
 
+      console.log('Criando prestador com dados:', providerData);
       const { data, error } = await insertServiceProvider(providerData);
       
       if (error) {
+        console.error('Erro retornado:', error);
         showError('Erro', `Erro ao criar prestador: ${error}`);
         return;
       }
 
-      showSuccess('Sucesso', 'Prestador criado com sucesso!');
-      setNewProviderForm({
-        name: '',
-        email: '',
-        phone: '',
-        service: '',
-        payment_method: 'pix',
-        cpf_cnpj: '',
-        address: '',
-        hourly_rate: ''
-      });
-      setShowNewProvider(false);
-      loadData();
+      if (data) {
+        showSuccess('Sucesso', 'Prestador criado com sucesso!');
+        setNewProviderForm({
+          name: '',
+          email: '',
+          phone: '',
+          service: '',
+          payment_method: 'pix',
+          cpf_cnpj: '',
+          address: '',
+          hourly_rate: ''
+        });
+        setShowNewProvider(false);
+        await loadData();
+      }
     } catch (error) {
-      console.error('Erro ao criar prestador:', error);
+      console.error('Erro inesperado ao criar prestador:', error);
       showError('Erro', 'Erro inesperado ao criar prestador');
+    } finally {
+      setIsCreating(false);
     }
   };
 
@@ -129,46 +136,54 @@ export const ProviderManagement = () => {
       return;
     }
 
+    setIsCreating(true);
     try {
+      console.log('Criando acesso para prestador:', selectedProvider.id);
       const { data, error } = await insertServiceProviderWithAccess(
         selectedProvider,
         accessForm
       );
       
       if (error) {
+        console.error('Erro ao criar acesso:', error);
         showError('Erro', `Erro ao criar acesso: ${error}`);
         return;
       }
 
-      showSuccess('Sucesso', `Acesso criado! Código: ${data.access?.access_code}`);
-      setAccessForm({
-        access_email: '',
-        password: '',
-        permissions: {
-          can_view_missions: true,
-          can_create_expenses: true,
-          can_update_missions: false
-        }
-      });
-      setShowAccessModal(false);
-      setSelectedProvider(null);
-      loadData();
+      if (data?.access) {
+        showSuccess('Sucesso', `Acesso criado! Código: ${data.access.access_code}`);
+        setAccessForm({
+          access_email: '',
+          password: '',
+          permissions: {
+            can_view_missions: true,
+            can_create_expenses: true,
+            can_update_missions: false
+          }
+        });
+        setShowAccessModal(false);
+        setSelectedProvider(null);
+        await loadData();
+      }
     } catch (error) {
-      console.error('Erro ao criar acesso:', error);
+      console.error('Erro inesperado ao criar acesso:', error);
       showError('Erro', 'Erro inesperado ao criar acesso');
+    } finally {
+      setIsCreating(false);
     }
   };
 
-  const getProviderAccess = (providerId: string) => {
+  // Helper functions
+  function getProviderAccess(providerId: string) {
     return providerAccess.find(access => access.provider_id === providerId);
-  };
+  }
 
-  const formatCurrency = (value: number) => {
+  function formatCurrency(value: number) {
     return new Intl.NumberFormat('pt-BR', {
       style: 'currency',
       currency: 'BRL'
     }).format(value);
-  };
+  }
 
   if (loading) {
     return (
@@ -182,7 +197,7 @@ export const ProviderManagement = () => {
     <div className="space-y-6">
       <div className="flex justify-between items-center">
         <h4 className="text-lg font-semibold">Prestadores de Serviços</h4>
-        <Button onClick={() => setShowNewProvider(true)}>
+        <Button onClick={() => setShowNewProvider(true)} disabled={isCreating}>
           <Plus className="w-4 h-4 mr-2" />
           Novo Prestador
         </Button>
@@ -251,6 +266,7 @@ export const ProviderManagement = () => {
                       setSelectedProvider(provider);
                       setShowAccessModal(true);
                     }}
+                    disabled={isCreating}
                   >
                     <Key className="w-4 h-4 mr-1" />
                     {access ? 'Recriar Acesso' : 'Criar Acesso'}
@@ -364,14 +380,15 @@ export const ProviderManagement = () => {
             </div>
 
             <div className="flex gap-4 pt-4">
-              <Button type="submit" className="flex-1">
-                Criar Prestador
+              <Button type="submit" className="flex-1" disabled={isCreating}>
+                {isCreating ? 'Criando...' : 'Criar Prestador'}
               </Button>
               <Button 
                 type="button" 
                 variant="outline" 
                 onClick={() => setShowNewProvider(false)}
                 className="flex-1"
+                disabled={isCreating}
               >
                 Cancelar
               </Button>
@@ -467,14 +484,15 @@ export const ProviderManagement = () => {
             </div>
 
             <div className="flex gap-4 pt-4">
-              <Button type="submit" className="flex-1">
-                Criar Acesso
+              <Button type="submit" className="flex-1" disabled={isCreating}>
+                {isCreating ? 'Criando...' : 'Criar Acesso'}
               </Button>
               <Button 
                 type="button" 
                 variant="outline" 
                 onClick={() => setShowAccessModal(false)}
                 className="flex-1"
+                disabled={isCreating}
               >
                 Cancelar
               </Button>

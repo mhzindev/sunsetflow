@@ -108,25 +108,24 @@ export const useSupabaseData = () => {
     }
   };
 
-  // Função para buscar fornecedores - OTIMIZADA
+  // Função para buscar fornecedores - CORRIGIDA
   const fetchServiceProviders = async () => {
     try {
-      console.log('Buscando fornecedores...');
+      console.log('Buscando prestadores de serviço...');
       const { data, error } = await supabase
         .from('service_providers')
         .select('*')
-        .eq('active', true)
         .order('name', { ascending: true });
 
       if (error) {
-        console.error('Erro SQL ao buscar fornecedores:', error);
+        console.error('Erro SQL ao buscar prestadores:', error);
         return [];
       }
       
-      console.log('Fornecedores encontrados:', data?.length || 0);
+      console.log('Prestadores encontrados:', data?.length || 0);
       return data || [];
     } catch (err) {
-      console.error('Erro ao buscar fornecedores:', err);
+      console.error('Erro ao buscar prestadores:', err);
       return [];
     }
   };
@@ -552,7 +551,7 @@ export const useSupabaseData = () => {
     }
   };
 
-  // Função para inserir fornecedor - MELHORADA
+  // Função para inserir fornecedor - CORRIGIDA
   const insertServiceProvider = async (provider: {
     name: string;
     email: string;
@@ -564,63 +563,78 @@ export const useSupabaseData = () => {
     hourly_rate?: number;
   }) => {
     try {
-      console.log('Inserindo fornecedor:', provider);
+      if (!user) {
+        console.error('Usuário não autenticado');
+        return { data: null, error: 'Usuário não autenticado' };
+      }
+
+      console.log('Inserindo prestador de serviço:', provider);
 
       const { data, error } = await supabase
         .from('service_providers')
         .insert({
-          ...provider,
-          active: true
+          name: provider.name,
+          email: provider.email,
+          phone: provider.phone,
+          service: provider.service,
+          payment_method: provider.payment_method,
+          cpf_cnpj: provider.cpf_cnpj || null,
+          address: provider.address || null,
+          hourly_rate: provider.hourly_rate || null,
+          active: true,
+          has_system_access: false
         })
         .select()
         .single();
 
       if (error) {
-        console.error('Erro SQL ao inserir fornecedor:', error);
-        throw error;
+        console.error('Erro SQL ao inserir prestador:', error);
+        return { data: null, error: error.message };
       }
 
-      console.log('Fornecedor inserido com sucesso:', data);
+      console.log('Prestador inserido com sucesso:', data);
       return { data, error: null };
     } catch (err) {
-      console.error('Erro ao inserir fornecedor:', err);
+      console.error('Erro ao inserir prestador:', err);
       return { data: null, error: err instanceof Error ? err.message : 'Erro desconhecido' };
     }
   };
 
-  // Função para inserir prestador com acesso
-  const insertServiceProviderWithAccess = async (provider: {
-    name: string;
-    email: string;
-    phone: string;
-    service: string;
-    payment_method: string;
-    cpf_cnpj?: string;
-    address?: string;
-    specialties?: string[];
-    hourly_rate?: number;
-  }, accessData?: {
+  // Função para inserir prestador com acesso - CORRIGIDA
+  const insertServiceProviderWithAccess = async (provider: any, accessData?: {
     access_email: string;
     password: string;
     permissions: any;
   }) => {
     try {
+      if (!user) {
+        console.error('Usuário não autenticado');
+        return { data: null, error: 'Usuário não autenticado' };
+      }
+
       console.log('Inserindo prestador com acesso:', { provider, accessData });
 
       // Primeiro inserir o prestador
       const { data: providerData, error: providerError } = await supabase
         .from('service_providers')
         .insert({
-          ...provider,
-          has_system_access: !!accessData,
-          active: true
+          name: provider.name,
+          email: provider.email,
+          phone: provider.phone,
+          service: provider.service,
+          payment_method: provider.payment_method,
+          cpf_cnpj: provider.cpf_cnpj || null,
+          address: provider.address || null,
+          hourly_rate: provider.hourly_rate || null,
+          active: true,
+          has_system_access: !!accessData
         })
         .select()
         .single();
 
       if (providerError) {
         console.error('Erro SQL ao inserir prestador:', providerError);
-        throw providerError;
+        return { data: null, error: providerError.message };
       }
 
       // Se há dados de acesso, criar o acesso
@@ -644,7 +658,7 @@ export const useSupabaseData = () => {
           console.error('Erro ao criar acesso:', accessError);
           // Em caso de erro, remover o prestador criado
           await supabase.from('service_providers').delete().eq('id', providerData.id);
-          throw accessError;
+          return { data: null, error: accessError.message };
         }
 
         console.log('Prestador e acesso criados com sucesso:', { providerData, accessResult });
@@ -654,24 +668,29 @@ export const useSupabaseData = () => {
       console.log('Prestador criado com sucesso:', providerData);
       return { data: { provider: providerData }, error: null };
     } catch (err) {
-      console.error('Erro ao inserir prestador:', err);
+      console.error('Erro ao inserir prestador com acesso:', err);
       return { data: null, error: err instanceof Error ? err.message : 'Erro desconhecido' };
     }
   };
 
-  // Função para buscar acessos de prestadores
+  // Função para buscar acessos de prestadores - CORRIGIDA
   const fetchProviderAccess = async () => {
     try {
+      console.log('Buscando acessos de prestadores...');
       const { data, error } = await supabase
         .from('service_provider_access')
         .select(`
           *,
           service_providers:provider_id(name, email, phone, service)
         `)
-        .eq('is_active', true)
         .order('created_at', { ascending: false });
 
-      if (error) throw error;
+      if (error) {
+        console.error('Erro ao buscar acessos:', error);
+        return [];
+      }
+      
+      console.log('Acessos encontrados:', data?.length || 0);
       return data || [];
     } catch (err) {
       console.error('Erro ao buscar acessos de prestadores:', err);
