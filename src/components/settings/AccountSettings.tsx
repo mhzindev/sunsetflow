@@ -4,15 +4,14 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { useAuth } from "@/contexts/AuthContext";
+import { useProfile } from "@/hooks/useProfile";
 import { Eye, EyeOff, Save, User } from "lucide-react";
-import { useToast } from "@/hooks/use-toast";
 
 export const AccountSettings = () => {
-  const { profile } = useAuth();
-  const { toast } = useToast();
+  const { profile, loading, updateProfile } = useProfile();
   const [showPassword, setShowPassword] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
+  const [saving, setSaving] = useState(false);
   
   const [formData, setFormData] = useState({
     name: profile?.name || '',
@@ -23,14 +22,84 @@ export const AccountSettings = () => {
     confirmPassword: ''
   });
 
-  const handleSave = () => {
-    // Aqui seria a integração com o backend para atualizar os dados
-    toast({
-      title: "Dados atualizados",
-      description: "Suas informações foram atualizadas com sucesso.",
+  // Atualizar formData quando profile mudar
+  useState(() => {
+    if (profile) {
+      setFormData(prev => ({
+        ...prev,
+        name: profile.name || '',
+        email: profile.email || '',
+        phone: profile.phone || ''
+      }));
+    }
+  }, [profile]);
+
+  const handleSave = async () => {
+    setSaving(true);
+    
+    try {
+      // Validações
+      if (formData.newPassword && formData.newPassword !== formData.confirmPassword) {
+        throw new Error('As senhas não coincidem');
+      }
+
+      if (formData.newPassword && !formData.currentPassword) {
+        throw new Error('Digite a senha atual para alterar a senha');
+      }
+
+      if (formData.newPassword && formData.newPassword.length < 6) {
+        throw new Error('A nova senha deve ter pelo menos 6 caracteres');
+      }
+
+      const { error } = await updateProfile({
+        name: formData.name,
+        email: formData.email,
+        phone: formData.phone,
+        currentPassword: formData.currentPassword || undefined,
+        newPassword: formData.newPassword || undefined
+      });
+
+      if (!error) {
+        setIsEditing(false);
+        // Limpar campos de senha
+        setFormData(prev => ({
+          ...prev,
+          currentPassword: '',
+          newPassword: '',
+          confirmPassword: ''
+        }));
+      }
+    } catch (error) {
+      console.error('Erro ao salvar:', error);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleCancel = () => {
+    // Restaurar dados originais
+    setFormData({
+      name: profile?.name || '',
+      email: profile?.email || '',
+      phone: profile?.phone || '',
+      currentPassword: '',
+      newPassword: '',
+      confirmPassword: ''
     });
     setIsEditing(false);
   };
+
+  if (loading) {
+    return (
+      <div className="space-y-6">
+        <Card>
+          <CardContent className="p-6">
+            <div className="text-center">Carregando dados do perfil...</div>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -81,11 +150,15 @@ export const AccountSettings = () => {
               </Button>
             ) : (
               <>
-                <Button onClick={handleSave} className="bg-green-600 hover:bg-green-700">
+                <Button 
+                  onClick={handleSave} 
+                  className="bg-green-600 hover:bg-green-700"
+                  disabled={saving}
+                >
                   <Save className="w-4 h-4 mr-2" />
-                  Salvar
+                  {saving ? 'Salvando...' : 'Salvar'}
                 </Button>
-                <Button onClick={() => setIsEditing(false)} variant="outline">
+                <Button onClick={handleCancel} variant="outline" disabled={saving}>
                   Cancelar
                 </Button>
               </>
@@ -142,10 +215,11 @@ export const AccountSettings = () => {
           </div>
           
           <Button 
+            onClick={handleSave}
             className="bg-blue-600 hover:bg-blue-700"
-            disabled={!formData.currentPassword || !formData.newPassword || formData.newPassword !== formData.confirmPassword}
+            disabled={!formData.currentPassword || !formData.newPassword || formData.newPassword !== formData.confirmPassword || saving}
           >
-            Alterar Senha
+            {saving ? 'Alterando...' : 'Alterar Senha'}
           </Button>
         </CardContent>
       </Card>
