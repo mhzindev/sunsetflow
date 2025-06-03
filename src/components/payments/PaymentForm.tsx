@@ -14,11 +14,7 @@ import {
   PaymentType, 
   PaymentCreateData,
   PAYMENT_STATUS_VALUES,
-  PAYMENT_TYPE_VALUES,
-  isValidPaymentStatus,
-  isValidPaymentType,
-  toPaymentStatus,
-  toPaymentType
+  PAYMENT_TYPE_VALUES
 } from '@/types/payment';
 
 interface PaymentFormProps {
@@ -26,7 +22,7 @@ interface PaymentFormProps {
   onCancel?: () => void;
 }
 
-// Interface para o estado do formulário com tipos corretos
+// Interface para o estado do formulário
 interface FormDataState {
   provider_id: string;
   provider_name: string;
@@ -39,7 +35,7 @@ interface FormDataState {
   notes: string;
 }
 
-// Opções do formulário com validação rigorosa - VALORES EXATOS DO BANCO
+// Opções do formulário
 const PAYMENT_STATUS_OPTIONS: { value: PaymentStatus; label: string }[] = [
   { value: 'pending', label: 'Pendente' },
   { value: 'partial', label: 'Parcial' },
@@ -58,7 +54,6 @@ export const PaymentForm = ({ onSubmit, onCancel }: PaymentFormProps) => {
   const [loading, setLoading] = useState(false);
   const [selectedProvider, setSelectedProvider] = useState<any>(null);
   
-  // Estado com tipagem correta usando a interface
   const [formData, setFormData] = useState<FormDataState>({
     provider_id: '',
     provider_name: '',
@@ -104,7 +99,7 @@ export const PaymentForm = ({ onSubmit, onCancel }: PaymentFormProps) => {
       errors.push('Descrição é obrigatória');
     }
 
-    // Validação rigorosa dos ENUMs com valores exatos
+    // Validação dos ENUMs
     const validStatuses = ['pending', 'partial', 'completed', 'overdue', 'cancelled'];
     const validTypes = ['full', 'installment', 'advance'];
 
@@ -122,10 +117,9 @@ export const PaymentForm = ({ onSubmit, onCancel }: PaymentFormProps) => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    console.log('=== SUBMISSÃO FORMULÁRIO - VERSÃO CORRIGIDA ===');
-    console.log('Dados do formulário ANTES da validação:', formData);
+    console.log('=== SUBMISSÃO FORMULÁRIO - ESTRUTURA FINAL CORRIGIDA ===');
+    console.log('Dados do formulário:', formData);
     
-    // Validação do formulário
     const validationErrors = validateForm();
     if (validationErrors.length > 0) {
       console.error('Erros de validação:', validationErrors);
@@ -133,7 +127,6 @@ export const PaymentForm = ({ onSubmit, onCancel }: PaymentFormProps) => {
       return;
     }
 
-    // Validação e conversão do valor
     const amount = parseFloat(formData.amount);
     if (isNaN(amount) || amount <= 0) {
       console.error('Valor inválido:', formData.amount);
@@ -144,15 +137,14 @@ export const PaymentForm = ({ onSubmit, onCancel }: PaymentFormProps) => {
     setLoading(true);
     
     try {
-      // Preparar dados com valores EXATOS dos ENUMs
       const paymentData: PaymentCreateData = {
         provider_id: formData.provider_id || undefined,
         provider_name: formData.provider_name.trim(),
         amount: Number(amount.toFixed(2)),
         due_date: formData.due_date,
         payment_date: formData.payment_date || undefined,
-        status: formData.status, // Usar diretamente o valor validado
-        type: formData.type, // Usar diretamente o valor validado
+        status: formData.status,
+        type: formData.type,
         description: formData.description.trim(),
         notes: formData.notes?.trim() || undefined,
         tags: undefined,
@@ -164,13 +156,11 @@ export const PaymentForm = ({ onSubmit, onCancel }: PaymentFormProps) => {
 
       console.log('=== PAYLOAD FINAL PARA RPC ===');
       console.log('Payload:', JSON.stringify(paymentData, null, 2));
-      console.log('Status (tipo):', typeof paymentData.status, '- Valor:', paymentData.status);
-      console.log('Type (tipo):', typeof paymentData.type, '- Valor:', paymentData.type);
       
       const { data, error } = await insertPayment(paymentData);
       
       if (error) {
-        console.error('=== ERRO RETORNADO DO SUPABASE ===');
+        console.error('=== ERRO RETORNADO ===');
         console.error('Erro:', error);
         showError('Erro ao Criar Pagamento', error);
         return;
@@ -181,7 +171,7 @@ export const PaymentForm = ({ onSubmit, onCancel }: PaymentFormProps) => {
       
       showSuccess('Sucesso', 'Pagamento registrado com sucesso!');
       
-      // Reset do formulário com valores padrão SEGUROS
+      // Reset do formulário
       setFormData({
         provider_id: '',
         provider_name: '',

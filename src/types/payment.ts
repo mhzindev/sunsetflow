@@ -78,8 +78,8 @@ export interface PaymentCreateData {
   amount: number;
   due_date: string;
   payment_date?: string;
-  status: PaymentStatus; // ENUM rigoroso
-  type: PaymentType; // ENUM rigoroso
+  status: PaymentStatus;
+  type: PaymentType;
   description: string;
   installments?: number;
   current_installment?: number;

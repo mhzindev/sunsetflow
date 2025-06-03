@@ -328,7 +328,7 @@ export const useSupabaseData = () => {
     }
   };
 
-  // Função para inserir pagamento - VERSÃO FINAL COM VALIDAÇÃO RIGOROSA
+  // Função para inserir pagamento - VERSÃO FINAL CORRIGIDA
   const insertPayment = async (payment: {
     provider_id?: string;
     provider_name: string;
@@ -346,7 +346,7 @@ export const useSupabaseData = () => {
     account_type?: 'bank_account' | 'credit_card';
   }) => {
     try {
-      console.log('=== useSupabaseData.insertPayment - VERSÃO VALIDAÇÃO RIGOROSA ===');
+      console.log('=== useSupabaseData.insertPayment - VERSÃO FINAL CORRIGIDA ===');
       console.log('Payload recebido:', payment);
 
       // Validações básicas
@@ -366,7 +366,7 @@ export const useSupabaseData = () => {
         throw new Error('Descrição é obrigatória');
       }
 
-      // Validação ULTRA rigorosa dos ENUMs - valores exatos do banco
+      // Validação rigorosa dos ENUMs - valores exatos
       const validStatuses = ['pending', 'partial', 'completed', 'overdue', 'cancelled'] as const;
       const validTypes = ['full', 'installment', 'advance'] as const;
 
@@ -380,20 +380,18 @@ export const useSupabaseData = () => {
         throw new Error(`Tipo inválido: ${payment.type}. Valores aceitos: ${validTypes.join(', ')}`);
       }
 
-      console.log('=== INSERÇÃO COM RPC - VALIDAÇÃO APROVADA ===');
+      console.log('=== INSERÇÃO COM RPC - ESTRUTURA CORRIGIDA ===');
       console.log('Status final:', payment.status, '(tipo:', typeof payment.status, ')');
       console.log('Type final:', payment.type, '(tipo:', typeof payment.type, ')');
 
-      // Usar a função RPC com parâmetros na ordem correta
+      // Usar a função RPC com a estrutura corrigida
       const { data, error } = await supabase.rpc('insert_payment_with_casting', {
-        // PARÂMETROS OBRIGATÓRIOS PRIMEIRO (sem DEFAULT)
         p_provider_name: payment.provider_name.trim(),
         p_amount: payment.amount,
         p_due_date: payment.due_date,
-        p_status: payment.status, // String que será convertida pelo SQL
-        p_type: payment.type, // String que será convertida pelo SQL
+        p_status: payment.status,
+        p_type: payment.type,
         p_description: payment.description.trim(),
-        // PARÂMETROS OPCIONAIS DEPOIS (com DEFAULT)
         p_provider_id: payment.provider_id || null,
         p_payment_date: payment.payment_date || null,
         p_installments: payment.installments || null,
