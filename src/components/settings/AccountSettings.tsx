@@ -1,5 +1,5 @@
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -23,7 +23,7 @@ export const AccountSettings = () => {
   });
 
   // Atualizar formData quando profile mudar
-  useState(() => {
+  useEffect(() => {
     if (profile) {
       setFormData(prev => ({
         ...prev,

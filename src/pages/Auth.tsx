@@ -1,4 +1,3 @@
-
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -47,7 +46,7 @@ const Auth = () => {
     if (error) {
       toast({
         title: "Erro no login",
-        description: error.message,
+        description: error,
         variant: "destructive"
       });
     } else {
@@ -94,7 +93,7 @@ const Auth = () => {
     if (error) {
       toast({
         title: "Erro no cadastro",
-        description: error.message,
+        description: error,
         variant: "destructive"
       });
     } else {
