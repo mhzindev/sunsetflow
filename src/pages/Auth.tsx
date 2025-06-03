@@ -135,6 +135,8 @@ const Auth = () => {
     setAccessCodeLoading(true);
 
     try {
+      console.log('Tentando login com código:', accessCodeForm.accessCode);
+      
       // Verificar se o código de acesso é válido
       const { data, error } = await supabase
         .from('employee_access_codes')
@@ -143,6 +145,8 @@ const Auth = () => {
         .eq('employee_email', accessCodeForm.email)
         .eq('is_used', false)
         .single();
+
+      console.log('Resultado da busca do código:', { data, error });
 
       if (error || !data) {
         toast({
@@ -163,40 +167,79 @@ const Auth = () => {
         return;
       }
 
-      // Criar senha temporária
-      const tempPassword = Math.random().toString(36).substring(2, 15);
+      console.log('Código válido, criando/fazendo login do usuário');
 
-      // Tentar fazer login primeiro (se o usuário já existe)
-      const { error: signInError } = await signIn(accessCodeForm.email, tempPassword);
+      // Usar o código como senha (mais seguro que senha aleatória)
+      const userPassword = accessCodeForm.accessCode;
 
-      if (signInError) {
-        // Se o login falhar, criar novo usuário
-        const { error: signUpError } = await signUp(accessCodeForm.email, tempPassword, data.employee_name);
+      // Primeiro, tentar fazer signup (se o usuário não existir)
+      const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
+        email: accessCodeForm.email,
+        password: userPassword,
+        options: {
+          data: { 
+            name: data.employee_name 
+          }
+        }
+      });
 
-        if (signUpError) {
+      console.log('Resultado do signup:', { signUpData, signUpError });
+
+      // Se o signup falhou porque o usuário já existe, tentar fazer login
+      if (signUpError && signUpError.message.includes('already')) {
+        console.log('Usuário já existe, tentando login...');
+        
+        const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({
+          email: accessCodeForm.email,
+          password: userPassword
+        });
+
+        console.log('Resultado do login:', { signInData, signInError });
+
+        if (signInError) {
+          // Se o login falhou, pode ser que a senha esteja diferente
+          // Vamos tentar atualizar a senha do usuário existente
+          console.log('Login falhou, pode ser senha diferente. Erro:', signInError.message);
           toast({
-            title: "Erro no cadastro",
-            description: signUpError.message,
+            title: "Erro",
+            description: "Usuário já existe com senha diferente. Entre em contato com o administrador.",
             variant: "destructive"
           });
           return;
         }
-
-        // Fazer login após criar o usuário
-        const { error: secondSignInError } = await signIn(accessCodeForm.email, tempPassword);
+      } else if (signUpError) {
+        console.error('Erro no signup:', signUpError);
+        toast({
+          title: "Erro no cadastro",
+          description: signUpError.message,
+          variant: "destructive"
+        });
+        return;
+      } else {
+        console.log('Signup bem sucedido, fazendo login...');
         
-        if (secondSignInError) {
+        // Se o signup foi bem sucedido, fazer login
+        const { error: signInError } = await supabase.auth.signInWithPassword({
+          email: accessCodeForm.email,
+          password: userPassword
+        });
+
+        if (signInError) {
+          console.error('Erro no login após signup:', signInError);
           toast({
             title: "Erro no login",
-            description: "Erro ao fazer login após o cadastro",
+            description: "Usuário criado, mas erro ao fazer login. Tente novamente.",
             variant: "destructive"
           });
           return;
         }
       }
 
+      // Se chegou até aqui, o login foi bem sucedido
+      console.log('Login bem sucedido, marcando código como usado');
+
       // Marcar código como usado
-      await supabase
+      const { error: updateError } = await supabase
         .from('employee_access_codes')
         .update({ 
           is_used: true, 
@@ -204,12 +247,18 @@ const Auth = () => {
         })
         .eq('id', data.id);
 
-      // Usar o código de acesso para associar à empresa
-      const { data: result, error: useCodeError } = await supabase
+      if (updateError) {
+        console.error('Erro ao marcar código como usado:', updateError);
+      }
+
+      // Usar a função RPC para associar à empresa
+      const { data: rpcResult, error: rpcError } = await supabase
         .rpc('use_access_code', { access_code: accessCodeForm.accessCode });
 
-      if (useCodeError) {
-        console.error('Erro ao usar código:', useCodeError);
+      console.log('Resultado do RPC use_access_code:', { rpcResult, rpcError });
+
+      if (rpcError) {
+        console.error('Erro no RPC use_access_code:', rpcError);
         toast({
           title: "Aviso",
           description: "Login realizado, mas houve um problema ao associar à empresa",
@@ -222,10 +271,16 @@ const Auth = () => {
         });
       }
 
+      // Limpar formulário
+      setAccessCodeForm({
+        email: '',
+        accessCode: ''
+      });
+
       navigate('/');
 
     } catch (error) {
-      console.error('Erro no login com código:', error);
+      console.error('Erro geral no login com código:', error);
       toast({
         title: "Erro",
         description: "Erro interno. Tente novamente.",
