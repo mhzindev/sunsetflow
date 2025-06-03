@@ -1,4 +1,5 @@
-import { useState } from 'react';
+
+import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -14,15 +15,31 @@ export const CompanySettings = () => {
   const [isEditing, setIsEditing] = useState(false);
   
   const [formData, setFormData] = useState({
-    name: company?.name || '',
-    legalName: company?.legalName || '',
-    cnpj: company?.cnpj || '',
-    email: company?.email || '',
-    phone: company?.phone || '',
-    address: company?.address || ''
+    name: '',
+    legalName: '',
+    cnpj: '',
+    email: '',
+    phone: '',
+    address: ''
   });
 
+  // Sincronizar formData com os dados da empresa quando ela for carregada
+  useEffect(() => {
+    console.log('Company data changed:', company);
+    if (company) {
+      setFormData({
+        name: company.name || '',
+        legalName: company.legalName || '',
+        cnpj: company.cnpj || '',
+        email: company.email || '',
+        phone: company.phone || '',
+        address: company.address || ''
+      });
+    }
+  }, [company]);
+
   const handleSave = async () => {
+    console.log('Saving form data:', formData);
     if (company) {
       await updateCompany(formData);
       setIsEditing(false);
@@ -32,14 +49,25 @@ export const CompanySettings = () => {
   };
 
   const handleCancel = () => {
-    setFormData({
-      name: company?.name || '',
-      legalName: company?.legalName || '',
-      cnpj: company?.cnpj || '',
-      email: company?.email || '',
-      phone: company?.phone || '',
-      address: company?.address || ''
-    });
+    if (company) {
+      setFormData({
+        name: company.name || '',
+        legalName: company.legalName || '',
+        cnpj: company.cnpj || '',
+        email: company.email || '',
+        phone: company.phone || '',
+        address: company.address || ''
+      });
+    } else {
+      setFormData({
+        name: '',
+        legalName: '',
+        cnpj: '',
+        email: '',
+        phone: '',
+        address: ''
+      });
+    }
     setIsEditing(false);
   };
 

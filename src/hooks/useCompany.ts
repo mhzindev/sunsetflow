@@ -13,44 +13,32 @@ export const useCompany = () => {
   const [error, setError] = useState<string | null>(null);
 
   const fetchCompany = async () => {
-    if (!user || !profile) return;
+    if (!user || !profile) {
+      setLoading(false);
+      return;
+    }
 
     try {
       setLoading(true);
+      console.log('Fetching company for user:', user.id, 'with profile:', profile);
       
       // Se o usuário tem company_id no perfil, buscar a empresa
       if (profile.company_id) {
+        console.log('Fetching company by company_id:', profile.company_id);
         const { data, error } = await supabase
           .from('companies')
           .select('*')
           .eq('id', profile.company_id)
           .single();
 
-        if (error) throw error;
-        
-        // Mapear os campos do banco para a interface TypeScript
-        setCompany({
-          id: data.id,
-          name: data.name,
-          legalName: data.legal_name,
-          cnpj: data.cnpj,
-          email: data.email,
-          phone: data.phone,
-          address: data.address,
-          createdAt: data.created_at,
-          ownerId: data.owner_id
-        });
-      } else if (profile.role === 'admin') {
-        // Se é admin sem empresa, buscar empresa que ele possui
-        const { data, error } = await supabase
-          .from('companies')
-          .select('*')
-          .eq('owner_id', user.id)
-          .maybeSingle();
-
-        if (error) throw error;
+        if (error) {
+          console.error('Error fetching company by company_id:', error);
+          throw error;
+        }
         
         if (data) {
+          console.log('Company data found:', data);
+          // Mapear os campos do banco para a interface TypeScript
           setCompany({
             id: data.id,
             name: data.name,
@@ -62,6 +50,37 @@ export const useCompany = () => {
             createdAt: data.created_at,
             ownerId: data.owner_id
           });
+        }
+      } else if (profile.role === 'admin') {
+        // Se é admin sem empresa, buscar empresa que ele possui
+        console.log('Fetching company by owner_id:', user.id);
+        const { data, error } = await supabase
+          .from('companies')
+          .select('*')
+          .eq('owner_id', user.id)
+          .maybeSingle();
+
+        if (error) {
+          console.error('Error fetching company by owner_id:', error);
+          throw error;
+        }
+        
+        if (data) {
+          console.log('Company data found by owner:', data);
+          setCompany({
+            id: data.id,
+            name: data.name,
+            legalName: data.legal_name,
+            cnpj: data.cnpj,
+            email: data.email,
+            phone: data.phone,
+            address: data.address,
+            createdAt: data.created_at,
+            ownerId: data.owner_id
+          });
+        } else {
+          console.log('No company found for admin user');
+          setCompany(null);
         }
       }
     } catch (err) {
@@ -76,6 +95,7 @@ export const useCompany = () => {
     if (!user) throw new Error('Usuário não autenticado');
 
     try {
+      console.log('Creating company with data:', companyData);
       const { data, error } = await supabase
         .from('companies')
         .insert({
@@ -90,7 +110,12 @@ export const useCompany = () => {
         .select()
         .single();
 
-      if (error) throw error;
+      if (error) {
+        console.error('Error creating company:', error);
+        throw error;
+      }
+
+      console.log('Company created successfully:', data);
 
       // Atualizar o perfil do usuário para associar à empresa
       const { error: profileError } = await supabase
@@ -98,7 +123,10 @@ export const useCompany = () => {
         .update({ company_id: data.id })
         .eq('id', user.id);
 
-      if (profileError) throw profileError;
+      if (profileError) {
+        console.error('Error updating profile:', profileError);
+        throw profileError;
+      }
 
       const mappedCompany = {
         id: data.id,
@@ -122,6 +150,7 @@ export const useCompany = () => {
       return { data: mappedCompany, error: null };
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Erro ao criar empresa';
+      console.error('Create company error:', err);
       toast({
         title: "Erro",
         description: errorMessage,
@@ -135,13 +164,14 @@ export const useCompany = () => {
     if (!company) throw new Error('Nenhuma empresa carregada');
 
     try {
+      console.log('Updating company with data:', companyData);
       const updateData: any = {};
-      if (companyData.name) updateData.name = companyData.name;
-      if (companyData.legalName) updateData.legal_name = companyData.legalName;
-      if (companyData.cnpj) updateData.cnpj = companyData.cnpj;
-      if (companyData.email) updateData.email = companyData.email;
-      if (companyData.phone) updateData.phone = companyData.phone;
-      if (companyData.address) updateData.address = companyData.address;
+      if (companyData.name !== undefined) updateData.name = companyData.name;
+      if (companyData.legalName !== undefined) updateData.legal_name = companyData.legalName;
+      if (companyData.cnpj !== undefined) updateData.cnpj = companyData.cnpj;
+      if (companyData.email !== undefined) updateData.email = companyData.email;
+      if (companyData.phone !== undefined) updateData.phone = companyData.phone;
+      if (companyData.address !== undefined) updateData.address = companyData.address;
 
       const { data, error } = await supabase
         .from('companies')
@@ -150,7 +180,12 @@ export const useCompany = () => {
         .select()
         .single();
 
-      if (error) throw error;
+      if (error) {
+        console.error('Error updating company:', error);
+        throw error;
+      }
+
+      console.log('Company updated successfully:', data);
 
       const mappedCompany = {
         id: data.id,
@@ -174,6 +209,7 @@ export const useCompany = () => {
       return { data: mappedCompany, error: null };
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Erro ao atualizar empresa';
+      console.error('Update company error:', err);
       toast({
         title: "Erro",
         description: errorMessage,
