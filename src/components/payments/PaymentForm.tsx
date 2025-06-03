@@ -9,26 +9,36 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useSupabaseData } from '@/hooks/useSupabaseData';
 import { useToastFeedback } from '@/hooks/useToastFeedback';
 import { ProviderSelector } from './ProviderSelector';
-import { PaymentStatus, PaymentType, PaymentCreateData } from '@/types/payment';
+import { 
+  PaymentStatus, 
+  PaymentType, 
+  PaymentCreateData,
+  PAYMENT_STATUS_VALUES,
+  PAYMENT_TYPE_VALUES,
+  isValidPaymentStatus,
+  isValidPaymentType,
+  toPaymentStatus,
+  toPaymentType
+} from '@/types/payment';
 
 interface PaymentFormProps {
   onSubmit?: (payment: any) => void;
   onCancel?: () => void;
 }
 
-// Valores exatos do banco de dados - enums do Supabase
+// Opções do formulário com validação rigorosa - VALORES EXATOS DO BANCO
 const PAYMENT_STATUS_OPTIONS: { value: PaymentStatus; label: string }[] = [
-  { value: 'pending', label: 'Pendente' },
-  { value: 'partial', label: 'Parcial' },
-  { value: 'completed', label: 'Pago' },
-  { value: 'overdue', label: 'Atrasado' },
-  { value: 'cancelled', label: 'Cancelado' }
+  { value: PAYMENT_STATUS_VALUES.PENDING, label: 'Pendente' },
+  { value: PAYMENT_STATUS_VALUES.PARTIAL, label: 'Parcial' },
+  { value: PAYMENT_STATUS_VALUES.COMPLETED, label: 'Pago' },
+  { value: PAYMENT_STATUS_VALUES.OVERDUE, label: 'Atrasado' },
+  { value: PAYMENT_STATUS_VALUES.CANCELLED, label: 'Cancelado' }
 ];
 
 const PAYMENT_TYPE_OPTIONS: { value: PaymentType; label: string }[] = [
-  { value: 'full', label: 'Pagamento Completo' },
-  { value: 'installment', label: 'Parcela' },
-  { value: 'advance', label: 'Adiantamento' }
+  { value: PAYMENT_TYPE_VALUES.FULL, label: 'Pagamento Completo' },
+  { value: PAYMENT_TYPE_VALUES.INSTALLMENT, label: 'Parcela' },
+  { value: PAYMENT_TYPE_VALUES.ADVANCE, label: 'Adiantamento' }
 ];
 
 export const PaymentForm = ({ onSubmit, onCancel }: PaymentFormProps) => {
@@ -40,8 +50,8 @@ export const PaymentForm = ({ onSubmit, onCancel }: PaymentFormProps) => {
     amount: '',
     due_date: new Date().toISOString().split('T')[0],
     payment_date: '',
-    status: 'pending' as PaymentStatus,
-    type: 'full' as PaymentType,
+    status: PAYMENT_STATUS_VALUES.PENDING, // Usar constante
+    type: PAYMENT_TYPE_VALUES.FULL, // Usar constante
     description: '',
     notes: ''
   });
@@ -79,16 +89,13 @@ export const PaymentForm = ({ onSubmit, onCancel }: PaymentFormProps) => {
       errors.push('Descrição é obrigatória');
     }
 
-    // Validar se o status é válido
-    const validStatuses = PAYMENT_STATUS_OPTIONS.map(opt => opt.value);
-    if (!validStatuses.includes(formData.status)) {
-      errors.push('Status inválido');
+    // Validação rigorosa dos ENUMs
+    if (!isValidPaymentStatus(formData.status)) {
+      errors.push(`Status inválido: ${formData.status}`);
     }
 
-    // Validar se o tipo é válido
-    const validTypes = PAYMENT_TYPE_OPTIONS.map(opt => opt.value);
-    if (!validTypes.includes(formData.type)) {
-      errors.push('Tipo de pagamento inválido');
+    if (!isValidPaymentType(formData.type)) {
+      errors.push(`Tipo inválido: ${formData.type}`);
     }
 
     return errors;
@@ -97,8 +104,8 @@ export const PaymentForm = ({ onSubmit, onCancel }: PaymentFormProps) => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    console.log('=== INÍCIO DA SUBMISSÃO - VERSÃO CORRIGIDA ===');
-    console.log('Dados do formulário:', formData);
+    console.log('=== SUBMISSÃO FORMULÁRIO - VERSÃO CORRIGIDA TIPOS ===');
+    console.log('Dados do formulário ANTES da validação:', formData);
     
     // Validação do formulário
     const validationErrors = validateForm();
@@ -108,7 +115,7 @@ export const PaymentForm = ({ onSubmit, onCancel }: PaymentFormProps) => {
       return;
     }
 
-    // Validação do valor
+    // Validação e conversão do valor
     const amount = parseFloat(formData.amount);
     if (isNaN(amount) || amount <= 0) {
       console.error('Valor inválido:', formData.amount);
@@ -119,15 +126,15 @@ export const PaymentForm = ({ onSubmit, onCancel }: PaymentFormProps) => {
     setLoading(true);
     
     try {
-      // Preparar dados garantindo tipos EXATOS do banco
+      // Preparar dados com CONVERSÃO RIGOROSA para ENUMs
       const paymentData: PaymentCreateData = {
         provider_id: formData.provider_id || undefined,
         provider_name: formData.provider_name.trim(),
         amount: Number(amount.toFixed(2)),
         due_date: formData.due_date,
         payment_date: formData.payment_date || undefined,
-        status: formData.status, // Já é PaymentStatus tipado
-        type: formData.type, // Já é PaymentType tipado
+        status: toPaymentStatus(formData.status), // CONVERSÃO SEGURA
+        type: toPaymentType(formData.type), // CONVERSÃO SEGURA
         description: formData.description.trim(),
         notes: formData.notes?.trim() || undefined,
         tags: undefined,
@@ -137,10 +144,10 @@ export const PaymentForm = ({ onSubmit, onCancel }: PaymentFormProps) => {
         account_type: undefined
       };
 
-      console.log('=== PAYLOAD FINAL PARA INSERÇÃO ===');
+      console.log('=== PAYLOAD FINAL VALIDADO ===');
       console.log('Payload:', JSON.stringify(paymentData, null, 2));
-      console.log('Status:', formData.status, '(type:', typeof formData.status, ')');
-      console.log('Type:', formData.type, '(type:', typeof formData.type, ')');
+      console.log('Status ENUM:', paymentData.status, '- Válido:', isValidPaymentStatus(paymentData.status));
+      console.log('Type ENUM:', paymentData.type, '- Válido:', isValidPaymentType(paymentData.type));
       
       const { data, error } = await insertPayment(paymentData);
       
@@ -156,15 +163,15 @@ export const PaymentForm = ({ onSubmit, onCancel }: PaymentFormProps) => {
       
       showSuccess('Sucesso', 'Pagamento registrado com sucesso!');
       
-      // Reset do formulário
+      // Reset do formulário com valores padrão SEGUROS
       setFormData({
         provider_id: '',
         provider_name: '',
         amount: '',
         due_date: new Date().toISOString().split('T')[0],
         payment_date: '',
-        status: 'pending',
-        type: 'full',
+        status: PAYMENT_STATUS_VALUES.PENDING,
+        type: PAYMENT_TYPE_VALUES.FULL,
         description: '',
         notes: ''
       });
@@ -198,8 +205,8 @@ export const PaymentForm = ({ onSubmit, onCancel }: PaymentFormProps) => {
     parseFloat(formData.amount) > 0 && 
     formData.due_date && 
     formData.description?.trim() &&
-    PAYMENT_STATUS_OPTIONS.some(opt => opt.value === formData.status) &&
-    PAYMENT_TYPE_OPTIONS.some(opt => opt.value === formData.type);
+    isValidPaymentStatus(formData.status) &&
+    isValidPaymentType(formData.type);
 
   return (
     <Card>
@@ -256,9 +263,10 @@ export const PaymentForm = ({ onSubmit, onCancel }: PaymentFormProps) => {
               <Label htmlFor="status">Status</Label>
               <Select 
                 value={formData.status} 
-                onValueChange={(value: PaymentStatus) => {
-                  console.log('Status selecionado:', value, typeof value);
-                  setFormData(prev => ({ ...prev, status: value }));
+                onValueChange={(value) => {
+                  const validStatus = toPaymentStatus(value);
+                  console.log('Status selecionado:', value, '-> Convertido para:', validStatus);
+                  setFormData(prev => ({ ...prev, status: validStatus }));
                 }}
               >
                 <SelectTrigger>
@@ -278,9 +286,10 @@ export const PaymentForm = ({ onSubmit, onCancel }: PaymentFormProps) => {
               <Label htmlFor="type">Tipo</Label>
               <Select 
                 value={formData.type} 
-                onValueChange={(value: PaymentType) => {
-                  console.log('Tipo selecionado:', value, typeof value);
-                  setFormData(prev => ({ ...prev, type: value }));
+                onValueChange={(value) => {
+                  const validType = toPaymentType(value);
+                  console.log('Tipo selecionado:', value, '-> Convertido para:', validType);
+                  setFormData(prev => ({ ...prev, type: validType }));
                 }}
               >
                 <SelectTrigger>

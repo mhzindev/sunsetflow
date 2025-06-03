@@ -1,4 +1,50 @@
 
+// Usando exatamente os mesmos valores que estão definidos no banco de dados
+export type PaymentStatus = 'pending' | 'partial' | 'completed' | 'overdue' | 'cancelled';
+export type PaymentType = 'full' | 'installment' | 'advance';
+export type PaymentMethod = 'pix' | 'transfer' | 'credit_card' | 'debit_card' | 'cash';
+
+// Constantes para garantir consistência - valores EXATOS do banco
+export const PAYMENT_STATUS_VALUES = {
+  PENDING: 'pending' as const,
+  PARTIAL: 'partial' as const,
+  COMPLETED: 'completed' as const,
+  OVERDUE: 'overdue' as const,
+  CANCELLED: 'cancelled' as const
+} as const;
+
+export const PAYMENT_TYPE_VALUES = {
+  FULL: 'full' as const,
+  INSTALLMENT: 'installment' as const,
+  ADVANCE: 'advance' as const
+} as const;
+
+// Funções de validação rigorosas
+export const isValidPaymentStatus = (status: any): status is PaymentStatus => {
+  return Object.values(PAYMENT_STATUS_VALUES).includes(status);
+};
+
+export const isValidPaymentType = (type: any): type is PaymentType => {
+  return Object.values(PAYMENT_TYPE_VALUES).includes(type);
+};
+
+// Funções de conversão segura
+export const toPaymentStatus = (value: any): PaymentStatus => {
+  if (isValidPaymentStatus(value)) {
+    return value;
+  }
+  console.warn('Valor inválido para PaymentStatus:', value, 'usando pending como padrão');
+  return PAYMENT_STATUS_VALUES.PENDING;
+};
+
+export const toPaymentType = (value: any): PaymentType => {
+  if (isValidPaymentType(value)) {
+    return value;
+  }
+  console.warn('Valor inválido para PaymentType:', value, 'usando full como padrão');
+  return PAYMENT_TYPE_VALUES.FULL;
+};
+
 export interface Payment {
   id: string;
   providerId: string;
@@ -15,11 +61,6 @@ export interface Payment {
   notes?: string;
 }
 
-// Usando exatamente os mesmos valores que estão no banco de dados
-export type PaymentStatus = 'pending' | 'partial' | 'completed' | 'overdue' | 'cancelled';
-export type PaymentType = 'full' | 'installment' | 'advance';
-export type PaymentMethod = 'pix' | 'transfer' | 'credit_card' | 'debit_card' | 'cash';
-
 export interface ServiceProvider {
   id: string;
   name: string;
@@ -30,15 +71,15 @@ export interface ServiceProvider {
   active: boolean;
 }
 
-// Interface específica para criação de pagamentos com valores do banco
+// Interface específica para criação de pagamentos - TIPOS RIGOROSOS
 export interface PaymentCreateData {
   provider_id?: string;
   provider_name: string;
   amount: number;
   due_date: string;
   payment_date?: string;
-  status: PaymentStatus;
-  type: PaymentType;
+  status: PaymentStatus; // ENUM rigoroso
+  type: PaymentType; // ENUM rigoroso
   description: string;
   installments?: number;
   current_installment?: number;

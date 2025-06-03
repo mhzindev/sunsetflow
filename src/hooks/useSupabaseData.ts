@@ -328,7 +328,7 @@ export const useSupabaseData = () => {
     }
   };
 
-  // Função para inserir pagamento - VERSÃO FINAL CORRIGIDA
+  // Função para inserir pagamento - VERSÃO FINAL COM TIPOS RIGOROSOS
   const insertPayment = async (payment: {
     provider_id?: string;
     provider_name: string;
@@ -346,10 +346,10 @@ export const useSupabaseData = () => {
     account_type?: 'bank_account' | 'credit_card';
   }) => {
     try {
-      console.log('=== useSupabaseData.insertPayment - VERSÃO CORRIGIDA ===');
+      console.log('=== useSupabaseData.insertPayment - VERSÃO TIPOS RIGOROSOS ===');
       console.log('Payload recebido:', payment);
 
-      // Validações rigorosas
+      // Validações básicas
       if (!payment.provider_name?.trim()) {
         throw new Error('Nome do prestador é obrigatório');
       }
@@ -366,32 +366,32 @@ export const useSupabaseData = () => {
         throw new Error('Descrição é obrigatória');
       }
 
-      // Validar enums com valores EXATOS do banco
+      // Validação rigorosa dos ENUMs - valores EXATOS do banco
       const validStatuses = ['pending', 'partial', 'completed', 'overdue', 'cancelled'] as const;
       const validTypes = ['full', 'installment', 'advance'] as const;
 
       if (!validStatuses.includes(payment.status as any)) {
-        console.error('Status inválido:', payment.status);
+        console.error('Status inválido recebido:', payment.status, typeof payment.status);
         throw new Error(`Status inválido: ${payment.status}. Valores aceitos: ${validStatuses.join(', ')}`);
       }
 
       if (!validTypes.includes(payment.type as any)) {
-        console.error('Tipo inválido:', payment.type);
+        console.error('Tipo inválido recebido:', payment.type, typeof payment.type);
         throw new Error(`Tipo inválido: ${payment.type}. Valores aceitos: ${validTypes.join(', ')}`);
       }
 
-      // Limpar dados removendo undefined e garantindo tipos corretos
+      // Preparar dados com limpeza rigorosa e garantia de tipos
       const cleanedPayment = {
         provider_id: payment.provider_id || null,
-        provider_name: payment.provider_name.trim(),
-        amount: payment.amount,
-        due_date: payment.due_date,
-        payment_date: payment.payment_date || null,
-        status: payment.status, // Enum validado
-        type: payment.type, // Enum validado
-        description: payment.description.trim(),
-        installments: payment.installments || null,
-        current_installment: payment.current_installment || null,
+        provider_name: String(payment.provider_name).trim(),
+        amount: Number(payment.amount),
+        due_date: String(payment.due_date),
+        payment_date: payment.payment_date ? String(payment.payment_date) : null,
+        status: payment.status, // Já validado como ENUM
+        type: payment.type, // Já validado como ENUM
+        description: String(payment.description).trim(),
+        installments: payment.installments ? Number(payment.installments) : null,
+        current_installment: payment.current_installment ? Number(payment.current_installment) : null,
         tags: payment.tags || null,
         notes: payment.notes?.trim() || null,
         account_id: payment.account_id || null,
@@ -399,11 +399,12 @@ export const useSupabaseData = () => {
       };
 
       console.log('=== DADOS FINAIS PARA INSERÇÃO ===');
-      console.log('Payload limpo:', JSON.stringify(cleanedPayment, null, 2));
-      console.log('Status final:', cleanedPayment.status, '- Tipo:', typeof cleanedPayment.status);
-      console.log('Type final:', cleanedPayment.type, '- Tipo:', typeof cleanedPayment.type);
+      console.log('Payload final:', JSON.stringify(cleanedPayment, null, 2));
+      console.log('Status (tipo):', cleanedPayment.status, typeof cleanedPayment.status);
+      console.log('Type (tipo):', cleanedPayment.type, typeof cleanedPayment.type);
+      console.log('Amount (tipo):', cleanedPayment.amount, typeof cleanedPayment.amount);
 
-      // Inserção no Supabase
+      // Inserção no Supabase com dados garantidamente corretos
       const { data, error } = await supabase
         .from('payments')
         .insert(cleanedPayment)
@@ -416,20 +417,23 @@ export const useSupabaseData = () => {
         console.error('Código:', error.code);
         console.error('Detalhes:', error.details);
         console.error('Mensagem:', error.message);
+        console.error('Dica:', error.hint);
         
-        // Tratamento específico de erros
+        // Tratamento específico de erros conhecidos
         if (error.code === '23505') {
           throw new Error('Já existe um pagamento com estes dados');
         } else if (error.code === '23502') {
           throw new Error('Campo obrigatório está vazio');
         } else if (error.code === '23514') {
-          throw new Error('Valor inválido para algum campo');
+          throw new Error('Valor inválido para algum campo (check constraint)');
         } else if (error.code === '42804') {
-          throw new Error('Erro de tipo de dados - status ou tipo inválido');
+          throw new Error('Erro de tipo de dados - valores incompatíveis com ENUMs do banco');
         } else if (error.message?.includes('violates row-level security')) {
           throw new Error('Permissão negada para criar pagamento');
         } else if (error.message?.includes('enum')) {
-          throw new Error('Valor inválido para status ou tipo de pagamento');
+          throw new Error('Valor inválido para status ou tipo de pagamento (deve ser um dos valores aceitos)');
+        } else if (error.message?.includes('operator does not exist')) {
+          throw new Error('Erro de compatibilidade de tipos - status ou type não são ENUMs válidos');
         } else {
           throw new Error(error.message || 'Erro desconhecido do banco de dados');
         }
@@ -737,7 +741,7 @@ export const useSupabaseData = () => {
     fetchClients,
     fetchBankAccounts,
     fetchCreditCards,
-    fetchEmployees, // Mantido para compatibilidade mas retorna array vazio
+    fetchEmployees,
     insertTransaction,
     insertExpense,
     updateExpenseStatus,
