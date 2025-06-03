@@ -9,11 +9,16 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useSupabaseData } from '@/hooks/useSupabaseData';
 import { useToastFeedback } from '@/hooks/useToastFeedback';
 import { ProviderSelector } from './ProviderSelector';
+import { PaymentStatus, PaymentType, PaymentCreateData } from '@/types/payment';
 
 interface PaymentFormProps {
   onSubmit?: (payment: any) => void;
   onCancel?: () => void;
 }
+
+// Valores válidos exatamente como no banco de dados
+const VALID_PAYMENT_STATUS: PaymentStatus[] = ['pending', 'partial', 'completed', 'overdue', 'cancelled'];
+const VALID_PAYMENT_TYPES: PaymentType[] = ['full', 'installment', 'advance'];
 
 export const PaymentForm = ({ onSubmit, onCancel }: PaymentFormProps) => {
   const [loading, setLoading] = useState(false);
@@ -24,8 +29,8 @@ export const PaymentForm = ({ onSubmit, onCancel }: PaymentFormProps) => {
     amount: '',
     due_date: new Date().toISOString().split('T')[0],
     payment_date: '',
-    status: 'pending',
-    type: 'full',
+    status: 'pending' as PaymentStatus,
+    type: 'full' as PaymentType,
     description: '',
     notes: ''
   });
@@ -47,7 +52,7 @@ export const PaymentForm = ({ onSubmit, onCancel }: PaymentFormProps) => {
   const validateForm = () => {
     const errors = [];
     
-    if (!formData.provider_name.trim()) {
+    if (!formData.provider_name?.trim()) {
       errors.push('Prestador de serviço é obrigatório');
     }
     
@@ -59,8 +64,18 @@ export const PaymentForm = ({ onSubmit, onCancel }: PaymentFormProps) => {
       errors.push('Data de vencimento é obrigatória');
     }
     
-    if (!formData.description.trim()) {
+    if (!formData.description?.trim()) {
       errors.push('Descrição é obrigatória');
+    }
+
+    // Validar se o status é válido
+    if (!VALID_PAYMENT_STATUS.includes(formData.status)) {
+      errors.push('Status inválido');
+    }
+
+    // Validar se o tipo é válido
+    if (!VALID_PAYMENT_TYPES.includes(formData.type)) {
+      errors.push('Tipo de pagamento inválido');
     }
 
     return errors;
@@ -72,7 +87,7 @@ export const PaymentForm = ({ onSubmit, onCancel }: PaymentFormProps) => {
     console.log('=== INÍCIO DA SUBMISSÃO ===');
     console.log('Dados do formulário:', formData);
     
-    // Validação completa do formulário
+    // Validação do formulário
     const validationErrors = validateForm();
     if (validationErrors.length > 0) {
       console.error('Erros de validação:', validationErrors);
@@ -80,7 +95,7 @@ export const PaymentForm = ({ onSubmit, onCancel }: PaymentFormProps) => {
       return;
     }
 
-    // Validação adicional do valor
+    // Validação do valor
     const amount = parseFloat(formData.amount);
     if (isNaN(amount) || amount <= 0) {
       console.error('Valor inválido:', formData.amount);
@@ -88,38 +103,20 @@ export const PaymentForm = ({ onSubmit, onCancel }: PaymentFormProps) => {
       return;
     }
 
-    // Validação da data
-    if (!formData.due_date) {
-      console.error('Data de vencimento não informada');
-      showError('Data Obrigatória', 'Data de vencimento é obrigatória');
-      return;
-    }
-
     setLoading(true);
     
     try {
-      // Preparar dados do pagamento de forma mais robusta
-      const paymentData = {
-        // IDs e referências
+      // Preparar dados garantindo que os tipos estão corretos
+      const paymentData: PaymentCreateData = {
         provider_id: formData.provider_id || null,
         provider_name: formData.provider_name.trim(),
-        
-        // Valores monetários
-        amount: Number(amount.toFixed(2)), // Garantir precisão decimal
-        
-        // Datas
+        amount: Number(amount.toFixed(2)),
         due_date: formData.due_date,
         payment_date: formData.payment_date || null,
-        
-        // Status e tipo
-        status: formData.status,
-        type: formData.type,
-        
-        // Textos
+        status: formData.status, // Já é do tipo correto
+        type: formData.type, // Já é do tipo correto
         description: formData.description.trim(),
         notes: formData.notes?.trim() || null,
-        
-        // Campos opcionais inicializados como null
         tags: null,
         installments: null,
         current_installment: null,
@@ -129,32 +126,15 @@ export const PaymentForm = ({ onSubmit, onCancel }: PaymentFormProps) => {
 
       console.log('=== DADOS PREPARADOS PARA ENVIO ===');
       console.log('Payload final:', JSON.stringify(paymentData, null, 2));
+      console.log('Status type:', typeof paymentData.status, 'Value:', paymentData.status);
+      console.log('Type type:', typeof paymentData.type, 'Value:', paymentData.type);
       
-      // Verificação final antes do envio
-      if (!paymentData.provider_name || !paymentData.description || !paymentData.due_date || !paymentData.amount) {
-        throw new Error('Dados obrigatórios em branco após preparação');
-      }
-      
-      console.log('=== ENVIANDO PARA SUPABASE ===');
       const { data, error } = await insertPayment(paymentData);
       
       if (error) {
         console.error('=== ERRO RETORNADO DO SUPABASE ===');
-        console.error('Tipo do erro:', typeof error);
         console.error('Erro completo:', error);
-        
-        let errorMessage = 'Erro desconhecido ao criar pagamento';
-        
-        if (typeof error === 'string') {
-          errorMessage = error;
-        } else if (error?.message) {
-          errorMessage = error.message;
-        } else if (error?.details) {
-          errorMessage = error.details;
-        }
-        
-        console.error('Mensagem de erro final:', errorMessage);
-        showError('Erro ao Criar Pagamento', errorMessage);
+        showError('Erro ao Criar Pagamento', error);
         return;
       }
 
@@ -177,7 +157,6 @@ export const PaymentForm = ({ onSubmit, onCancel }: PaymentFormProps) => {
       });
       setSelectedProvider(null);
       
-      // Chamar callback se fornecido
       if (onSubmit) {
         onSubmit(data);
       }
@@ -185,10 +164,8 @@ export const PaymentForm = ({ onSubmit, onCancel }: PaymentFormProps) => {
     } catch (error) {
       console.error('=== ERRO INESPERADO ===');
       console.error('Erro capturado:', error);
-      console.error('Stack trace:', error instanceof Error ? error.stack : 'N/A');
       
       let errorMessage = 'Falha inesperada na criação do pagamento';
-      
       if (error instanceof Error) {
         errorMessage = error.message;
       } else if (typeof error === 'string') {
@@ -202,13 +179,14 @@ export const PaymentForm = ({ onSubmit, onCancel }: PaymentFormProps) => {
     }
   };
 
-  // Verificar se o formulário é válido para habilitar/desabilitar o botão
   const isFormValid = 
-    formData.provider_name.trim() && 
+    formData.provider_name?.trim() && 
     formData.amount && 
     parseFloat(formData.amount) > 0 && 
     formData.due_date && 
-    formData.description.trim();
+    formData.description?.trim() &&
+    VALID_PAYMENT_STATUS.includes(formData.status) &&
+    VALID_PAYMENT_TYPES.includes(formData.type);
 
   return (
     <Card>
@@ -265,15 +243,17 @@ export const PaymentForm = ({ onSubmit, onCancel }: PaymentFormProps) => {
               <Label htmlFor="status">Status</Label>
               <Select 
                 value={formData.status} 
-                onValueChange={(value) => setFormData(prev => ({ ...prev, status: value }))}
+                onValueChange={(value: PaymentStatus) => setFormData(prev => ({ ...prev, status: value }))}
               >
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="pending">Pendente</SelectItem>
+                  <SelectItem value="partial">Parcial</SelectItem>
                   <SelectItem value="completed">Pago</SelectItem>
                   <SelectItem value="overdue">Atrasado</SelectItem>
+                  <SelectItem value="cancelled">Cancelado</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -282,7 +262,7 @@ export const PaymentForm = ({ onSubmit, onCancel }: PaymentFormProps) => {
               <Label htmlFor="type">Tipo</Label>
               <Select 
                 value={formData.type} 
-                onValueChange={(value) => setFormData(prev => ({ ...prev, type: value }))}
+                onValueChange={(value: PaymentType) => setFormData(prev => ({ ...prev, type: value }))}
               >
                 <SelectTrigger>
                   <SelectValue />
@@ -315,7 +295,7 @@ export const PaymentForm = ({ onSubmit, onCancel }: PaymentFormProps) => {
               placeholder="Descrição do pagamento"
               required
             />
-            {!formData.description.trim() && (
+            {!formData.description?.trim() && (
               <p className="text-sm text-red-500 mt-1">Descrição é obrigatória</p>
             )}
           </div>

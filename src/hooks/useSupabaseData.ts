@@ -328,15 +328,15 @@ export const useSupabaseData = () => {
     }
   };
 
-  // Função para inserir pagamento - CORRIGIDA COM MELHOR TRATAMENTO DE ERROS
+  // Função para inserir pagamento - CORRIGIDA COM TIPOS ESPECÍFICOS DO BANCO
   const insertPayment = async (payment: {
     provider_id?: string;
     provider_name: string;
     amount: number;
     due_date: string;
     payment_date?: string;
-    status: string;
-    type: string;
+    status: 'pending' | 'partial' | 'completed' | 'overdue' | 'cancelled'; // Enum específico
+    type: 'full' | 'installment' | 'advance'; // Enum específico
     description: string;
     installments?: number;
     current_installment?: number;
@@ -366,15 +366,29 @@ export const useSupabaseData = () => {
         throw new Error('Descrição é obrigatória');
       }
 
-      // Preparar dados finais com limpeza adicional
+      // Validar se o status é um dos valores válidos do enum
+      const validStatuses = ['pending', 'partial', 'completed', 'overdue', 'cancelled'];
+      if (!validStatuses.includes(payment.status)) {
+        console.error('Status inválido:', payment.status);
+        throw new Error(`Status inválido: ${payment.status}. Valores aceitos: ${validStatuses.join(', ')}`);
+      }
+
+      // Validar se o type é um dos valores válidos do enum
+      const validTypes = ['full', 'installment', 'advance'];
+      if (!validTypes.includes(payment.type)) {
+        console.error('Tipo inválido:', payment.type);
+        throw new Error(`Tipo inválido: ${payment.type}. Valores aceitos: ${validTypes.join(', ')}`);
+      }
+
+      // Preparar dados finais garantindo tipos corretos
       const cleanedPayment = {
         provider_id: payment.provider_id || null,
         provider_name: payment.provider_name.trim(),
         amount: payment.amount,
         due_date: payment.due_date,
         payment_date: payment.payment_date || null,
-        status: payment.status || 'pending',
-        type: payment.type || 'full',
+        status: payment.status, // Garantido como enum correto
+        type: payment.type, // Garantido como enum correto
         description: payment.description.trim(),
         installments: payment.installments || null,
         current_installment: payment.current_installment || null,
@@ -385,6 +399,8 @@ export const useSupabaseData = () => {
       };
 
       console.log('Dados limpos para envio:', cleanedPayment);
+      console.log('Status sendo enviado:', cleanedPayment.status, typeof cleanedPayment.status);
+      console.log('Type sendo enviado:', cleanedPayment.type, typeof cleanedPayment.type);
 
       const { data, error } = await supabase
         .from('payments')
@@ -406,8 +422,12 @@ export const useSupabaseData = () => {
           throw new Error('Campo obrigatório em branco');
         } else if (error.code === '23514') {
           throw new Error('Valor inválido para o campo');
+        } else if (error.code === '42804') {
+          throw new Error('Tipo de dados incompatível. Verifique os valores de status e tipo.');
         } else if (error.message?.includes('violates row-level security')) {
           throw new Error('Permissão negada para criar pagamento');
+        } else if (error.message?.includes('transaction_status')) {
+          throw new Error('Erro de tipo: status deve ser um dos valores válidos (pending, partial, completed, overdue, cancelled)');
         } else {
           throw new Error(error.message || 'Erro desconhecido do banco de dados');
         }
