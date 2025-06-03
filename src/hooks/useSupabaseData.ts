@@ -328,7 +328,7 @@ export const useSupabaseData = () => {
     }
   };
 
-  // Função para inserir pagamento - VERSÃO FINAL COM TIPOS RIGOROSOS
+  // Função para inserir pagamento - VERSÃO FINAL COM CASTING EXPLÍCITO
   const insertPayment = async (payment: {
     provider_id?: string;
     provider_name: string;
@@ -346,7 +346,7 @@ export const useSupabaseData = () => {
     account_type?: 'bank_account' | 'credit_card';
   }) => {
     try {
-      console.log('=== useSupabaseData.insertPayment - VERSÃO TIPOS RIGOROSOS ===');
+      console.log('=== useSupabaseData.insertPayment - VERSÃO COM CASTING EXPLÍCITO ===');
       console.log('Payload recebido:', payment);
 
       // Validações básicas
@@ -366,7 +366,7 @@ export const useSupabaseData = () => {
         throw new Error('Descrição é obrigatória');
       }
 
-      // Validação rigorosa dos ENUMs - valores EXATOS do banco
+      // Validação rigorosa dos ENUMs - usando os valores exatos
       const validStatuses = ['pending', 'partial', 'completed', 'overdue', 'cancelled'] as const;
       const validTypes = ['full', 'installment', 'advance'] as const;
 
@@ -380,63 +380,31 @@ export const useSupabaseData = () => {
         throw new Error(`Tipo inválido: ${payment.type}. Valores aceitos: ${validTypes.join(', ')}`);
       }
 
-      // Preparar dados com limpeza rigorosa e garantia de tipos
-      const cleanedPayment = {
-        provider_id: payment.provider_id || null,
-        provider_name: String(payment.provider_name).trim(),
-        amount: Number(payment.amount),
-        due_date: String(payment.due_date),
-        payment_date: payment.payment_date ? String(payment.payment_date) : null,
-        status: payment.status, // Já validado como ENUM
-        type: payment.type, // Já validado como ENUM
-        description: String(payment.description).trim(),
-        installments: payment.installments ? Number(payment.installments) : null,
-        current_installment: payment.current_installment ? Number(payment.current_installment) : null,
-        tags: payment.tags || null,
-        notes: payment.notes?.trim() || null,
-        account_id: payment.account_id || null,
-        account_type: payment.account_type || null
-      };
+      console.log('=== INSERÇÃO COM CASTING EXPLÍCITO ===');
+      console.log('Status:', payment.status, 'Type:', payment.type);
 
-      console.log('=== DADOS FINAIS PARA INSERÇÃO ===');
-      console.log('Payload final:', JSON.stringify(cleanedPayment, null, 2));
-      console.log('Status (tipo):', cleanedPayment.status, typeof cleanedPayment.status);
-      console.log('Type (tipo):', cleanedPayment.type, typeof cleanedPayment.type);
-      console.log('Amount (tipo):', cleanedPayment.amount, typeof cleanedPayment.amount);
-
-      // Inserção no Supabase com dados garantidamente corretos
-      const { data, error } = await supabase
-        .from('payments')
-        .insert(cleanedPayment)
-        .select()
-        .single();
+      // Usar SQL direto com casting explícito para garantir tipos corretos
+      const { data, error } = await supabase.rpc('insert_payment_with_casting', {
+        p_provider_id: payment.provider_id || null,
+        p_provider_name: payment.provider_name.trim(),
+        p_amount: payment.amount,
+        p_due_date: payment.due_date,
+        p_payment_date: payment.payment_date || null,
+        p_status: payment.status,
+        p_type: payment.type,
+        p_description: payment.description.trim(),
+        p_installments: payment.installments || null,
+        p_current_installment: payment.current_installment || null,
+        p_tags: payment.tags || null,
+        p_notes: payment.notes?.trim() || null,
+        p_account_id: payment.account_id || null,
+        p_account_type: payment.account_type || null
+      });
 
       if (error) {
         console.error('=== ERRO DO SUPABASE ===');
         console.error('Erro completo:', error);
-        console.error('Código:', error.code);
-        console.error('Detalhes:', error.details);
-        console.error('Mensagem:', error.message);
-        console.error('Dica:', error.hint);
-        
-        // Tratamento específico de erros conhecidos
-        if (error.code === '23505') {
-          throw new Error('Já existe um pagamento com estes dados');
-        } else if (error.code === '23502') {
-          throw new Error('Campo obrigatório está vazio');
-        } else if (error.code === '23514') {
-          throw new Error('Valor inválido para algum campo (check constraint)');
-        } else if (error.code === '42804') {
-          throw new Error('Erro de tipo de dados - valores incompatíveis com ENUMs do banco');
-        } else if (error.message?.includes('violates row-level security')) {
-          throw new Error('Permissão negada para criar pagamento');
-        } else if (error.message?.includes('enum')) {
-          throw new Error('Valor inválido para status ou tipo de pagamento (deve ser um dos valores aceitos)');
-        } else if (error.message?.includes('operator does not exist')) {
-          throw new Error('Erro de compatibilidade de tipos - status ou type não são ENUMs válidos');
-        } else {
-          throw new Error(error.message || 'Erro desconhecido do banco de dados');
-        }
+        throw new Error(error.message || 'Erro desconhecido do banco de dados');
       }
 
       console.log('=== SUCESSO ===');
