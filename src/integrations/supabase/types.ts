@@ -726,6 +726,34 @@ export type Database = {
       }
     }
     Functions: {
+      admin_find_employee_access: {
+        Args: { search_email: string; search_code: string }
+        Returns: {
+          id: string
+          code: string
+          company_id: string
+          employee_name: string
+          employee_email: string
+          is_used: boolean
+          created_at: string
+          expires_at: string
+          used_at: string
+        }[]
+      }
+      admin_find_service_provider_access: {
+        Args: { search_email: string; search_code: string }
+        Returns: {
+          id: string
+          provider_id: string
+          email: string
+          password_hash: string
+          access_code: string
+          is_active: boolean
+          created_at: string
+          last_login: string
+          permissions: Json
+        }[]
+      }
       get_active_employees: {
         Args: Record<PropertyKey, never>
         Returns: {

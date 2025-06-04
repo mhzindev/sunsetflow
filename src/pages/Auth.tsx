@@ -1,3 +1,4 @@
+
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -145,75 +146,82 @@ const Auth = () => {
       console.log('Email normalizado:', cleanEmail);
       console.log('Código normalizado:', cleanCode);
 
-      // 1. Buscar código usando função administrativa (sem RLS)
-      console.log('=== ETAPA 1: Buscando código com função admin ===');
-      const { data: adminSearchResult, error: adminSearchError } = await supabase.rpc('admin_find_access_code', {
+      // 1. Primeiro tentar buscar prestador de serviço
+      console.log('=== ETAPA 1: Buscando prestador de serviço ===');
+      const { data: providerData, error: providerError } = await supabase.rpc('admin_find_service_provider_access', {
         search_email: cleanEmail,
         search_code: cleanCode
       });
 
-      console.log('Resultado busca admin:', adminSearchResult);
-      console.log('Erro busca admin:', adminSearchError);
+      console.log('Resultado busca prestador:', providerData);
+      console.log('Erro busca prestador:', providerError);
 
-      if (adminSearchError) {
-        console.error('Erro na função admin:', adminSearchError);
-        // Fallback para busca direta
-        console.log('=== FALLBACK: Busca direta ===');
-        const { data: directData, error: directError } = await supabase
-          .from('employee_access_codes')
-          .select('*')
-          .eq('employee_email', cleanEmail)
-          .eq('code', cleanCode)
-          .maybeSingle();
+      let accessRecord = null;
+      let userType = null;
 
-        console.log('Resultado busca direta:', directData);
-        console.log('Erro busca direta:', directError);
-
-        if (directError || !directData) {
-          toast({
-            title: "Código inválido",
-            description: "Código de acesso não encontrado. Verifique o email e código informados.",
-            variant: "destructive"
-          });
-          return;
-        }
-
-        // Usar dados da busca direta
-        var accessCode = directData;
+      if (!providerError && providerData && providerData.length > 0) {
+        accessRecord = providerData[0];
+        userType = 'provider';
+        console.log('Prestador encontrado:', accessRecord);
       } else {
-        if (!adminSearchResult || adminSearchResult.length === 0) {
+        // 2. Se não encontrar prestador, tentar funcionário
+        console.log('=== ETAPA 2: Buscando funcionário ===');
+        const { data: employeeData, error: employeeError } = await supabase.rpc('admin_find_employee_access', {
+          search_email: cleanEmail,
+          search_code: cleanCode
+        });
+
+        console.log('Resultado busca funcionário:', employeeData);
+        console.log('Erro busca funcionário:', employeeError);
+
+        if (!employeeError && employeeData && employeeData.length > 0) {
+          accessRecord = employeeData[0];
+          userType = 'employee';
+          console.log('Funcionário encontrado:', accessRecord);
+        }
+      }
+
+      if (!accessRecord) {
+        console.log('=== CÓDIGO NÃO ENCONTRADO ===');
+        toast({
+          title: "Código inválido",
+          description: "Código de acesso não encontrado. Verifique o email e código informados.",
+          variant: "destructive"
+        });
+        return;
+      }
+
+      // 3. Verificações específicas por tipo
+      if (userType === 'provider') {
+        if (!accessRecord.is_active) {
+          console.log('=== PRESTADOR INATIVO ===');
           toast({
-            title: "Código inválido",
-            description: "Código de acesso não encontrado. Verifique o email e código informados.",
+            title: "Acesso inativo",
+            description: "Este código de acesso foi desativado. Entre em contato com o administrador.",
             variant: "destructive"
           });
           return;
         }
-        var accessCode = adminSearchResult[0];
-      }
+      } else if (userType === 'employee') {
+        if (accessRecord.is_used) {
+          console.log('=== CÓDIGO DE FUNCIONÁRIO JÁ FOI USADO ===');
+          toast({
+            title: "Código já utilizado",
+            description: "Este código de acesso já foi utilizado. Entre em contato com o administrador.",
+            variant: "destructive"
+          });
+          return;
+        }
 
-      console.log('Código encontrado:', accessCode);
-
-      // 2. Verificar se código já foi usado
-      if (accessCode.is_used) {
-        console.log('=== CÓDIGO JÁ FOI USADO ===');
-        toast({
-          title: "Código já utilizado",
-          description: "Este código de acesso já foi utilizado. Entre em contato com o administrador.",
-          variant: "destructive"
-        });
-        return;
-      }
-
-      // 3. Verificar se código expirou
-      if (accessCode.expires_at && new Date(accessCode.expires_at) < new Date()) {
-        console.log('=== CÓDIGO EXPIRADO ===');
-        toast({
-          title: "Código expirado",
-          description: "Este código de acesso já expirou. Entre em contato com o administrador.",
-          variant: "destructive"
-        });
-        return;
+        if (accessRecord.expires_at && new Date(accessRecord.expires_at) < new Date()) {
+          console.log('=== CÓDIGO DE FUNCIONÁRIO EXPIRADO ===');
+          toast({
+            title: "Código expirado",
+            description: "Este código de acesso já expirou. Entre em contato com o administrador.",
+            variant: "destructive"
+          });
+          return;
+        }
       }
 
       console.log('=== CÓDIGO VÁLIDO, INICIANDO AUTENTICAÇÃO ===');
@@ -222,11 +230,23 @@ const Auth = () => {
       let authSuccess = false;
       let authError = null;
 
+      // Para prestadores, usar o password_hash decodificado
+      let password = cleanCode;
+      if (userType === 'provider' && accessRecord.password_hash) {
+        try {
+          password = atob(accessRecord.password_hash);
+          console.log('Senha decodificada para prestador');
+        } catch (e) {
+          console.log('Erro ao decodificar senha, usando código como senha');
+          password = cleanCode;
+        }
+      }
+
       // Primeiro tentar login (usuário já existe)
       console.log('Tentando login primeiro...');
       const loginResult = await supabase.auth.signInWithPassword({
         email: cleanEmail,
-        password: cleanCode
+        password: password
       });
 
       console.log('Resultado do login:', loginResult);
@@ -236,11 +256,12 @@ const Auth = () => {
         console.log('Login falhou, tentando criar conta...');
         const signupResult = await supabase.auth.signUp({
           email: cleanEmail,
-          password: cleanCode,
+          password: password,
           options: {
             data: {
-              name: accessCode.employee_name,
-              access_code: cleanCode
+              name: userType === 'provider' ? 'Prestador de Serviço' : accessRecord.employee_name,
+              access_code: cleanCode,
+              user_type: userType
             }
           }
         });
@@ -268,37 +289,54 @@ const Auth = () => {
 
       console.log('=== AUTENTICAÇÃO BEM-SUCEDIDA ===');
 
-      // 5. Marcar código como usado
-      console.log('Marcando código como usado...');
-      const { error: updateError } = await supabase
-        .from('employee_access_codes')
-        .update({ 
-          is_used: true,
-          used_at: new Date().toISOString()
-        })
-        .eq('id', accessCode.id);
+      // 5. Atualizar registros conforme o tipo
+      if (userType === 'employee') {
+        console.log('Marcando código de funcionário como usado...');
+        const { error: updateError } = await supabase
+          .from('employee_access_codes')
+          .update({ 
+            is_used: true,
+            used_at: new Date().toISOString()
+          })
+          .eq('id', accessRecord.id);
 
-      if (updateError) {
-        console.error('Erro ao marcar código como usado:', updateError);
-      } else {
-        console.log('Código marcado como usado com sucesso');
+        if (updateError) {
+          console.error('Erro ao marcar código como usado:', updateError);
+        } else {
+          console.log('Código de funcionário marcado como usado com sucesso');
+        }
+
+        // Usar RPC para associar à empresa
+        console.log('Associando funcionário à empresa...');
+        const { data: rpcResult, error: rpcError } = await supabase
+          .rpc('use_access_code', { 
+            access_code: cleanCode 
+          });
+
+        console.log('Resultado do RPC:', rpcResult);
+        if (rpcError) {
+          console.error('Erro no RPC:', rpcError);
+        }
+      } else if (userType === 'provider') {
+        console.log('Atualizando último login do prestador...');
+        const { error: updateError } = await supabase
+          .from('service_provider_access')
+          .update({ 
+            last_login: new Date().toISOString()
+          })
+          .eq('id', accessRecord.id);
+
+        if (updateError) {
+          console.error('Erro ao atualizar último login:', updateError);
+        } else {
+          console.log('Último login do prestador atualizado com sucesso');
+        }
       }
 
-      // 6. Usar RPC para associar à empresa
-      console.log('Associando usuário à empresa...');
-      const { data: rpcResult, error: rpcError } = await supabase
-        .rpc('use_access_code', { 
-          access_code: cleanCode 
-        });
-
-      console.log('Resultado do RPC:', rpcResult);
-      if (rpcError) {
-        console.error('Erro no RPC:', rpcError);
-      }
-
+      const userName = userType === 'provider' ? 'Prestador' : accessRecord.employee_name;
       toast({
         title: "Login realizado",
-        description: `Bem-vindo ao Sunsettrack, ${accessCode.employee_name}!`
+        description: `Bem-vindo ao Sunsettrack, ${userName}!`
       });
 
       // Limpar formulário
