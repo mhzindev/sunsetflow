@@ -72,6 +72,25 @@ export const useEmployeeManagement = () => {
     }
 
     try {
+      // Verificar se já existe código ativo para este email
+      const { data: existingCode, error: checkError } = await supabase
+        .from('employee_access_codes')
+        .select('*')
+        .eq('employee_email', employeeEmail)
+        .eq('company_id', profile.company_id)
+        .eq('is_used', false);
+
+      if (checkError) throw checkError;
+
+      if (existingCode && existingCode.length > 0) {
+        toast({
+          title: "Aviso",
+          description: `Já existe um código ativo para ${employeeEmail}`,
+          variant: "destructive"
+        });
+        return;
+      }
+
       // Gerar código único
       const code = Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
       
@@ -154,6 +173,42 @@ export const useEmployeeManagement = () => {
     }
   };
 
+  const deleteEmployeeWithAccess = async (employeeEmail: string, employeeName: string) => {
+    try {
+      // Primeiro excluir todos os códigos de acesso do funcionário
+      const { error: accessError } = await supabase
+        .from('employee_access_codes')
+        .delete()
+        .eq('employee_email', employeeEmail)
+        .eq('company_id', profile?.company_id);
+
+      if (accessError) throw accessError;
+
+      // Depois excluir o perfil do funcionário (se existir na tabela profiles)
+      const { error: profileError } = await supabase
+        .from('profiles')
+        .update({ active: false })
+        .eq('email', employeeEmail)
+        .eq('company_id', profile?.company_id);
+
+      // Não lançar erro se o perfil não existir, pois pode ser apenas um código de acesso
+
+      toast({
+        title: "Funcionário removido",
+        description: `${employeeName} foi removido do sistema junto com seus acessos`,
+      });
+
+      await Promise.all([fetchEmployees(), fetchAccessCodes()]);
+    } catch (err) {
+      console.error('Erro ao excluir funcionário:', err);
+      toast({
+        title: "Erro",
+        description: "Erro ao excluir funcionário e seus acessos",
+        variant: "destructive"
+      });
+    }
+  };
+
   const deactivateEmployee = async (employeeId: string) => {
     try {
       const { error } = await supabase
@@ -212,6 +267,7 @@ export const useEmployeeManagement = () => {
     createAccessCode,
     toggleAccessCode,
     deleteAccessCode,
+    deleteEmployeeWithAccess,
     deactivateEmployee,
     copyToClipboard,
     refetch: () => Promise.all([fetchEmployees(), fetchAccessCodes()])

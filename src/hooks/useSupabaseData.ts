@@ -108,7 +108,7 @@ export const useSupabaseData = () => {
     }
   };
 
-  // Função para buscar fornecedores - CORRIGIDA
+  // Função para buscar fornecedores - ATUALIZADA
   const fetchServiceProviders = async () => {
     try {
       console.log('Buscando prestadores de serviço...');
@@ -600,7 +600,7 @@ export const useSupabaseData = () => {
     }
   };
 
-  // Função para inserir prestador com acesso - CORRIGIDA
+  // Função para inserir prestador com acesso - ATUALIZADA
   const insertServiceProviderWithAccess = async (provider: any, accessData?: {
     access_email: string;
     password: string;
@@ -614,7 +614,22 @@ export const useSupabaseData = () => {
 
       console.log('Inserindo prestador com acesso:', { provider, accessData });
 
-      // Primeiro inserir o prestador
+      // Verificar se já existe prestador com o mesmo email
+      const { data: existingProvider, error: checkError } = await supabase
+        .from('service_providers')
+        .select('*')
+        .eq('email', provider.email);
+
+      if (checkError) {
+        console.error('Erro ao verificar prestador existente:', checkError);
+        return { data: null, error: checkError.message };
+      }
+
+      if (existingProvider && existingProvider.length > 0) {
+        return { data: null, error: 'Já existe um prestador com este email' };
+      }
+
+      // Inserir o prestador
       const { data: providerData, error: providerError } = await supabase
         .from('service_providers')
         .insert({
@@ -637,8 +652,14 @@ export const useSupabaseData = () => {
         return { data: null, error: providerError.message };
       }
 
-      // Se há dados de acesso, criar o acesso
+      // Se há dados de acesso, verificar se já existe acesso e criar/substituir
       if (accessData && providerData) {
+        // Excluir acessos existentes para este prestador (garantir único acesso)
+        await supabase
+          .from('service_provider_access')
+          .delete()
+          .eq('provider_id', providerData.id);
+
         const accessCode = Math.random().toString(36).substr(2, 12).toUpperCase();
         
         const { data: accessResult, error: accessError } = await supabase
@@ -646,7 +667,7 @@ export const useSupabaseData = () => {
           .insert({
             provider_id: providerData.id,
             email: accessData.access_email,
-            password_hash: btoa(accessData.password), // Em produção, usar hash apropriado
+            password_hash: btoa(accessData.password),
             access_code: accessCode,
             permissions: accessData.permissions,
             is_active: true
@@ -718,6 +739,41 @@ export const useSupabaseData = () => {
     }
   };
 
+  // Função para excluir prestador e seus acessos
+  const deleteServiceProviderWithAccess = async (providerId: string) => {
+    try {
+      console.log('Excluindo prestador e acessos:', providerId);
+
+      // Primeiro excluir todos os acessos do prestador
+      const { error: accessError } = await supabase
+        .from('service_provider_access')
+        .delete()
+        .eq('provider_id', providerId);
+
+      if (accessError) {
+        console.error('Erro ao excluir acessos:', accessError);
+        throw accessError;
+      }
+
+      // Depois excluir o prestador
+      const { error: providerError } = await supabase
+        .from('service_providers')
+        .delete()
+        .eq('id', providerId);
+
+      if (providerError) {
+        console.error('Erro ao excluir prestador:', providerError);
+        throw providerError;
+      }
+
+      console.log('Prestador e acessos excluídos com sucesso');
+      return { data: true, error: null };
+    } catch (err) {
+      console.error('Erro ao excluir prestador:', err);
+      return { data: null, error: err instanceof Error ? err.message : 'Erro desconhecido' };
+    }
+  };
+
   return {
     loading,
     error,
@@ -740,6 +796,7 @@ export const useSupabaseData = () => {
     insertClient,
     insertServiceProvider,
     insertServiceProviderWithAccess,
-    fetchProviderAccess
+    fetchProviderAccess,
+    deleteServiceProviderWithAccess
   };
 };

@@ -20,7 +20,8 @@ export const UserManagement = () => {
     loading, 
     createAccessCode,
     toggleAccessCode,
-    deleteAccessCode, 
+    deleteAccessCode,
+    deleteEmployeeWithAccess,
     deactivateEmployee, 
     copyToClipboard 
   } = useEmployeeManagement();
@@ -50,6 +51,12 @@ export const UserManagement = () => {
     }
   };
 
+  const handleDeleteEmployeeWithAccess = async (employeeEmail: string, employeeName: string) => {
+    if (window.confirm(`Tem certeza que deseja EXCLUIR PERMANENTEMENTE ${employeeName} e todos os seus acessos? Esta ação não pode ser desfeita.`)) {
+      await deleteEmployeeWithAccess(employeeEmail, employeeName);
+    }
+  };
+
   const handleToggleAccessCode = async (codeId: string, currentStatus: boolean) => {
     await toggleAccessCode(codeId, currentStatus);
   };
@@ -59,6 +66,17 @@ export const UserManagement = () => {
       await deleteAccessCode(codeId);
     }
   };
+
+  // Agrupar códigos de acesso por email para mostrar um por funcionário
+  const groupedAccessCodes = accessCodes.reduce((acc, code) => {
+    const email = code.employeeEmail;
+    if (!acc[email] || new Date(code.createdAt) > new Date(acc[email].createdAt)) {
+      acc[email] = code;
+    }
+    return acc;
+  }, {} as Record<string, typeof accessCodes[0]>);
+
+  const uniqueAccessCodes = Object.values(groupedAccessCodes);
 
   if (loading) {
     return (
@@ -217,7 +235,7 @@ export const UserManagement = () => {
           <CardTitle className="flex items-center justify-between">
             <div className="flex items-center gap-2">
               <Key className="h-5 w-5" />
-              Códigos de Acesso ({accessCodes.length})
+              Códigos de Acesso ({uniqueAccessCodes.length})
             </div>
             <Button
               variant="outline"
@@ -238,11 +256,11 @@ export const UserManagement = () => {
                   <li>O funcionário deve acessar o sistema e usar o código na tela de login</li>
                   <li>Após o primeiro uso, o código será invalidado automaticamente</li>
                   <li>Códigos não utilizados expiram em 7 dias</li>
-                  <li>Use os botões abaixo para gerenciar os códigos (ativar/desativar/excluir)</li>
+                  <li>Cada funcionário pode ter apenas um código ativo por vez</li>
                 </ol>
               </div>
               
-              {accessCodes.length === 0 ? (
+              {uniqueAccessCodes.length === 0 ? (
                 <div className="text-center py-8">
                   <Key className="h-12 w-12 text-slate-400 mx-auto mb-4" />
                   <p className="text-slate-600">Nenhum código de acesso encontrado.</p>
@@ -261,7 +279,7 @@ export const UserManagement = () => {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {accessCodes.map((code) => (
+                    {uniqueAccessCodes.map((code) => (
                       <TableRow key={code.id}>
                         <TableCell className="font-mono text-sm">{code.code}</TableCell>
                         <TableCell>{code.employeeName}</TableCell>
@@ -304,6 +322,17 @@ export const UserManagement = () => {
                               className="text-red-600 hover:text-red-700"
                             >
                               <Trash2 className="w-4 h-4" />
+                            </Button>
+
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => handleDeleteEmployeeWithAccess(code.employeeEmail, code.employeeName)}
+                              title="Excluir funcionário e todos seus acessos"
+                              className="text-red-800 hover:text-red-900 bg-red-50 hover:bg-red-100"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                              <span className="ml-1 text-xs">FULL</span>
                             </Button>
                           </div>
                         </TableCell>

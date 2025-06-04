@@ -19,7 +19,8 @@ import {
   Phone, 
   Briefcase,
   Settings,
-  Key
+  Key,
+  Trash2
 } from 'lucide-react';
 
 export const ProviderManagement = () => {
@@ -58,7 +59,8 @@ export const ProviderManagement = () => {
     fetchServiceProviders, 
     fetchProviderAccess, 
     insertServiceProvider,
-    insertServiceProviderWithAccess 
+    insertServiceProviderWithAccess,
+    deleteServiceProviderWithAccess 
   } = useSupabaseData();
   const { showSuccess, showError } = useToastFeedback();
 
@@ -136,6 +138,12 @@ export const ProviderManagement = () => {
       return;
     }
 
+    // Verificar se o email de acesso é o mesmo do prestador
+    if (accessForm.access_email !== selectedProvider.email) {
+      showError('Erro', 'O email de acesso deve ser o mesmo email do prestador');
+      return;
+    }
+
     setIsCreating(true);
     try {
       console.log('Criando acesso para prestador:', selectedProvider.id);
@@ -170,6 +178,32 @@ export const ProviderManagement = () => {
       showError('Erro', 'Erro inesperado ao criar acesso');
     } finally {
       setIsCreating(false);
+    }
+  };
+
+  const handleDeleteProvider = async (provider: any) => {
+    const confirmText = `Tem certeza que deseja EXCLUIR PERMANENTEMENTE o prestador ${provider.name}? Esta ação irá remover o prestador e todos os seus acessos do sistema e não pode ser desfeita.`;
+    
+    if (window.confirm(confirmText)) {
+      setIsCreating(true);
+      try {
+        const { data, error } = await deleteServiceProviderWithAccess(provider.id);
+        
+        if (error) {
+          showError('Erro', `Erro ao excluir prestador: ${error}`);
+          return;
+        }
+
+        if (data) {
+          showSuccess('Sucesso', `Prestador ${provider.name} foi excluído permanentemente`);
+          await loadData();
+        }
+      } catch (error) {
+        console.error('Erro ao excluir prestador:', error);
+        showError('Erro', 'Erro inesperado ao excluir prestador');
+      } finally {
+        setIsCreating(false);
+      }
     }
   };
 
@@ -264,12 +298,27 @@ export const ProviderManagement = () => {
                     variant="outline"
                     onClick={() => {
                       setSelectedProvider(provider);
+                      setAccessForm(prev => ({
+                        ...prev,
+                        access_email: provider.email // Pré-preencher com o email do prestador
+                      }));
                       setShowAccessModal(true);
                     }}
                     disabled={isCreating}
                   >
                     <Key className="w-4 h-4 mr-1" />
                     {access ? 'Recriar Acesso' : 'Criar Acesso'}
+                  </Button>
+
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => handleDeleteProvider(provider)}
+                    disabled={isCreating}
+                    className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                  >
+                    <Trash2 className="w-4 h-4 mr-1" />
+                    Excluir
                   </Button>
                 </div>
               </div>
@@ -405,15 +454,26 @@ export const ProviderManagement = () => {
           </DialogHeader>
           
           <form onSubmit={handleCreateAccess} className="space-y-4">
+            <div className="bg-yellow-50 p-3 rounded-lg border border-yellow-200">
+              <p className="text-sm text-yellow-800">
+                <strong>Importante:</strong> O email de acesso deve ser o mesmo email do prestador para garantir a autenticação correta.
+              </p>
+            </div>
+
             <div>
               <Label htmlFor="access_email">Email de Acesso *</Label>
               <Input
                 type="email"
                 value={accessForm.access_email}
                 onChange={(e) => setAccessForm(prev => ({ ...prev, access_email: e.target.value }))}
-                placeholder="email.acesso@exemplo.com"
+                placeholder="Deve ser igual ao email do prestador"
                 required
               />
+              {selectedProvider && accessForm.access_email !== selectedProvider.email && (
+                <p className="text-sm text-red-600 mt-1">
+                  Email deve ser: {selectedProvider.email}
+                </p>
+              )}
             </div>
 
             <div>
@@ -484,7 +544,11 @@ export const ProviderManagement = () => {
             </div>
 
             <div className="flex gap-4 pt-4">
-              <Button type="submit" className="flex-1" disabled={isCreating}>
+              <Button 
+                type="submit" 
+                className="flex-1" 
+                disabled={isCreating || (selectedProvider && accessForm.access_email !== selectedProvider.email)}
+              >
                 {isCreating ? 'Criando...' : 'Criar Acesso'}
               </Button>
               <Button 
