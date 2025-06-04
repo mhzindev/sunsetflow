@@ -135,141 +135,208 @@ const Auth = () => {
     setAccessCodeLoading(true);
 
     try {
-      console.log('Iniciando login com código de acesso:', {
-        email: accessCodeForm.email,
-        code: accessCodeForm.accessCode
-      });
+      console.log('=== INÍCIO DO LOGIN COM CÓDIGO DE ACESSO ===');
+      console.log('Email:', accessCodeForm.email);
+      console.log('Código:', accessCodeForm.accessCode);
 
-      // Verificar se o código existe e está válido
+      // Limpar espaços e normalizar dados
+      const cleanEmail = accessCodeForm.email.trim().toLowerCase();
+      const cleanCode = accessCodeForm.accessCode.trim().toUpperCase();
+
+      console.log('Email limpo:', cleanEmail);
+      console.log('Código limpo:', cleanCode);
+
+      // 1. Verificar se o código existe (usando consulta mais simples)
+      console.log('=== ETAPA 1: Verificando se código existe ===');
+      const { data: allCodes, error: allCodesError } = await supabase
+        .from('employee_access_codes')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      console.log('Todos os códigos no banco:', allCodes);
+      console.log('Erro ao buscar todos códigos:', allCodesError);
+
+      // 2. Buscar código específico sem filtros RLS
+      console.log('=== ETAPA 2: Buscando código específico ===');
       const { data: codeData, error: codeError } = await supabase
         .from('employee_access_codes')
         .select('*')
-        .eq('code', accessCodeForm.accessCode)
-        .eq('employee_email', accessCodeForm.email)
-        .eq('is_used', false)
-        .maybeSingle();
+        .eq('code', cleanCode)
+        .eq('employee_email', cleanEmail);
 
-      console.log('Resultado da verificação do código:', { codeData, codeError });
+      console.log('Resultado da busca específica:', codeData);
+      console.log('Erro da busca específica:', codeError);
 
       if (codeError) {
-        console.error('Erro ao verificar código:', codeError);
+        console.error('Erro na consulta SQL:', codeError);
         toast({
           title: "Erro",
-          description: "Erro ao verificar código de acesso",
+          description: `Erro na consulta: ${codeError.message}`,
           variant: "destructive"
         });
         return;
       }
 
-      if (!codeData) {
+      // 3. Verificar se código foi encontrado
+      if (!codeData || codeData.length === 0) {
+        console.log('=== CÓDIGO NÃO ENCONTRADO ===');
+        
+        // Buscar por código sem filtro de email para debug
+        const { data: codeOnlyData } = await supabase
+          .from('employee_access_codes')
+          .select('*')
+          .eq('code', cleanCode);
+
+        console.log('Códigos com este código (qualquer email):', codeOnlyData);
+
+        // Buscar por email sem filtro de código para debug
+        const { data: emailOnlyData } = await supabase
+          .from('employee_access_codes')
+          .select('*')
+          .eq('employee_email', cleanEmail);
+
+        console.log('Códigos para este email:', emailOnlyData);
+
         toast({
           title: "Código inválido",
-          description: "Código de acesso não encontrado, já utilizado ou email incorreto",
+          description: "Código de acesso não encontrado ou email incorreto. Verifique os dados informados.",
           variant: "destructive"
         });
         return;
       }
 
-      // Verificar se o código não expirou
-      if (codeData.expires_at && new Date(codeData.expires_at) < new Date()) {
+      const accessCode = codeData[0];
+      console.log('Código encontrado:', accessCode);
+
+      // 4. Verificar se código já foi usado
+      if (accessCode.is_used) {
+        console.log('=== CÓDIGO JÁ FOI USADO ===');
+        toast({
+          title: "Código já utilizado",
+          description: "Este código de acesso já foi utilizado. Entre em contato com o administrador.",
+          variant: "destructive"
+        });
+        return;
+      }
+
+      // 5. Verificar se código expirou
+      if (accessCode.expires_at && new Date(accessCode.expires_at) < new Date()) {
+        console.log('=== CÓDIGO EXPIRADO ===');
         toast({
           title: "Código expirado",
-          description: "Este código de acesso já expirou",
+          description: "Este código de acesso já expirou. Entre em contato com o administrador.",
           variant: "destructive"
         });
         return;
       }
 
-      console.log('Código válido, tentando criar/logar usuário');
+      console.log('=== CÓDIGO VÁLIDO, INICIANDO AUTENTICAÇÃO ===');
 
-      // Tentar fazer signup primeiro
+      // 6. Criar usuário ou fazer login
+      // Primeiro, tentar criar conta nova
+      console.log('Tentando criar nova conta...');
       const signupResult = await supabase.auth.signUp({
-        email: accessCodeForm.email,
-        password: accessCodeForm.accessCode, // Usar o código como senha
+        email: cleanEmail,
+        password: cleanCode, // Usar código como senha temporária
         options: {
           data: {
-            name: codeData.employee_name
+            name: accessCode.employee_name,
+            access_code: cleanCode
           }
         }
       });
 
       console.log('Resultado do signup:', signupResult);
 
+      let authSuccess = false;
+
       if (signupResult.error) {
-        // Se o erro indica que o usuário já existe, tentar fazer login
-        if (signupResult.error.message.includes('already') || signupResult.error.message.includes('registered')) {
-          console.log('Usuário já existe, tentando fazer login...');
+        // Se usuário já existe, tentar fazer login
+        if (signupResult.error.message.includes('already') || 
+            signupResult.error.message.includes('registered') ||
+            signupResult.error.message.includes('User already registered')) {
           
-          const signInResult = await supabase.auth.signInWithPassword({
-            email: accessCodeForm.email,
-            password: accessCodeForm.accessCode
+          console.log('Usuário já existe, tentando login...');
+          const loginResult = await supabase.auth.signInWithPassword({
+            email: cleanEmail,
+            password: cleanCode
           });
 
-          console.log('Resultado do login:', signInResult);
+          console.log('Resultado do login:', loginResult);
 
-          if (signInResult.error) {
+          if (loginResult.error) {
+            console.error('Erro no login:', loginResult.error);
             toast({
               title: "Erro de autenticação",
-              description: "Erro ao fazer login. Verifique se o código está correto.",
+              description: `Erro ao fazer login: ${loginResult.error.message}`,
               variant: "destructive"
             });
             return;
           }
+          authSuccess = true;
         } else {
           console.error('Erro no signup:', signupResult.error);
           toast({
             title: "Erro no cadastro",
-            description: signupResult.error.message,
+            description: `Erro ao criar conta: ${signupResult.error.message}`,
             variant: "destructive"
           });
           return;
         }
+      } else {
+        authSuccess = true;
       }
 
-      // Se chegou até aqui, o login foi bem-sucedido
-      console.log('Autenticação bem-sucedida, marcando código como usado');
+      if (authSuccess) {
+        console.log('=== AUTENTICAÇÃO BEM-SUCEDIDA ===');
 
-      // Marcar código como usado
-      const { error: updateError } = await supabase
-        .from('employee_access_codes')
-        .update({ 
-          is_used: true,
-          used_at: new Date().toISOString()
-        })
-        .eq('id', codeData.id);
+        // 7. Marcar código como usado
+        console.log('Marcando código como usado...');
+        const { error: updateError } = await supabase
+          .from('employee_access_codes')
+          .update({ 
+            is_used: true,
+            used_at: new Date().toISOString()
+          })
+          .eq('id', accessCode.id);
 
-      if (updateError) {
-        console.error('Erro ao marcar código como usado:', updateError);
-      }
+        if (updateError) {
+          console.error('Erro ao marcar código como usado:', updateError);
+        } else {
+          console.log('Código marcado como usado com sucesso');
+        }
 
-      // Usar função RPC para associar à empresa
-      const { error: rpcError } = await supabase
-        .rpc('use_access_code', { 
-          access_code: accessCodeForm.accessCode 
+        // 8. Usar RPC para associar à empresa
+        console.log('Associando usuário à empresa...');
+        const { data: rpcResult, error: rpcError } = await supabase
+          .rpc('use_access_code', { 
+            access_code: cleanCode 
+          });
+
+        console.log('Resultado do RPC:', rpcResult);
+        if (rpcError) {
+          console.error('Erro no RPC:', rpcError);
+        }
+
+        toast({
+          title: "Login realizado",
+          description: `Bem-vindo ao Sunsettrack, ${accessCode.employee_name}!`
         });
 
-      if (rpcError) {
-        console.error('Erro no RPC:', rpcError);
+        // Limpar formulário
+        setAccessCodeForm({
+          email: '',
+          accessCode: ''
+        });
+
+        navigate('/');
       }
 
-      toast({
-        title: "Login realizado",
-        description: `Bem-vindo ao Sunsettrack, ${codeData.employee_name}!`
-      });
-
-      // Limpar formulário
-      setAccessCodeForm({
-        email: '',
-        accessCode: ''
-      });
-
-      navigate('/');
-
     } catch (error) {
-      console.error('Erro geral:', error);
+      console.error('=== ERRO GERAL ===', error);
       toast({
         title: "Erro interno",
-        description: "Ocorreu um erro interno. Tente novamente.",
+        description: "Ocorreu um erro interno. Tente novamente ou entre em contato com o suporte.",
         variant: "destructive"
       });
     } finally {
