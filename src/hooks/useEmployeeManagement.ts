@@ -72,44 +72,96 @@ export const useEmployeeManagement = () => {
     }
 
     try {
-      // Verificar se já existe código ativo para este email
-      const { data: existingCode, error: checkError } = await supabase
+      // Normalizar email
+      const cleanEmail = employeeEmail.trim().toLowerCase();
+
+      console.log('=== CRIANDO CÓDIGO DE ACESSO ===');
+      console.log('Email:', cleanEmail);
+      console.log('Nome:', employeeName);
+      console.log('Empresa ID:', profile.company_id);
+
+      // 1. Verificar se já existe código ativo para este email
+      const { data: existingCodes, error: checkError } = await supabase
         .from('employee_access_codes')
         .select('*')
-        .eq('employee_email', employeeEmail)
+        .eq('employee_email', cleanEmail)
         .eq('company_id', profile.company_id)
         .eq('is_used', false);
 
-      if (checkError) throw checkError;
+      console.log('Códigos existentes:', existingCodes);
 
-      if (existingCode && existingCode.length > 0) {
-        toast({
-          title: "Aviso",
-          description: `Já existe um código ativo para ${employeeEmail}`,
-          variant: "destructive"
-        });
-        return;
+      if (checkError) {
+        console.error('Erro ao verificar códigos existentes:', checkError);
+        throw checkError;
       }
 
-      // Gerar código único
-      const code = Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
+      // 2. Se existe código ativo, desativar primeiro
+      if (existingCodes && existingCodes.length > 0) {
+        console.log('Desativando códigos existentes...');
+        const { error: deactivateError } = await supabase
+          .from('employee_access_codes')
+          .update({ is_used: true, used_at: new Date().toISOString() })
+          .eq('employee_email', cleanEmail)
+          .eq('company_id', profile.company_id)
+          .eq('is_used', false);
+
+        if (deactivateError) {
+          console.error('Erro ao desativar códigos:', deactivateError);
+        }
+      }
+
+      // 3. Gerar código único
+      let code;
+      let isUnique = false;
+      let attempts = 0;
       
+      while (!isUnique && attempts < 10) {
+        code = Math.random().toString(36).substring(2, 8).toUpperCase() + 
+               Math.random().toString(36).substring(2, 8).toUpperCase();
+        
+        // Verificar se código é único
+        const { data: codeCheck } = await supabase
+          .from('employee_access_codes')
+          .select('id')
+          .eq('code', code)
+          .maybeSingle();
+        
+        if (!codeCheck) {
+          isUnique = true;
+        }
+        attempts++;
+      }
+
+      if (!isUnique) {
+        throw new Error('Não foi possível gerar código único');
+      }
+
+      console.log('Código gerado:', code);
+
+      // 4. Criar novo código
       const { data, error } = await supabase
         .from('employee_access_codes')
         .insert({
           code,
           employee_name: employeeName,
-          employee_email: employeeEmail,
-          company_id: profile.company_id
+          employee_email: cleanEmail,
+          company_id: profile.company_id,
+          is_used: false,
+          expires_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString() // 7 dias
         })
         .select()
         .single();
 
-      if (error) throw error;
+      if (error) {
+        console.error('Erro ao criar código:', error);
+        throw error;
+      }
+
+      console.log('Código criado com sucesso:', data);
 
       toast({
         title: "Código criado",
-        description: `Código de acesso criado para ${employeeName}`,
+        description: `Código de acesso criado para ${employeeName}: ${code}`,
       });
 
       await fetchAccessCodes();
