@@ -553,6 +553,7 @@ export type Database = {
       service_provider_access: {
         Row: {
           access_code: string
+          company_id: string | null
           created_at: string | null
           email: string
           id: string
@@ -564,6 +565,7 @@ export type Database = {
         }
         Insert: {
           access_code: string
+          company_id?: string | null
           created_at?: string | null
           email: string
           id?: string
@@ -575,6 +577,7 @@ export type Database = {
         }
         Update: {
           access_code?: string
+          company_id?: string | null
           created_at?: string | null
           email?: string
           id?: string
@@ -585,6 +588,13 @@ export type Database = {
           provider_id?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "service_provider_access_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "service_provider_access_provider_id_fkey"
             columns: ["provider_id"]
@@ -598,6 +608,7 @@ export type Database = {
         Row: {
           active: boolean | null
           address: string | null
+          company_id: string | null
           cpf_cnpj: string | null
           created_at: string | null
           email: string
@@ -614,6 +625,7 @@ export type Database = {
         Insert: {
           active?: boolean | null
           address?: string | null
+          company_id?: string | null
           cpf_cnpj?: string | null
           created_at?: string | null
           email: string
@@ -630,6 +642,7 @@ export type Database = {
         Update: {
           active?: boolean | null
           address?: string | null
+          company_id?: string | null
           cpf_cnpj?: string | null
           created_at?: string | null
           email?: string
@@ -643,7 +656,15 @@ export type Database = {
           specialties?: string[] | null
           updated_at?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "service_providers_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       transactions: {
         Row: {

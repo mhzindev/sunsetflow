@@ -1,4 +1,3 @@
-
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -303,9 +302,11 @@ const Auth = () => {
           // Buscar dados do prestador para associar à empresa
           const { data: providerInfo } = await supabase
             .from('service_providers')
-            .select('*')
+            .select('*, companies(*)')
             .eq('id', accessRecord.provider_id)
             .single();
+
+          console.log('Dados do prestador com empresa:', providerInfo);
 
           const profileData = {
             id: authResult.data.user.id,
@@ -314,7 +315,7 @@ const Auth = () => {
             role: 'user' as const,
             user_type: 'provider' as const,
             provider_id: accessRecord.provider_id,
-            company_id: null, // Prestadores não estão associados diretamente à empresa
+            company_id: providerInfo?.company_id || accessRecord.company_id, // Usar company_id do prestador
             active: true
           };
 

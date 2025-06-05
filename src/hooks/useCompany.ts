@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
@@ -26,30 +25,33 @@ export const useCompany = () => {
       if (profile.user_type === 'provider' && profile.provider_id) {
         console.log('Fetching company for provider:', profile.provider_id);
         
-        // Buscar o prestador e suas informações
+        // Buscar o prestador e suas informações COM company_id
         const { data: providerData, error: providerError } = await supabase
           .from('service_providers')
-          .select('*')
+          .select('*, companies(*)')
           .eq('id', profile.provider_id)
           .single();
 
         if (providerError) {
           console.error('Error fetching provider:', providerError);
           setCompany(null);
-        } else if (providerData) {
-          console.log('Provider data found:', providerData);
-          // Para prestadores, criar uma "empresa virtual" com base nos dados do prestador
+        } else if (providerData && providerData.companies) {
+          console.log('Provider data found with company:', providerData);
+          // Usar os dados da empresa real, não criar uma virtual
           setCompany({
-            id: providerData.id,
-            name: providerData.name,
-            legalName: providerData.name,
-            cnpj: providerData.cpf_cnpj || '',
-            email: providerData.email,
-            phone: providerData.phone,
-            address: providerData.address,
-            createdAt: providerData.created_at,
-            ownerId: providerData.id
+            id: providerData.companies.id,
+            name: providerData.companies.name,
+            legalName: providerData.companies.legal_name,
+            cnpj: providerData.companies.cnpj,
+            email: providerData.companies.email,
+            phone: providerData.companies.phone,
+            address: providerData.companies.address,
+            createdAt: providerData.companies.created_at,
+            ownerId: providerData.companies.owner_id
           });
+        } else {
+          console.log('Provider found but no company associated');
+          setCompany(null);
         }
       } else if (profile.company_id) {
         // Se o usuário tem company_id no perfil, buscar a empresa
@@ -67,7 +69,6 @@ export const useCompany = () => {
         
         if (data) {
           console.log('Company data found:', data);
-          // Mapear os campos do banco para a interface TypeScript
           setCompany({
             id: data.id,
             name: data.name,
