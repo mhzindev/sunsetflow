@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -13,6 +14,7 @@ import { ClientAutocomplete } from '@/components/clients/ClientAutocomplete';
 import { ServiceValueDistribution } from '@/components/missions/ServiceValueDistribution';
 import { ServiceProviderSelector } from '@/components/missions/ServiceProviderSelector';
 import { Plus, Calendar, MapPin, Users, DollarSign, RefreshCw, CheckCircle, Clock } from 'lucide-react';
+import { isAdmin } from '@/utils/authUtils';
 
 interface MissionManagerProps {
   onMissionCreated?: () => void;
@@ -40,8 +42,8 @@ export const MissionManager = ({ onMissionCreated }: MissionManagerProps) => {
   const { showSuccess, showError } = useToastFeedback();
   const { user, profile } = useAuth();
 
-  // Verificar se o usuário é dono/admin usando o profile atualizado
-  const isOwner = profile?.role === 'admin';
+  // Verificar se o usuário é admin usando a função helper
+  const userIsAdmin = isAdmin(profile);
 
   useEffect(() => {
     loadData();
@@ -131,11 +133,14 @@ export const MissionManager = ({ onMissionCreated }: MissionManagerProps) => {
     try {
       console.log('Aprovando missão:', missionId);
 
-      const result = await updateMission(missionId, {
+      // Usar apenas os campos que existem na tabela missions
+      const updateData = {
         is_approved: true,
         approved_by: user?.id,
         approved_at: new Date().toISOString()
-      });
+      };
+
+      const result = await updateMission(missionId, updateData);
 
       if (result.error) {
         console.error('Erro ao aprovar missão:', result.error);
@@ -395,8 +400,8 @@ export const MissionManager = ({ onMissionCreated }: MissionManagerProps) => {
                           <p className="mt-2 text-gray-700">{mission.description}</p>
                         )}
 
-                        {/* Botão de aprovação para donos */}
-                        {isOwner && !mission.is_approved && mission.service_value > 0 && (
+                        {/* Botão de aprovação APENAS para admins */}
+                        {userIsAdmin && !mission.is_approved && mission.service_value > 0 && (
                           <div className="pt-3 mt-3 border-t">
                             <Button 
                               onClick={() => handleApproveMission(mission.id)}

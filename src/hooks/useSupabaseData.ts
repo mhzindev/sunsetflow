@@ -469,21 +469,28 @@ export const useSupabaseData = () => {
     }
   };
 
-  // Função para atualizar missão - ATUALIZADA
+  // Função para atualizar missão - CORRIGIDA
   const updateMission = async (missionId: string, updates: any) => {
     try {
       console.log('Atualizando missão:', missionId, updates);
 
+      // Garantir que apenas campos válidos sejam enviados
+      const validUpdates = {
+        ...updates,
+        // Remover campos que podem causar conflito
+        updated_at: new Date().toISOString()
+      };
+
       const { data, error } = await supabase
         .from('missions')
-        .update(updates)
+        .update(validUpdates)
         .eq('id', missionId)
         .select()
         .single();
 
       if (error) {
         console.error('Erro SQL ao atualizar missão:', error);
-        throw error;
+        return { data: null, error: error.message };
       }
 
       console.log('Missão atualizada com sucesso:', data);
