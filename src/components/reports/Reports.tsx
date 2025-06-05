@@ -1,3 +1,4 @@
+
 import { useState } from 'react';
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -60,13 +61,14 @@ export const Reports = () => {
   };
 
   const employeeExpenses = data.transactions
-    .filter(t => t.type === 'expense' && t.status === 'completed')
+    .filter(t => t.type === 'expense' && t.status === 'completed' && t.userName) // Filter out transactions without userName
     .reduce((acc, t) => {
-      if (!acc[t.userName]) {
-        acc[t.userName] = { name: t.userName, total: 0, trips: 0, category: 'Técnico' };
+      const userName = t.userName || 'Usuário Desconhecido'; // Fallback for undefined names
+      if (!acc[userName]) {
+        acc[userName] = { name: userName, total: 0, trips: 0, category: 'Técnico' };
       }
-      acc[t.userName].total += t.amount;
-      acc[t.userName].trips += 1;
+      acc[userName].total += t.amount;
+      acc[userName].trips += 1;
       return acc;
     }, {} as any);
 
@@ -431,10 +433,10 @@ export const Reports = () => {
                       <div key={index} className="flex items-center justify-between p-3 bg-slate-50 rounded-lg">
                         <div className="flex items-center space-x-3">
                           <div className="w-10 h-10 bg-blue-600 rounded-full flex items-center justify-center text-white font-semibold">
-                            {employee.name.charAt(0)}
+                            {employee.name && employee.name.length > 0 ? employee.name.charAt(0) : 'U'}
                           </div>
                           <div>
-                            <p className="font-medium text-slate-800">{employee.name}</p>
+                            <p className="font-medium text-slate-800">{employee.name || 'Usuário Desconhecido'}</p>
                             <p className="text-sm text-slate-600">{employee.category} • {employee.trips} transações</p>
                           </div>
                         </div>
