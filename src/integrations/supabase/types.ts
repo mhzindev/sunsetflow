@@ -519,6 +519,65 @@ export type Database = {
           },
         ]
       }
+      pending_revenues: {
+        Row: {
+          account_id: string | null
+          account_type: string | null
+          client_name: string
+          company_amount: number
+          created_at: string
+          description: string | null
+          due_date: string
+          id: string
+          mission_id: string | null
+          provider_amount: number
+          received_at: string | null
+          status: Database["public"]["Enums"]["pending_revenue_status"]
+          total_amount: number
+          updated_at: string
+        }
+        Insert: {
+          account_id?: string | null
+          account_type?: string | null
+          client_name: string
+          company_amount: number
+          created_at?: string
+          description?: string | null
+          due_date: string
+          id?: string
+          mission_id?: string | null
+          provider_amount: number
+          received_at?: string | null
+          status?: Database["public"]["Enums"]["pending_revenue_status"]
+          total_amount: number
+          updated_at?: string
+        }
+        Update: {
+          account_id?: string | null
+          account_type?: string | null
+          client_name?: string
+          company_amount?: number
+          created_at?: string
+          description?: string | null
+          due_date?: string
+          id?: string
+          mission_id?: string | null
+          provider_amount?: number
+          received_at?: string | null
+          status?: Database["public"]["Enums"]["pending_revenue_status"]
+          total_amount?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pending_revenues_mission_id_fkey"
+            columns: ["mission_id"]
+            isOneToOne: false
+            referencedRelation: "missions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       profiles: {
         Row: {
           active: boolean
@@ -801,6 +860,14 @@ export type Database = {
           permissions: Json
         }[]
       }
+      convert_pending_to_received_revenue: {
+        Args: {
+          pending_revenue_id: string
+          account_id: string
+          account_type: string
+        }
+        Returns: Json
+      }
       get_active_employees: {
         Args: Record<PropertyKey, never>
         Returns: {
@@ -990,6 +1057,7 @@ export type Database = {
         | "advance"
         | "balance_payment"
         | "advance_payment"
+      pending_revenue_status: "pending" | "received" | "cancelled"
       transaction_category:
         | "service_payment"
         | "client_payment"
@@ -1133,6 +1201,7 @@ export const Constants = {
         "balance_payment",
         "advance_payment",
       ],
+      pending_revenue_status: ["pending", "received", "cancelled"],
       transaction_category: [
         "service_payment",
         "client_payment",

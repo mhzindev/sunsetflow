@@ -1,51 +1,121 @@
 
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Badge } from "@/components/ui/badge";
-import { Transaction, TransactionCategory, PaymentMethod } from '@/types/transaction';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { useSupabaseData } from '@/hooks/useSupabaseData';
 import { useToastFeedback } from '@/hooks/useToastFeedback';
 
+interface Transaction {
+  id: string;
+  type: 'income' | 'expense';
+  description: string;
+  amount: number;
+  category: string;
+  paymentMethod: string;
+  date: string;
+  status: 'pending' | 'completed' | 'cancelled';
+  employeeName: string;
+  receipt?: string;
+  tags?: string[];
+  method: string;
+}
+
 interface TransactionEditModalProps {
+  transaction: Transaction | null;
   isOpen: boolean;
   onClose: () => void;
-  transaction: Transaction | null;
-  onSave: (transaction: Transaction) => void;
+  onTransactionUpdated: () => void;
 }
 
 export const TransactionEditModal = ({ 
+  transaction, 
   isOpen, 
   onClose, 
-  transaction,
-  onSave 
+  onTransactionUpdated 
 }: TransactionEditModalProps) => {
-  const { showSuccess, showError } = useToastFeedback();
-  const [isLoading, setIsLoading] = useState(false);
   const [formData, setFormData] = useState({
     description: '',
-    amount: '',
+    amount: 0,
+    category: '',
+    method: '',
     date: '',
-    category: 'fuel' as TransactionCategory,
-    method: 'pix' as PaymentMethod,
-    status: 'pending' as 'pending' | 'completed' | 'cancelled'
+    status: 'completed' as 'pending' | 'completed' | 'cancelled',
+    tags: ''
   });
+  const [loading, setLoading] = useState(false);
+  const { showSuccess, showError } = useToastFeedback();
+
+  useEffect(() => {
+    if (transaction) {
+      setFormData({
+        description: transaction.description,
+        amount: transaction.amount,
+        category: transaction.category,
+        method: transaction.method,
+        date: transaction.date,
+        status: transaction.status,
+        tags: transaction.tags?.join(', ') || ''
+      });
+    }
+  }, [transaction]);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!transaction) return;
+
+    setLoading(true);
+    try {
+      // Atualizar transação usando SQL direto
+      const { error } = await supabase
+        .from('transactions')
+        .update({
+          description: formData.description,
+          amount: formData.amount,
+          category: formData.category,
+          method: formData.method,
+          date: formData.date,
+          status: formData.status,
+          tags: formData.tags ? formData.tags.split(',').map(tag => tag.trim()) : null,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', transaction.id);
+
+      if (error) {
+        console.error('Erro ao atualizar transação:', error);
+        showError('Erro', 'Não foi possível atualizar a transação');
+        return;
+      }
+
+      showSuccess('Sucesso', 'Transação atualizada com sucesso!');
+      onTransactionUpdated();
+      onClose();
+    } catch (err) {
+      console.error('Erro ao atualizar transação:', err);
+      showError('Erro', 'Erro inesperado ao atualizar transação');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  if (!transaction) return null;
 
   const categories = [
-    { value: 'service_payment', label: 'Pagamento Serviços', color: 'bg-red-100 text-red-800' },
-    { value: 'client_payment', label: 'Recebimento Cliente', color: 'bg-green-100 text-green-800' },
-    { value: 'fuel', label: 'Combustível', color: 'bg-orange-100 text-orange-800' },
-    { value: 'accommodation', label: 'Hospedagem', color: 'bg-blue-100 text-blue-800' },
-    { value: 'meals', label: 'Alimentação', color: 'bg-emerald-100 text-emerald-800' },
-    { value: 'materials', label: 'Materiais', color: 'bg-yellow-100 text-yellow-800' },
-    { value: 'maintenance', label: 'Manutenção', color: 'bg-purple-100 text-purple-800' },
-    { value: 'office_expense', label: 'Despesa Escritório', color: 'bg-indigo-100 text-indigo-800' },
-    { value: 'other', label: 'Outros', color: 'bg-gray-100 text-gray-800' }
+    { value: 'service_payment', label: 'Pagamento de Serviços' },
+    { value: 'client_payment', label: 'Recebimento de Cliente' },
+    { value: 'fuel', label: 'Combustível' },
+    { value: 'accommodation', label: 'Hospedagem' },
+    { value: 'meals', label: 'Alimentação' },
+    { value: 'materials', label: 'Materiais' },
+    { value: 'maintenance', label: 'Manutenção' },
+    { value: 'office_expense', label: 'Despesa de Escritório' },
+    { value: 'other', label: 'Outros' }
   ];
 
-  const paymentMethods = [
+  const methods = [
     { value: 'pix', label: 'PIX' },
     { value: 'transfer', label: 'Transferência' },
     { value: 'credit_card', label: 'Cartão de Crédito' },
@@ -53,70 +123,13 @@ export const TransactionEditModal = ({
     { value: 'cash', label: 'Dinheiro' }
   ];
 
-  useEffect(() => {
-    if (transaction) {
-      setFormData({
-        description: transaction.description,
-        amount: transaction.amount.toString(),
-        date: transaction.date,
-        category: transaction.category,
-        method: transaction.method,
-        status: transaction.status
-      });
-    }
-  }, [transaction]);
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    
-    if (!formData.description.trim() || !formData.amount) {
-      showError('Erro de Validação', 'Por favor, preencha todos os campos obrigatórios');
-      return;
-    }
-
-    const amount = parseFloat(formData.amount);
-    if (isNaN(amount) || amount <= 0) {
-      showError('Valor Inválido', 'Por favor, insira um valor válido maior que zero');
-      return;
-    }
-
-    setIsLoading(true);
-    
-    try {
-      // Simular API call
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
-      if (!transaction) return;
-
-      const updatedTransaction: Transaction = {
-        ...transaction,
-        description: formData.description,
-        amount: amount,
-        date: formData.date,
-        category: formData.category,
-        method: formData.method,
-        status: formData.status
-      };
-      
-      onSave(updatedTransaction);
-      showSuccess('Sucesso', 'Transação atualizada com sucesso!');
-      onClose();
-    } catch (error) {
-      showError('Erro', 'Erro ao atualizar transação. Tente novamente.');
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  if (!transaction) return null;
-
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="max-w-2xl">
         <DialogHeader>
           <DialogTitle>Editar Transação</DialogTitle>
         </DialogHeader>
-
+        
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
             <Label htmlFor="description">Descrição *</Label>
@@ -124,19 +137,20 @@ export const TransactionEditModal = ({
               id="description"
               value={formData.description}
               onChange={(e) => setFormData({...formData, description: e.target.value})}
+              placeholder="Descrição da transação"
               required
             />
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <Label htmlFor="amount">Valor (R$) *</Label>
+              <Label htmlFor="amount">Valor *</Label>
               <Input
                 id="amount"
                 type="number"
                 step="0.01"
                 value={formData.amount}
-                onChange={(e) => setFormData({...formData, amount: e.target.value})}
+                onChange={(e) => setFormData({...formData, amount: parseFloat(e.target.value) || 0})}
                 required
               />
             </div>
@@ -153,72 +167,79 @@ export const TransactionEditModal = ({
             </div>
           </div>
 
-          <div>
-            <Label>Categoria *</Label>
-            <div className="flex flex-wrap gap-2 mt-2">
-              {categories.map(category => (
-                <Badge
-                  key={category.value}
-                  className={`cursor-pointer ${
-                    formData.category === category.value 
-                      ? 'bg-blue-600 text-white' 
-                      : category.color
-                  }`}
-                  onClick={() => setFormData({...formData, category: category.value as TransactionCategory})}
-                >
-                  {category.label}
-                </Badge>
-              ))}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <Label htmlFor="category">Categoria *</Label>
+              <Select value={formData.category} onValueChange={(value) => 
+                setFormData({...formData, category: value})
+              }>
+                <SelectTrigger>
+                  <SelectValue placeholder="Selecione a categoria" />
+                </SelectTrigger>
+                <SelectContent>
+                  {categories.map((cat) => (
+                    <SelectItem key={cat.value} value={cat.value}>
+                      {cat.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div>
+              <Label htmlFor="method">Forma de Pagamento *</Label>
+              <Select value={formData.method} onValueChange={(value) => 
+                setFormData({...formData, method: value})
+              }>
+                <SelectTrigger>
+                  <SelectValue placeholder="Selecione o método" />
+                </SelectTrigger>
+                <SelectContent>
+                  {methods.map((method) => (
+                    <SelectItem key={method.value} value={method.value}>
+                      {method.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <Label htmlFor="method">Forma de Pagamento *</Label>
-              <select
-                id="method"
-                className="w-full p-2 border border-gray-300 rounded-md"
-                value={formData.method}
-                onChange={(e) => setFormData({...formData, method: e.target.value as PaymentMethod})}
-                required
-              >
-                {paymentMethods.map(method => (
-                  <option key={method.value} value={method.value}>
-                    {method.label}
-                  </option>
-                ))}
-              </select>
-            </div>
+          <div>
+            <Label htmlFor="status">Status</Label>
+            <Select value={formData.status} onValueChange={(value: 'pending' | 'completed' | 'cancelled') => 
+              setFormData({...formData, status: value})
+            }>
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="pending">Pendente</SelectItem>
+                <SelectItem value="completed">Concluída</SelectItem>
+                <SelectItem value="cancelled">Cancelada</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
 
-            <div>
-              <Label htmlFor="status">Status *</Label>
-              <select
-                id="status"
-                className="w-full p-2 border border-gray-300 rounded-md"
-                value={formData.status}
-                onChange={(e) => setFormData({...formData, status: e.target.value as 'pending' | 'completed' | 'cancelled'})}
-                required
-              >
-                <option value="pending">Pendente</option>
-                <option value="completed">Concluído</option>
-                <option value="cancelled">Cancelado</option>
-              </select>
-            </div>
+          <div>
+            <Label htmlFor="tags">Tags (separadas por vírgula)</Label>
+            <Input
+              id="tags"
+              value={formData.tags}
+              onChange={(e) => setFormData({...formData, tags: e.target.value})}
+              placeholder="tag1, tag2, tag3"
+            />
           </div>
 
           <div className="flex space-x-4 pt-4">
-            <Button 
-              type="submit" 
-              className="flex-1"
-              disabled={isLoading}
-            >
-              {isLoading ? 'Salvando...' : 'Salvar Alterações'}
+            <Button type="submit" disabled={loading} className="flex-1">
+              {loading ? 'Salvando...' : 'Salvar Alterações'}
             </Button>
             <Button 
               type="button" 
               variant="outline"
               onClick={onClose}
-              disabled={isLoading}
+              disabled={loading}
             >
               Cancelar
             </Button>

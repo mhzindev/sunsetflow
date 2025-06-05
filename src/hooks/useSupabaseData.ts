@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
@@ -812,6 +811,97 @@ export const useSupabaseData = () => {
     }
   };
 
+  // Função para buscar receitas pendentes - NOVA
+  const fetchPendingRevenues = async () => {
+    try {
+      console.log('Buscando receitas pendentes...');
+      
+      const { data, error } = await supabase
+        .from('pending_revenues')
+        .select(`
+          *,
+          missions:mission_id(title, location)
+        `)
+        .order('created_at', { ascending: false });
+
+      if (error) {
+        console.error('Erro SQL ao buscar receitas pendentes:', error);
+        return [];
+      }
+      
+      console.log('Receitas pendentes encontradas:', data?.length || 0);
+      return data || [];
+    } catch (err) {
+      console.error('Erro ao buscar receitas pendentes:', err);
+      return [];
+    }
+  };
+
+  // Função para converter receita pendente em recebida - NOVA
+  const convertPendingRevenue = async (pendingRevenueId: string, accountId: string, accountType: string) => {
+    try {
+      console.log('Convertendo receita pendente:', { pendingRevenueId, accountId, accountType });
+
+      const { data, error } = await supabase.rpc('convert_pending_to_received_revenue', {
+        pending_revenue_id: pendingRevenueId,
+        account_id: accountId,
+        account_type: accountType
+      });
+
+      if (error) {
+        console.error('Erro RPC ao converter receita:', error);
+        return { data: null, error: error.message };
+      }
+
+      console.log('Receita convertida com sucesso:', data);
+      return { data, error: null };
+    } catch (err) {
+      console.error('Erro ao converter receita:', err);
+      return { data: null, error: err instanceof Error ? err.message : 'Erro desconhecido' };
+    }
+  };
+
+  // Função para atualizar saldo do prestador - NOVA
+  const updateProviderBalance = async (providerId: string, amount: number, operation: 'add' | 'subtract' = 'add') => {
+    try {
+      console.log('Atualizando saldo do prestador:', { providerId, amount, operation });
+
+      const { data: currentProvider, error: fetchError } = await supabase
+        .from('service_providers')
+        .select('current_balance')
+        .eq('id', providerId)
+        .single();
+
+      if (fetchError) {
+        console.error('Erro ao buscar prestador:', fetchError);
+        return { data: null, error: fetchError.message };
+      }
+
+      const currentBalance = currentProvider.current_balance || 0;
+      const newBalance = operation === 'add' 
+        ? currentBalance + amount 
+        : currentBalance - amount;
+
+      const { data, error } = await supabase
+        .from('service_providers')
+        .update({ current_balance: newBalance })
+        .eq('id', providerId)
+        .select()
+        .single();
+
+      if (error) {
+        console.error('Erro ao atualizar saldo:', error);
+        return { data: null, error: error.message };
+      }
+
+      console.log('Saldo atualizado com sucesso:', data);
+      return { data, error: null };
+    } catch (err) {
+      console.error('Erro ao atualizar saldo do prestador:', err);
+      return { data: null, error: err instanceof Error ? err.message : 'Erro desconhecido' };
+    }
+  };
+
   return {
     loading,
     error,
@@ -824,6 +914,9 @@ export const useSupabaseData = () => {
     fetchBankAccounts,
     fetchCreditCards,
     fetchEmployees,
+    fetchPendingRevenues,
+    convertPendingRevenue,
+    updateProviderBalance,
     insertTransaction,
     insertExpense,
     updateExpenseStatus,

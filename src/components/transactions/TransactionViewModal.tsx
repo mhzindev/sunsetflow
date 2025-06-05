@@ -1,35 +1,65 @@
 
+import React from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { Calendar, User, CreditCard, FileText, Tag, Receipt } from 'lucide-react';
-import { Transaction } from '@/types/transaction';
+import { Calendar, DollarSign, User, FileText, Tag, CreditCard } from 'lucide-react';
+import { formatCurrency, formatDate } from '@/utils/dateUtils';
 
-interface TransactionViewModalProps {
-  isOpen: boolean;
-  onClose: () => void;
-  transaction: Transaction | null;
-  onEdit?: (transaction: Transaction) => void;
+interface Transaction {
+  id: string;
+  type: 'income' | 'expense';
+  description: string;
+  amount: number;
+  category: string;
+  paymentMethod: string;
+  date: string;
+  status: 'pending' | 'completed' | 'cancelled';
+  employeeName: string;
+  receipt?: string;
+  tags?: string[];
+  method: string;
 }
 
-export const TransactionViewModal = ({ 
-  isOpen, 
-  onClose, 
-  transaction,
-  onEdit 
-}: TransactionViewModalProps) => {
+interface TransactionViewModalProps {
+  transaction: Transaction | null;
+  isOpen: boolean;
+  onClose: () => void;
+}
+
+export const TransactionViewModal = ({ transaction, isOpen, onClose }: TransactionViewModalProps) => {
   if (!transaction) return null;
+
+  const getStatusBadge = (status: string) => {
+    const config = {
+      pending: { label: 'Pendente', className: 'bg-yellow-100 text-yellow-800' },
+      completed: { label: 'Concluída', className: 'bg-green-100 text-green-800' },
+      cancelled: { label: 'Cancelada', className: 'bg-red-100 text-red-800' }
+    };
+    
+    const statusConfig = config[status as keyof typeof config] || config.pending;
+    return <Badge className={statusConfig.className}>{statusConfig.label}</Badge>;
+  };
+
+  const getTypeBadge = (type: string) => {
+    const config = {
+      income: { label: 'Receita', className: 'bg-green-100 text-green-800' },
+      expense: { label: 'Despesa', className: 'bg-red-100 text-red-800' }
+    };
+    
+    const typeConfig = config[type as keyof typeof config];
+    return <Badge className={typeConfig.className}>{typeConfig.label}</Badge>;
+  };
 
   const getCategoryLabel = (category: string) => {
     const labels = {
-      service_payment: 'Pagamento Serviços',
-      client_payment: 'Recebimento Cliente',
+      service_payment: 'Pagamento de Serviços',
+      client_payment: 'Recebimento de Cliente',
       fuel: 'Combustível',
       accommodation: 'Hospedagem',
       meals: 'Alimentação',
       materials: 'Materiais',
       maintenance: 'Manutenção',
-      office_expense: 'Despesa Escritório',
+      office_expense: 'Despesa de Escritório',
       other: 'Outros'
     };
     return labels[category as keyof typeof labels] || category;
@@ -46,24 +76,6 @@ export const TransactionViewModal = ({
     return labels[method as keyof typeof labels] || method;
   };
 
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'completed': return 'bg-green-100 text-green-800';
-      case 'pending': return 'bg-yellow-100 text-yellow-800';
-      case 'cancelled': return 'bg-red-100 text-red-800';
-      default: return 'bg-gray-100 text-gray-800';
-    }
-  };
-
-  const getStatusLabel = (status: string) => {
-    const labels = {
-      completed: 'Concluído',
-      pending: 'Pendente',
-      cancelled: 'Cancelado'
-    };
-    return labels[status as keyof typeof labels] || status;
-  };
-
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="max-w-2xl">
@@ -73,115 +85,86 @@ export const TransactionViewModal = ({
             Detalhes da Transação
           </DialogTitle>
         </DialogHeader>
-
+        
         <div className="space-y-6">
-          {/* Status and Type */}
-          <div className="flex justify-between items-start">
-            <div>
-              <Badge className={getStatusColor(transaction.status)}>
-                {getStatusLabel(transaction.status)}
-              </Badge>
+          {/* Header com tipo e status */}
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              {getTypeBadge(transaction.type)}
+              {getStatusBadge(transaction.status)}
             </div>
             <div className="text-right">
-              <p className="text-sm text-gray-500">Tipo</p>
-              <p className={`text-lg font-semibold ${
+              <p className="text-sm text-gray-600">Valor</p>
+              <p className={`text-2xl font-bold ${
                 transaction.type === 'income' ? 'text-green-600' : 'text-red-600'
               }`}>
-                {transaction.type === 'income' ? 'Entrada' : 'Saída'}
+                {transaction.type === 'income' ? '+' : '-'} {formatCurrency(transaction.amount)}
               </p>
             </div>
           </div>
 
-          {/* Amount */}
-          <div className="text-center p-4 bg-gray-50 rounded-lg">
-            <p className="text-sm text-gray-500 mb-1">Valor</p>
-            <p className={`text-3xl font-bold ${
-              transaction.type === 'income' ? 'text-green-600' : 'text-red-600'
-            }`}>
-              {transaction.type === 'income' ? '+' : '-'}R$ {transaction.amount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-            </p>
-          </div>
-
-          {/* Details Grid */}
+          {/* Informações principais */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="space-y-4">
-              <div className="flex items-center gap-3">
-                <Calendar className="w-4 h-4 text-gray-400" />
+            <div className="space-y-3">
+              <div className="flex items-center gap-2">
+                <FileText className="w-4 h-4 text-gray-500" />
                 <div>
-                  <p className="text-sm text-gray-500">Data</p>
-                  <p className="font-medium">
-                    {new Date(transaction.date).toLocaleDateString('pt-BR')}
-                  </p>
+                  <p className="text-sm text-gray-600">Descrição</p>
+                  <p className="font-medium">{transaction.description}</p>
                 </div>
               </div>
-
-              <div className="flex items-center gap-3">
-                <Tag className="w-4 h-4 text-gray-400" />
+              
+              <div className="flex items-center gap-2">
+                <Tag className="w-4 h-4 text-gray-500" />
                 <div>
-                  <p className="text-sm text-gray-500">Categoria</p>
-                  <Badge variant="outline">
-                    {getCategoryLabel(transaction.category)}
-                  </Badge>
+                  <p className="text-sm text-gray-600">Categoria</p>
+                  <p className="font-medium">{getCategoryLabel(transaction.category)}</p>
                 </div>
               </div>
-
-              <div className="flex items-center gap-3">
-                <User className="w-4 h-4 text-gray-400" />
+              
+              <div className="flex items-center gap-2">
+                <User className="w-4 h-4 text-gray-500" />
                 <div>
-                  <p className="text-sm text-gray-500">Usuário</p>
-                  <p className="font-medium">{transaction.userName}</p>
+                  <p className="text-sm text-gray-600">Responsável</p>
+                  <p className="font-medium">{transaction.employeeName}</p>
                 </div>
               </div>
             </div>
-
-            <div className="space-y-4">
-              <div className="flex items-center gap-3">
-                <CreditCard className="w-4 h-4 text-gray-400" />
+            
+            <div className="space-y-3">
+              <div className="flex items-center gap-2">
+                <Calendar className="w-4 h-4 text-gray-500" />
                 <div>
-                  <p className="text-sm text-gray-500">Método de Pagamento</p>
+                  <p className="text-sm text-gray-600">Data</p>
+                  <p className="font-medium">{formatDate(transaction.date)}</p>
+                </div>
+              </div>
+              
+              <div className="flex items-center gap-2">
+                <CreditCard className="w-4 h-4 text-gray-500" />
+                <div>
+                  <p className="text-sm text-gray-600">Forma de Pagamento</p>
                   <p className="font-medium">{getMethodLabel(transaction.method)}</p>
                 </div>
               </div>
-
-              {transaction.missionId && (
-                <div className="flex items-center gap-3">
-                  <FileText className="w-4 h-4 text-gray-400" />
-                  <div>
-                    <p className="text-sm text-gray-500">ID da Missão</p>
-                    <p className="font-medium">{transaction.missionId}</p>
-                  </div>
+              
+              <div className="flex items-center gap-2">
+                <DollarSign className="w-4 h-4 text-gray-500" />
+                <div>
+                  <p className="text-sm text-gray-600">ID da Transação</p>
+                  <p className="font-mono text-sm text-gray-500">{transaction.id}</p>
                 </div>
-              )}
-
-              {transaction.receipt && (
-                <div className="flex items-center gap-3">
-                  <Receipt className="w-4 h-4 text-gray-400" />
-                  <div>
-                    <p className="text-sm text-gray-500">Comprovante</p>
-                    <Button variant="outline" size="sm">
-                      Ver Arquivo
-                    </Button>
-                  </div>
-                </div>
-              )}
-            </div>
-          </div>
-
-          {/* Description */}
-          <div>
-            <p className="text-sm text-gray-500 mb-2">Descrição</p>
-            <div className="p-3 bg-gray-50 rounded-lg">
-              <p className="text-gray-800">{transaction.description}</p>
+              </div>
             </div>
           </div>
 
           {/* Tags */}
           {transaction.tags && transaction.tags.length > 0 && (
             <div>
-              <p className="text-sm text-gray-500 mb-2">Tags</p>
+              <p className="text-sm text-gray-600 mb-2">Tags</p>
               <div className="flex flex-wrap gap-2">
                 {transaction.tags.map((tag, index) => (
-                  <Badge key={index} variant="secondary">
+                  <Badge key={index} variant="outline">
                     {tag}
                   </Badge>
                 ))}
@@ -189,24 +172,22 @@ export const TransactionViewModal = ({
             </div>
           )}
 
-          {/* Actions */}
-          <div className="flex gap-2 pt-4 border-t">
-            {onEdit && transaction.status !== 'completed' && (
-              <Button 
-                onClick={() => onEdit(transaction)}
-                className="flex-1"
-              >
-                Editar Transação
-              </Button>
-            )}
-            <Button 
-              variant="outline" 
-              onClick={onClose}
-              className="flex-1"
-            >
-              Fechar
-            </Button>
-          </div>
+          {/* Comprovante */}
+          {transaction.receipt && (
+            <div>
+              <p className="text-sm text-gray-600 mb-2">Comprovante</p>
+              <div className="p-3 bg-gray-50 rounded-lg">
+                <a 
+                  href={transaction.receipt} 
+                  target="_blank" 
+                  rel="noopener noreferrer"
+                  className="text-blue-600 hover:text-blue-800 underline"
+                >
+                  Ver comprovante
+                </a>
+              </div>
+            </div>
+          )}
         </div>
       </DialogContent>
     </Dialog>
