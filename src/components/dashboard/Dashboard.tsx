@@ -4,6 +4,7 @@ import { FinancialSummary } from "@/components/dashboard/FinancialSummary";
 import { QuickActions } from "@/components/dashboard/QuickActions";
 import { RecentTransactions } from "@/components/dashboard/RecentTransactions";
 import { FinancialSummaryDebug } from './FinancialSummaryDebug';
+import { RevenueManager } from "@/components/revenues/RevenueManager";
 import { useAuth } from "@/contexts/AuthContext";
 import { Card } from "@/components/ui/card";
 
@@ -55,6 +56,9 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
       
       {/* Componente temporário de debug - remover em produção */}
       <FinancialSummaryDebug />
+      
+      {/* Adicionar gerenciador de receitas */}
+      <RevenueManager />
       
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <CashFlowChart />
