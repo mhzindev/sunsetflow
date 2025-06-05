@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
+import { PaymentCreateData } from '@/types/payment';
 
 export const useSupabaseData = () => {
   const { user, profile } = useAuth();
