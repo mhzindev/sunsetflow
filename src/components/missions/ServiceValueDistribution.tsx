@@ -29,7 +29,7 @@ export const ServiceValueDistribution = ({
   onApprove,
   readOnly = false
 }: ServiceValueDistributionProps) => {
-  const { user } = useAuth();
+  const { profile } = useAuth();
   const [providerPercentage, setProviderPercentage] = useState(100 - companyPercentage);
   const [companyValue, setCompanyValue] = useState(0);
   const [providerValue, setProviderValue] = useState(0);
@@ -63,8 +63,8 @@ export const ServiceValueDistribution = ({
     }).format(value);
   };
 
-  // Verificar se o usuário é dono/admin
-  const isOwner = user?.user_metadata?.role === 'admin' || user?.user_metadata?.role === 'owner';
+  // Verificar se o usuário é dono/admin usando o profile do banco
+  const isOwner = profile?.role === 'admin';
 
   return (
     <Card className="mt-4">

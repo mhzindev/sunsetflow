@@ -9,6 +9,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Checkbox } from "@/components/ui/checkbox";
 import { useSupabaseData } from '@/hooks/useSupabaseData';
 import { useToastFeedback } from '@/hooks/useToastFeedback';
+import { useAuth } from '@/contexts/AuthContext';
+import { canManageProviders } from '@/utils/authUtils';
 import { 
   Plus, 
   Edit, 
@@ -20,10 +22,12 @@ import {
   Briefcase,
   Settings,
   Key,
-  Trash2
+  Trash2,
+  ShieldX
 } from 'lucide-react';
 
 export const ProviderManagement = () => {
+  const { profile } = useAuth();
   const [providers, setProviders] = useState<any[]>([]);
   const [providerAccess, setProviderAccess] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -31,6 +35,24 @@ export const ProviderManagement = () => {
   const [selectedProvider, setSelectedProvider] = useState<any>(null);
   const [showAccessModal, setShowAccessModal] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
+
+  // Verificar permissões de acesso
+  if (!canManageProviders(profile)) {
+    return (
+      <Card className="p-6">
+        <div className="text-center space-y-4">
+          <ShieldX className="w-16 h-16 text-red-500 mx-auto" />
+          <div>
+            <h3 className="text-lg font-semibold text-red-800">Acesso Restrito</h3>
+            <p className="text-red-600 mt-2">
+              Você não tem permissão para acessar o gerenciamento de prestadores.
+              Esta área é restrita apenas para administradores.
+            </p>
+          </div>
+        </div>
+      </Card>
+    );
+  }
 
   // Formulário de novo prestador
   const [newProviderForm, setNewProviderForm] = useState({

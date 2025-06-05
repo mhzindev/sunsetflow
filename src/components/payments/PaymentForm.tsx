@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -8,9 +9,32 @@ import { Textarea } from "@/components/ui/textarea";
 import { ProviderSelector } from './ProviderSelector';
 import { useSupabaseData } from '@/hooks/useSupabaseData';
 import { useToastFeedback } from '@/hooks/useToastFeedback';
+import { useAuth } from '@/contexts/AuthContext';
+import { canCreatePayments } from '@/utils/authUtils';
 import { PaymentStatus, PaymentType, PAYMENT_STATUS_VALUES, PAYMENT_TYPE_VALUES } from '@/types/payment';
+import { ShieldX } from 'lucide-react';
 
 export const PaymentForm = () => {
+  const { profile } = useAuth();
+  
+  // Verificar permissões de acesso
+  if (!canCreatePayments(profile)) {
+    return (
+      <Card className="p-6">
+        <div className="text-center space-y-4">
+          <ShieldX className="w-16 h-16 text-red-500 mx-auto" />
+          <div>
+            <h3 className="text-lg font-semibold text-red-800">Acesso Restrito</h3>
+            <p className="text-red-600 mt-2">
+              Você não tem permissão para criar pagamentos.
+              Esta funcionalidade é restrita apenas para administradores.
+            </p>
+          </div>
+        </div>
+      </Card>
+    );
+  }
+
   const [formData, setFormData] = useState({
     provider_id: '',
     provider_name: '',

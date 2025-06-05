@@ -7,9 +7,16 @@ import { PaymentForm } from './PaymentForm';
 import { ServiceProviders } from './ServiceProviders';
 import { PaymentCalendar } from './PaymentCalendar';
 import { ProviderBalanceManager } from './ProviderBalanceManager';
+import { useAuth } from '@/contexts/AuthContext';
+import { canCreatePayments } from '@/utils/authUtils';
+import { ShieldX } from 'lucide-react';
 
 export const PaymentManager = () => {
+  const { profile } = useAuth();
   const [activeTab, setActiveTab] = useState('list');
+
+  // Verificar permissões de acesso para aba de novo pagamento
+  const canAccessNewPayment = canCreatePayments(profile);
 
   return (
     <div className="space-y-6">
@@ -24,7 +31,7 @@ export const PaymentManager = () => {
           <TabsList className="grid w-full grid-cols-5">
             <TabsTrigger value="list">Pagamentos</TabsTrigger>
             <TabsTrigger value="balances">Saldos</TabsTrigger>
-            <TabsTrigger value="new">Novo Pagamento</TabsTrigger>
+            <TabsTrigger value="new" disabled={!canAccessNewPayment}>Novo Pagamento</TabsTrigger>
             <TabsTrigger value="providers">Prestadores</TabsTrigger>
             <TabsTrigger value="calendar">Calendário</TabsTrigger>
           </TabsList>
@@ -38,7 +45,22 @@ export const PaymentManager = () => {
           </TabsContent>
 
           <TabsContent value="new" className="mt-6">
-            <PaymentForm />
+            {canAccessNewPayment ? (
+              <PaymentForm />
+            ) : (
+              <Card className="p-6">
+                <div className="text-center space-y-4">
+                  <ShieldX className="w-16 h-16 text-red-500 mx-auto" />
+                  <div>
+                    <h3 className="text-lg font-semibold text-red-800">Acesso Restrito</h3>
+                    <p className="text-red-600 mt-2">
+                      Você não tem permissão para criar novos pagamentos.
+                      Esta funcionalidade é restrita apenas para administradores.
+                    </p>
+                  </div>
+                </div>
+              </Card>
+            )}
           </TabsContent>
 
           <TabsContent value="providers" className="mt-6">
