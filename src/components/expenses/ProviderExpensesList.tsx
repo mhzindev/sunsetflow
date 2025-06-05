@@ -259,17 +259,17 @@ export const ProviderExpensesList = () => {
                     <div className="font-medium">{item.description}</div>
                     {item.accommodationDetails && (
                       <div className="text-xs text-gray-600 mt-1">
-                        <div>Gasto: R$ {item.accommodationDetails.actualCost.toFixed(2)}</div>
-                        <div>Nota: R$ {item.accommodationDetails.reimbursementAmount.toFixed(2)}</div>
-                        <div className={`font-medium ${item.accommodationDetails.netAmount >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                          Líquido: {item.accommodationDetails.netAmount >= 0 ? '+' : ''}R$ {item.accommodationDetails.netAmount.toFixed(2)}
+                        <div>Gasto: R$ {(item.accommodationDetails.actualCost || 0).toFixed(2)}</div>
+                        <div>Nota: R$ {(item.accommodationDetails.reimbursementAmount || 0).toFixed(2)}</div>
+                        <div className={`font-medium ${(item.accommodationDetails.netAmount || 0) >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                          Líquido: {(item.accommodationDetails.netAmount || 0) >= 0 ? '+' : ''}R$ {(item.accommodationDetails.netAmount || 0).toFixed(2)}
                         </div>
                       </div>
                     )}
                     {item.travelDetails && (
                       <div className="text-xs text-gray-600 mt-1">
-                        <div>{item.travelDetails.kilometers} km × R$ {item.travelDetails.ratePerKm.toFixed(2)}</div>
-                        <div>Total: R$ {item.travelDetails.totalRevenue.toFixed(2)}</div>
+                        <div>{(item.travelDetails.kilometers || 0)} km × R$ {(item.travelDetails.ratePerKm || 0).toFixed(2)}</div>
+                        <div>Total: R$ {(item.travelDetails.totalRevenue || 0).toFixed(2)}</div>
                       </div>
                     )}
                   </div>
