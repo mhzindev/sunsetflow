@@ -1,315 +1,229 @@
 
 import { useState, useEffect } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Textarea } from "@/components/ui/textarea";
+import { ProviderSelector } from './ProviderSelector';
 import { useSupabaseData } from '@/hooks/useSupabaseData';
 import { useToastFeedback } from '@/hooks/useToastFeedback';
-import { ProviderSelector } from './ProviderSelector';
-import { 
-  PaymentStatus, 
-  PaymentType, 
-  PaymentCreateData,
-  PAYMENT_STATUS_VALUES,
-  PAYMENT_TYPE_VALUES
-} from '@/types/payment';
+import { PaymentStatus, PaymentType, PAYMENT_STATUS_VALUES, PAYMENT_TYPE_VALUES } from '@/types/payment';
 
-interface PaymentFormProps {
-  onSubmit?: (payment: any) => void;
-  onCancel?: () => void;
-}
-
-// Interface para o estado do formulário
-interface FormDataState {
-  provider_id: string;
-  provider_name: string;
-  amount: string;
-  due_date: string;
-  payment_date: string;
-  status: PaymentStatus;
-  type: PaymentType;
-  description: string;
-  notes: string;
-}
-
-// Opções do formulário
-const PAYMENT_STATUS_OPTIONS: { value: PaymentStatus; label: string }[] = [
-  { value: 'pending', label: 'Pendente' },
-  { value: 'partial', label: 'Parcial' },
-  { value: 'completed', label: 'Pago' },
-  { value: 'overdue', label: 'Atrasado' },
-  { value: 'cancelled', label: 'Cancelado' }
-];
-
-const PAYMENT_TYPE_OPTIONS: { value: PaymentType; label: string }[] = [
-  { value: 'full', label: 'Pagamento Completo' },
-  { value: 'installment', label: 'Parcela' },
-  { value: 'advance', label: 'Adiantamento' }
-];
-
-export const PaymentForm = ({ onSubmit, onCancel }: PaymentFormProps) => {
-  const [loading, setLoading] = useState(false);
-  const [selectedProvider, setSelectedProvider] = useState<any>(null);
-  
-  const [formData, setFormData] = useState<FormDataState>({
+export const PaymentForm = () => {
+  const [formData, setFormData] = useState({
     provider_id: '',
     provider_name: '',
     amount: '',
     due_date: new Date().toISOString().split('T')[0],
     payment_date: '',
-    status: 'pending' as PaymentStatus,
-    type: 'full' as PaymentType,
+    status: PAYMENT_STATUS_VALUES.PENDING as PaymentStatus,
+    type: PAYMENT_TYPE_VALUES.FULL as PaymentType,
     description: '',
-    notes: ''
+    installments: '',
+    current_installment: '',
+    tags: '',
+    notes: '',
+    account_id: '',
+    account_type: null as 'bank_account' | 'credit_card' | null
   });
 
-  const { insertPayment } = useSupabaseData();
+  const [accounts, setAccounts] = useState<any[]>([]);
+  const [cards, setCards] = useState<any[]>([]);
+  const [loading, setLoading] = useState(false);
+
+  const { insertPayment, fetchBankAccounts, fetchCreditCards } = useSupabaseData();
   const { showSuccess, showError } = useToastFeedback();
 
-  const handleProviderSelect = (provider: any) => {
-    console.log('Prestador selecionado:', provider);
-    setSelectedProvider(provider);
-    setFormData(prev => ({
-      ...prev,
-      provider_id: provider.id,
-      provider_name: provider.name,
-      description: `Pagamento para ${provider.name} - ${provider.service}`
-    }));
-  };
+  useEffect(() => {
+    loadAccountsAndCards();
+  }, []);
 
-  const validateForm = () => {
-    const errors = [];
-    
-    if (!formData.provider_name?.trim()) {
-      errors.push('Prestador de serviço é obrigatório');
+  const loadAccountsAndCards = async () => {
+    try {
+      const [accountsData, cardsData] = await Promise.all([
+        fetchBankAccounts(),
+        fetchCreditCards()
+      ]);
+      setAccounts(accountsData);
+      setCards(cardsData);
+    } catch (error) {
+      console.error('Erro ao carregar contas e cartões:', error);
     }
-    
-    if (!formData.amount || parseFloat(formData.amount) <= 0) {
-      errors.push('Valor deve ser maior que zero');
-    }
-    
-    if (!formData.due_date) {
-      errors.push('Data de vencimento é obrigatória');
-    }
-    
-    if (!formData.description?.trim()) {
-      errors.push('Descrição é obrigatória');
-    }
-
-    // Validação dos ENUMs
-    const validStatuses = ['pending', 'partial', 'completed', 'overdue', 'cancelled'];
-    const validTypes = ['full', 'installment', 'advance'];
-
-    if (!validStatuses.includes(formData.status)) {
-      errors.push(`Status inválido: ${formData.status}`);
-    }
-
-    if (!validTypes.includes(formData.type)) {
-      errors.push(`Tipo inválido: ${formData.type}`);
-    }
-
-    return errors;
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    console.log('=== SUBMISSÃO FORMULÁRIO - ESTRUTURA FINAL CORRIGIDA ===');
-    console.log('Dados do formulário:', formData);
-    
-    const validationErrors = validateForm();
-    if (validationErrors.length > 0) {
-      console.error('Erros de validação:', validationErrors);
-      showError('Erro de Validação', validationErrors.join(', '));
-      return;
-    }
-
-    const amount = parseFloat(formData.amount);
-    if (isNaN(amount) || amount <= 0) {
-      console.error('Valor inválido:', formData.amount);
-      showError('Valor Inválido', 'Por favor, insira um valor numérico válido maior que zero');
+    if (!formData.provider_name || !formData.amount || !formData.description) {
+      showError('Erro', 'Preencha todos os campos obrigatórios');
       return;
     }
 
     setLoading(true);
-    
     try {
-      const paymentData: PaymentCreateData = {
+      const paymentData = {
         provider_id: formData.provider_id || undefined,
-        provider_name: formData.provider_name.trim(),
-        amount: Number(amount.toFixed(2)),
+        provider_name: formData.provider_name,
+        amount: parseFloat(formData.amount),
         due_date: formData.due_date,
         payment_date: formData.payment_date || undefined,
         status: formData.status,
         type: formData.type,
-        description: formData.description.trim(),
-        notes: formData.notes?.trim() || undefined,
-        tags: undefined,
-        installments: undefined,
-        current_installment: undefined,
-        account_id: undefined,
-        account_type: undefined
+        description: formData.description,
+        installments: formData.installments ? parseInt(formData.installments) : undefined,
+        current_installment: formData.current_installment ? parseInt(formData.current_installment) : undefined,
+        tags: formData.tags ? formData.tags.split(',').map(tag => tag.trim()) : undefined,
+        notes: formData.notes || undefined,
+        account_id: formData.account_id || undefined,
+        account_type: formData.account_type
       };
 
-      console.log('=== PAYLOAD FINAL PARA RPC ===');
-      console.log('Payload:', JSON.stringify(paymentData, null, 2));
+      console.log('Criando pagamento:', paymentData);
       
       const { data, error } = await insertPayment(paymentData);
       
       if (error) {
-        console.error('=== ERRO RETORNADO ===');
-        console.error('Erro:', error);
-        showError('Erro ao Criar Pagamento', error);
+        console.error('Erro ao criar pagamento:', error);
+        showError('Erro', `Erro ao criar pagamento: ${error}`);
         return;
       }
 
-      console.log('=== PAGAMENTO CRIADO COM SUCESSO ===');
-      console.log('Dados retornados:', data);
-      
+      console.log('Pagamento criado com sucesso:', data);
       showSuccess('Sucesso', 'Pagamento registrado com sucesso!');
       
-      // Reset do formulário
+      // Reset form
       setFormData({
         provider_id: '',
         provider_name: '',
         amount: '',
         due_date: new Date().toISOString().split('T')[0],
         payment_date: '',
-        status: 'pending' as PaymentStatus,
-        type: 'full' as PaymentType,
+        status: PAYMENT_STATUS_VALUES.PENDING,
+        type: PAYMENT_TYPE_VALUES.FULL,
         description: '',
-        notes: ''
+        installments: '',
+        current_installment: '',
+        tags: '',
+        notes: '',
+        account_id: '',
+        account_type: null
       });
-      setSelectedProvider(null);
-      
-      if (onSubmit) {
-        onSubmit(data);
-      }
-      
     } catch (error) {
-      console.error('=== ERRO INESPERADO ===');
-      console.error('Erro capturado:', error);
-      
-      let errorMessage = 'Falha inesperada na criação do pagamento';
-      if (error instanceof Error) {
-        errorMessage = error.message;
-      } else if (typeof error === 'string') {
-        errorMessage = error;
-      }
-      
-      showError('Erro Inesperado', errorMessage);
+      console.error('Erro inesperado ao criar pagamento:', error);
+      showError('Erro', 'Erro inesperado ao criar pagamento');
     } finally {
       setLoading(false);
-      console.log('=== FIM DA SUBMISSÃO ===');
     }
   };
 
-  const isFormValid = 
-    formData.provider_name?.trim() && 
-    formData.amount && 
-    parseFloat(formData.amount) > 0 && 
-    formData.due_date && 
-    formData.description?.trim() &&
-    ['pending', 'partial', 'completed', 'overdue', 'cancelled'].includes(formData.status) &&
-    ['full', 'installment', 'advance'].includes(formData.type);
+  const handleProviderSelect = (provider: any) => {
+    setFormData(prev => ({
+      ...prev,
+      provider_id: provider.id,
+      provider_name: provider.name
+    }));
+  };
+
+  const handleAccountChange = (value: string) => {
+    if (value === 'none') {
+      setFormData(prev => ({
+        ...prev,
+        account_id: '',
+        account_type: null
+      }));
+      return;
+    }
+
+    const [type, id] = value.split(':');
+    setFormData(prev => ({
+      ...prev,
+      account_id: id,
+      account_type: type as 'bank_account' | 'credit_card'
+    }));
+  };
+
+  const getAccountValue = () => {
+    if (!formData.account_id || !formData.account_type) {
+      return 'none';
+    }
+    return `${formData.account_type}:${formData.account_id}`;
+  };
+
+  const isProviderPayment = formData.type === 'balance_payment' || formData.type === 'advance_payment';
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Novo Pagamento</CardTitle>
-      </CardHeader>
-      <CardContent>
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div>
-            <Label htmlFor="provider">Prestador de Serviço *</Label>
+    <Card className="p-6">
+      <h3 className="text-lg font-semibold mb-4">Novo Pagamento</h3>
+      
+      <form onSubmit={handleSubmit} className="space-y-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="md:col-span-2">
+            <Label>Prestador de Serviço *</Label>
             <ProviderSelector
-              value={formData.provider_id}
-              onValueChange={(value) => setFormData(prev => ({ ...prev, provider_id: value }))}
               onProviderSelect={handleProviderSelect}
-              placeholder="Selecionar prestador"
+              selectedProvider={formData.provider_name}
             />
-            {!formData.provider_name && (
-              <p className="text-sm text-red-500 mt-1">Prestador de serviço é obrigatório</p>
-            )}
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <Label htmlFor="amount">Valor (R$) *</Label>
-              <Input
-                id="amount"
-                type="number"
-                step="0.01"
-                min="0.01"
-                value={formData.amount}
-                onChange={(e) => setFormData(prev => ({ ...prev, amount: e.target.value }))}
-                placeholder="0,00"
-                required
-              />
-              {formData.amount && parseFloat(formData.amount) <= 0 && (
-                <p className="text-sm text-red-500 mt-1">Valor deve ser maior que zero</p>
-              )}
-            </div>
-
-            <div>
-              <Label htmlFor="due_date">Data de Vencimento *</Label>
-              <Input
-                id="due_date"
-                type="date"
-                value={formData.due_date}
-                onChange={(e) => setFormData(prev => ({ ...prev, due_date: e.target.value }))}
-                required
-              />
-            </div>
+          <div>
+            <Label htmlFor="type">Tipo de Pagamento *</Label>
+            <Select 
+              value={formData.type} 
+              onValueChange={(value: PaymentType) => 
+                setFormData(prev => ({ ...prev, type: value }))
+              }
+            >
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="full">Pagamento Integral</SelectItem>
+                <SelectItem value="installment">Parcelado</SelectItem>
+                <SelectItem value="advance">Adiantamento Geral</SelectItem>
+                <SelectItem value="balance_payment">Pagamento de Saldo</SelectItem>
+                <SelectItem value="advance_payment">Adiantamento de Prestador</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <Label htmlFor="status">Status</Label>
-              <Select 
-                value={formData.status} 
-                onValueChange={(value: PaymentStatus) => {
-                  console.log('Status selecionado:', value);
-                  setFormData(prev => ({ ...prev, status: value }));
-                }}
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {PAYMENT_STATUS_OPTIONS.map(option => (
-                    <SelectItem key={option.value} value={option.value}>
-                      {option.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+          <div>
+            <Label htmlFor="amount">Valor *</Label>
+            <Input
+              id="amount"
+              type="number"
+              step="0.01"
+              value={formData.amount}
+              onChange={(e) => setFormData(prev => ({ ...prev, amount: e.target.value }))}
+              placeholder="0,00"
+              required
+            />
+          </div>
+        </div>
 
-            <div>
-              <Label htmlFor="type">Tipo</Label>
-              <Select 
-                value={formData.type} 
-                onValueChange={(value: PaymentType) => {
-                  console.log('Tipo selecionado:', value);
-                  setFormData(prev => ({ ...prev, type: value }));
-                }}
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {PAYMENT_TYPE_OPTIONS.map(option => (
-                    <SelectItem key={option.value} value={option.value}>
-                      {option.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+        {isProviderPayment && (
+          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+            <p className="text-sm text-blue-800">
+              <strong>Atenção:</strong> Este é um pagamento específico para prestador. 
+              {formData.type === 'balance_payment' 
+                ? ' O valor será deduzido do saldo do prestador automaticamente.'
+                : ' Este adiantamento será registrado no histórico do prestador.'
+              }
+            </p>
+          </div>
+        )}
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <Label htmlFor="due_date">Data de Vencimento *</Label>
+            <Input
+              id="due_date"
+              type="date"
+              value={formData.due_date}
+              onChange={(e) => setFormData(prev => ({ ...prev, due_date: e.target.value }))}
+              required
+            />
           </div>
 
           <div>
@@ -321,53 +235,117 @@ export const PaymentForm = ({ onSubmit, onCancel }: PaymentFormProps) => {
               onChange={(e) => setFormData(prev => ({ ...prev, payment_date: e.target.value }))}
             />
           </div>
+        </div>
 
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
-            <Label htmlFor="description">Descrição *</Label>
-            <Input
-              id="description"
-              value={formData.description}
-              onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
-              placeholder="Descrição do pagamento"
-              required
-            />
-            {!formData.description?.trim() && (
-              <p className="text-sm text-red-500 mt-1">Descrição é obrigatória</p>
-            )}
-          </div>
-
-          <div>
-            <Label htmlFor="notes">Observações</Label>
-            <Textarea
-              id="notes"
-              value={formData.notes}
-              onChange={(e) => setFormData(prev => ({ ...prev, notes: e.target.value }))}
-              placeholder="Observações adicionais..."
-            />
-          </div>
-
-          <div className="flex gap-4 pt-4">
-            <Button 
-              type="submit" 
-              disabled={loading || !isFormValid} 
-              className="flex-1"
+            <Label htmlFor="status">Status *</Label>
+            <Select 
+              value={formData.status} 
+              onValueChange={(value: PaymentStatus) => 
+                setFormData(prev => ({ ...prev, status: value }))
+              }
             >
-              {loading ? 'Salvando...' : 'Salvar Pagamento'}
-            </Button>
-            {onCancel && (
-              <Button 
-                type="button" 
-                variant="outline" 
-                onClick={onCancel}
-                className="flex-1"
-                disabled={loading}
-              >
-                Cancelar
-              </Button>
-            )}
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="pending">Pendente</SelectItem>
+                <SelectItem value="partial">Parcial</SelectItem>
+                <SelectItem value="completed">Concluído</SelectItem>
+                <SelectItem value="overdue">Em Atraso</SelectItem>
+                <SelectItem value="cancelled">Cancelado</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
-        </form>
-      </CardContent>
+
+          <div>
+            <Label htmlFor="account">Conta/Cartão</Label>
+            <Select value={getAccountValue()} onValueChange={handleAccountChange}>
+              <SelectTrigger>
+                <SelectValue placeholder="Selecionar conta ou cartão" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="none">Nenhuma conta selecionada</SelectItem>
+                {accounts.map((account) => (
+                  <SelectItem key={account.id} value={`bank_account:${account.id}`}>
+                    {account.name} - {account.bank}
+                  </SelectItem>
+                ))}
+                {cards.map((card) => (
+                  <SelectItem key={card.id} value={`credit_card:${card.id}`}>
+                    {card.name} - {card.brand}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
+
+        {formData.type === 'installment' && (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <Label htmlFor="installments">Número de Parcelas</Label>
+              <Input
+                id="installments"
+                type="number"
+                value={formData.installments}
+                onChange={(e) => setFormData(prev => ({ ...prev, installments: e.target.value }))}
+                placeholder="Ex: 12"
+              />
+            </div>
+
+            <div>
+              <Label htmlFor="current_installment">Parcela Atual</Label>
+              <Input
+                id="current_installment"
+                type="number"
+                value={formData.current_installment}
+                onChange={(e) => setFormData(prev => ({ ...prev, current_installment: e.target.value }))}
+                placeholder="Ex: 1"
+              />
+            </div>
+          </div>
+        )}
+
+        <div>
+          <Label htmlFor="description">Descrição *</Label>
+          <Input
+            id="description"
+            value={formData.description}
+            onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
+            placeholder="Descrição do pagamento"
+            required
+          />
+        </div>
+
+        <div>
+          <Label htmlFor="tags">Tags (separadas por vírgula)</Label>
+          <Input
+            id="tags"
+            value={formData.tags}
+            onChange={(e) => setFormData(prev => ({ ...prev, tags: e.target.value }))}
+            placeholder="tag1, tag2, tag3"
+          />
+        </div>
+
+        <div>
+          <Label htmlFor="notes">Observações</Label>
+          <Textarea
+            id="notes"
+            value={formData.notes}
+            onChange={(e) => setFormData(prev => ({ ...prev, notes: e.target.value }))}
+            placeholder="Observações adicionais"
+            rows={3}
+          />
+        </div>
+
+        <div className="flex gap-4 pt-4">
+          <Button type="submit" disabled={loading} className="flex-1">
+            {loading ? 'Salvando...' : 'Salvar Pagamento'}
+          </Button>
+        </div>
+      </form>
     </Card>
   );
 };

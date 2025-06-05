@@ -1,7 +1,7 @@
 
 // Usando exatamente os mesmos valores que estão definidos no banco de dados
 export type PaymentStatus = 'pending' | 'partial' | 'completed' | 'overdue' | 'cancelled';
-export type PaymentType = 'full' | 'installment' | 'advance';
+export type PaymentType = 'full' | 'installment' | 'advance' | 'balance_payment' | 'advance_payment';
 export type PaymentMethod = 'pix' | 'transfer' | 'credit_card' | 'debit_card' | 'cash';
 
 // Constantes para garantir consistência - valores EXATOS do banco
@@ -16,7 +16,9 @@ export const PAYMENT_STATUS_VALUES = {
 export const PAYMENT_TYPE_VALUES = {
   FULL: 'full' as const,
   INSTALLMENT: 'installment' as const,
-  ADVANCE: 'advance' as const
+  ADVANCE: 'advance' as const,
+  BALANCE_PAYMENT: 'balance_payment' as const,
+  ADVANCE_PAYMENT: 'advance_payment' as const
 } as const;
 
 // Funções de validação rigorosas
@@ -69,6 +71,7 @@ export interface ServiceProvider {
   service: string;
   paymentMethod: PaymentMethod;
   active: boolean;
+  currentBalance?: number;
 }
 
 // Interface específica para criação de pagamentos - TIPOS RIGOROSOS

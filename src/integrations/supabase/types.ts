@@ -634,6 +634,7 @@ export type Database = {
           company_id: string | null
           cpf_cnpj: string | null
           created_at: string | null
+          current_balance: number | null
           email: string
           has_system_access: boolean | null
           hourly_rate: number | null
@@ -651,6 +652,7 @@ export type Database = {
           company_id?: string | null
           cpf_cnpj?: string | null
           created_at?: string | null
+          current_balance?: number | null
           email: string
           has_system_access?: boolean | null
           hourly_rate?: number | null
@@ -668,6 +670,7 @@ export type Database = {
           company_id?: string | null
           cpf_cnpj?: string | null
           created_at?: string | null
+          current_balance?: number | null
           email?: string
           has_system_access?: boolean | null
           hourly_rate?: number | null
@@ -907,7 +910,12 @@ export type Database = {
         | "completed"
         | "overdue"
         | "cancelled"
-      payment_type: "full" | "installment" | "advance"
+      payment_type:
+        | "full"
+        | "installment"
+        | "advance"
+        | "balance_payment"
+        | "advance_payment"
       transaction_category:
         | "service_payment"
         | "client_payment"
@@ -1044,7 +1052,13 @@ export const Constants = {
         "overdue",
         "cancelled",
       ],
-      payment_type: ["full", "installment", "advance"],
+      payment_type: [
+        "full",
+        "installment",
+        "advance",
+        "balance_payment",
+        "advance_payment",
+      ],
       transaction_category: [
         "service_payment",
         "client_payment",
