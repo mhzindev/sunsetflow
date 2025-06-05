@@ -29,6 +29,7 @@ export const ExpenseForm = ({ onSave, onCancel }: ExpenseFormProps) => {
     travel_km: '',
     travel_km_rate: '',
     travel_total_value: '',
+    accommodation_reimbursement: ''
   });
 
   const [missions, setMissions] = useState<any[]>([]);
@@ -73,7 +74,7 @@ export const ExpenseForm = ({ onSave, onCancel }: ExpenseFormProps) => {
     setLoading(true);
     try {
       if (formData.category === 'fuel') {
-        // NOVA LÓGICA PARA DESLOCAMENTO - Registrar na tabela expenses + criar receita
+        // NOVA LÓGICA PARA DESLOCAMENTO
         if (!formData.travel_km || !formData.travel_km_rate) {
           showError('Erro', 'Para deslocamento, informe a distância e valor por KM');
           return;
@@ -83,29 +84,7 @@ export const ExpenseForm = ({ onSave, onCancel }: ExpenseFormProps) => {
         const rate = parseFloat(formData.travel_km_rate);
         const totalRevenue = km * rate;
 
-        // 1. Registrar na tabela expenses (para aparecer em "Minhas Despesas")
-        const expenseData = {
-          mission_id: formData.mission_id === 'none' ? null : formData.mission_id || null,
-          category: formData.category,
-          description: formData.description,
-          amount: totalRevenue, // Valor positivo para indicar receita
-          date: formData.date,
-          is_advanced: false,
-          receipt: formData.receipt || null,
-          travel_km: km,
-          travel_km_rate: rate,
-          travel_total_value: totalRevenue
-        };
-
-        const { data: expenseResult, error: expenseError } = await insertExpense(expenseData);
-        
-        if (expenseError) {
-          console.error('Erro ao criar despesa de deslocamento:', expenseError);
-          showError('Erro', `Erro ao registrar despesa de deslocamento: ${expenseError}`);
-          return;
-        }
-
-        // 2. Criar transação de receita
+        // Criar transação de receita para o valor total do deslocamento
         const revenueData = {
           type: 'income' as const,
           category: 'fuel' as const,
@@ -118,6 +97,8 @@ export const ExpenseForm = ({ onSave, onCancel }: ExpenseFormProps) => {
           status: 'completed' as const
         };
 
+        console.log('Criando receita de deslocamento:', revenueData);
+        
         const { data: revenueResult, error: revenueError } = await insertTransaction(revenueData);
         
         if (revenueError) {
@@ -126,11 +107,11 @@ export const ExpenseForm = ({ onSave, onCancel }: ExpenseFormProps) => {
           return;
         }
 
-        console.log('Deslocamento registrado:', { expense: expenseResult, revenue: revenueResult });
-        showSuccess('Sucesso', `Deslocamento registrado: R$ ${totalRevenue.toFixed(2)}`);
+        console.log('Receita de deslocamento criada:', revenueResult);
+        showSuccess('Sucesso', `Receita de deslocamento registrada: R$ ${totalRevenue.toFixed(2)}`);
 
       } else if (formData.category === 'accommodation') {
-        // NOVA LÓGICA PARA HOSPEDAGEM - Só registrar a diferença se positiva
+        // NOVA LÓGICA PARA HOSPEDAGEM
         if (!formData.invoice_amount || !formData.amount) {
           showError('Erro', 'Para hospedagem, informe o valor da nota e o valor real gasto');
           return;
@@ -140,19 +121,20 @@ export const ExpenseForm = ({ onSave, onCancel }: ExpenseFormProps) => {
         const realCost = parseFloat(formData.amount);
         const difference = invoiceAmount - realCost;
 
-        // 1. Sempre registrar na tabela expenses (para aparecer em "Minhas Despesas")
+        // Sempre registrar a despesa real da empresa (valor gasto pela empresa)
         const expenseData = {
-          mission_id: formData.mission_id === 'none' ? null : formData.mission_id || null,
-          category: formData.category,
-          description: formData.description,
-          amount: difference > 0 ? difference : 0, // Se há lucro, mostrar como positivo; senão 0
-          invoice_amount: invoiceAmount,
+          type: 'expense' as const,
+          category: 'accommodation' as const,
+          description: `Despesa de hospedagem: ${formData.description}`,
+          amount: realCost,
           date: formData.date,
-          is_advanced: false,
-          receipt: formData.receipt || null
+          method: 'transfer' as const,
+          mission_id: formData.mission_id === 'none' ? null : formData.mission_id || null,
+          receipt: formData.receipt || null,
+          status: 'completed' as const
         };
 
-        const { data: expenseResult, error: expenseError } = await insertExpense(expenseData);
+        const { data: expenseResult, error: expenseError } = await insertTransaction(expenseData);
         
         if (expenseError) {
           console.error('Erro ao criar despesa de hospedagem:', expenseError);
@@ -160,12 +142,12 @@ export const ExpenseForm = ({ onSave, onCancel }: ExpenseFormProps) => {
           return;
         }
 
-        // 2. Se há diferença positiva (lucro), registrar APENAS a diferença como receita
+        // Se há diferença positiva, registrar como receita
         if (difference > 0) {
           const revenueData = {
             type: 'income' as const,
             category: 'accommodation' as const,
-            description: `Receita de hospedagem (diferença): ${formData.description}`,
+            description: `Receita de hospedagem (diferença nota): ${formData.description}`,
             amount: difference,
             date: formData.date,
             method: 'transfer' as const,
@@ -182,11 +164,10 @@ export const ExpenseForm = ({ onSave, onCancel }: ExpenseFormProps) => {
             return;
           }
 
-          console.log('Hospedagem com lucro registrada:', { expense: expenseResult, revenue: revenueResult });
-          showSuccess('Sucesso', `Hospedagem registrada - Receita: R$ ${difference.toFixed(2)}`);
+          console.log('Receita de hospedagem criada:', revenueResult);
+          showSuccess('Sucesso', `Hospedagem registrada - Despesa: R$ ${realCost.toFixed(2)}, Receita: R$ ${difference.toFixed(2)}`);
         } else {
-          console.log('Hospedagem sem lucro registrada:', expenseResult);
-          showSuccess('Sucesso', `Hospedagem registrada sem lucro`);
+          showSuccess('Sucesso', `Despesa de hospedagem registrada: R$ ${realCost.toFixed(2)}`);
         }
 
       } else {
@@ -234,6 +215,7 @@ export const ExpenseForm = ({ onSave, onCancel }: ExpenseFormProps) => {
         travel_km: '',
         travel_km_rate: '',
         travel_total_value: '',
+        accommodation_reimbursement: ''
       });
 
       onSave?.();
@@ -291,7 +273,8 @@ export const ExpenseForm = ({ onSave, onCancel }: ExpenseFormProps) => {
                   invoice_amount: '',
                   travel_km: '', 
                   travel_km_rate: '', 
-                  travel_total_value: ''
+                  travel_total_value: '', 
+                  accommodation_reimbursement: '' 
                 }))
               }
             >
@@ -384,39 +367,6 @@ export const ExpenseForm = ({ onSave, onCancel }: ExpenseFormProps) => {
                   Valor que a empresa realmente gastou
                 </p>
               </div>
-
-              {formData.invoice_amount && formData.amount && (
-                <div className="md:col-span-2">
-                  <Label>Resultado da Hospedagem</Label>
-                  <div className="p-3 bg-gray-50 rounded-lg">
-                    {(() => {
-                      const invoiceAmount = parseFloat(formData.invoice_amount) || 0;
-                      const realCost = parseFloat(formData.amount) || 0;
-                      const difference = invoiceAmount - realCost;
-                      
-                      if (difference > 0) {
-                        return (
-                          <p className="text-green-600 font-medium">
-                            Receita de R$ {difference.toFixed(2)} será registrada
-                          </p>
-                        );
-                      } else if (difference < 0) {
-                        return (
-                          <p className="text-red-600 font-medium">
-                            Prejuízo de R$ {Math.abs(difference).toFixed(2)} (sem registro de receita)
-                          </p>
-                        );
-                      } else {
-                        return (
-                          <p className="text-gray-600 font-medium">
-                            Sem lucro nem prejuízo
-                          </p>
-                        );
-                      }
-                    })()}
-                  </div>
-                </div>
-              )}
             </>
           )}
 
@@ -482,7 +432,7 @@ export const ExpenseForm = ({ onSave, onCancel }: ExpenseFormProps) => {
         <div className="flex gap-4 pt-4">
           <Button type="submit" disabled={loading}>
             {loading ? 'Salvando...' : (
-              isDisplacementCategory ? 'Registrar Deslocamento' : 
+              isDisplacementCategory ? 'Registrar Receita de Deslocamento' : 
               isAccommodationCategory ? 'Registrar Hospedagem' : 
               'Salvar Despesa'
             )}
