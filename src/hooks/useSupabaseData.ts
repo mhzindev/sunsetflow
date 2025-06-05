@@ -226,7 +226,7 @@ export const useSupabaseData = () => {
     }
   };
 
-  // Função para inserir transação - CORRIGIDA COM CASTING
+  // Função para inserir transação - CORRIGIDA COM VALIDAÇÃO MELHORADA
   const insertTransaction = async (transaction: {
     type: 'income' | 'expense';
     category: string;
@@ -243,18 +243,27 @@ export const useSupabaseData = () => {
   }) => {
     try {
       if (!user) {
-        console.error('Usuário não autenticado');
+        console.error('insertTransaction: Usuário não autenticado');
         return { data: null, error: 'Usuário não autenticado' };
       }
 
-      console.log('Inserindo transação:', transaction);
+      console.log('insertTransaction: Iniciando inserção:', transaction);
+
+      // Validação dos dados antes de enviar
+      if (!transaction.description || transaction.description.trim().length === 0) {
+        return { data: null, error: 'Descrição é obrigatória' };
+      }
+
+      if (!transaction.amount || transaction.amount <= 0) {
+        return { data: null, error: 'Valor deve ser maior que zero' };
+      }
 
       // Usar RPC para inserir transação com casting correto
       const { data, error } = await supabase.rpc('insert_transaction_with_casting', {
         p_type: transaction.type,
         p_category: transaction.category,
         p_amount: transaction.amount,
-        p_description: transaction.description,
+        p_description: transaction.description.trim(),
         p_date: transaction.date,
         p_method: transaction.method,
         p_status: transaction.status || 'completed',
@@ -268,14 +277,14 @@ export const useSupabaseData = () => {
       });
 
       if (error) {
-        console.error('Erro RPC ao inserir transação:', error);
+        console.error('insertTransaction: Erro RPC:', error);
         return { data: null, error: error.message };
       }
 
-      console.log('Transação inserida com sucesso via RPC:', data);
+      console.log('insertTransaction: Transação inserida com sucesso via RPC:', data);
       return { data: data?.[0], error: null };
     } catch (err) {
-      console.error('Erro ao inserir transação:', err);
+      console.error('insertTransaction: Erro inesperado:', err);
       return { data: null, error: err instanceof Error ? err.message : 'Erro desconhecido' };
     }
   };
@@ -357,21 +366,34 @@ export const useSupabaseData = () => {
     }
   };
 
-  // Função para inserir pagamento - VERSÃO FINAL CORRIGIDA
+  // Função para inserir pagamento - VERSÃO FINAL MELHORADA
   const insertPayment = async (paymentData: PaymentCreateData) => {
     try {
-      console.log('Inserindo pagamento com dados:', paymentData);
+      console.log('insertPayment: Iniciando inserção de pagamento:', paymentData);
       
+      // Validação dos dados antes de enviar
+      if (!paymentData.provider_name || paymentData.provider_name.trim().length === 0) {
+        return { data: null, error: 'Nome do prestador é obrigatório' };
+      }
+
+      if (!paymentData.amount || paymentData.amount <= 0) {
+        return { data: null, error: 'Valor deve ser maior que zero' };
+      }
+
+      if (!paymentData.description || paymentData.description.trim().length === 0) {
+        return { data: null, error: 'Descrição é obrigatória' };
+      }
+
       // Usar a função RPC que faz o casting correto dos enums
       const { data, error } = await supabase.rpc('insert_payment_with_casting', {
         p_provider_id: paymentData.provider_id,
-        p_provider_name: paymentData.provider_name,
+        p_provider_name: paymentData.provider_name.trim(),
         p_amount: paymentData.amount,
         p_due_date: paymentData.due_date,
         p_payment_date: paymentData.payment_date,
         p_status: paymentData.status,
         p_type: paymentData.type,
-        p_description: paymentData.description,
+        p_description: paymentData.description.trim(),
         p_installments: paymentData.installments,
         p_current_installment: paymentData.current_installment,
         p_tags: paymentData.tags,
@@ -381,14 +403,14 @@ export const useSupabaseData = () => {
       });
 
       if (error) {
-        console.error('Erro no RPC insert_payment_with_casting:', error);
-        throw error.message || 'Erro ao inserir pagamento';
+        console.error('insertPayment: Erro no RPC insert_payment_with_casting:', error);
+        return { data: null, error: error.message || 'Erro ao inserir pagamento' };
       }
 
-      console.log('Pagamento inserido com sucesso via RPC:', data);
+      console.log('insertPayment: Pagamento inserido com sucesso via RPC:', data);
       return { data: data?.[0], error: null };
     } catch (error) {
-      console.error('Erro ao inserir pagamento:', error);
+      console.error('insertPayment: Erro inesperado:', error);
       return { data: null, error: error instanceof Error ? error.message : 'Erro desconhecido' };
     }
   };

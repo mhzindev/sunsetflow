@@ -26,6 +26,7 @@ export const TransactionForm = ({ onClose, onSubmit }: TransactionFormProps) => 
   const [loading, setLoading] = useState(false);
   const [accounts, setAccounts] = useState<any[]>([]);
   const [cards, setCards] = useState<any[]>([]);
+  const [submitAttempts, setSubmitAttempts] = useState(0);
   const [formData, setFormData] = useState({
     type: 'expense' as 'income' | 'expense',
     description: '',
@@ -45,55 +46,93 @@ export const TransactionForm = ({ onClose, onSubmit }: TransactionFormProps) => 
 
   const loadAccountsAndCards = async () => {
     try {
+      console.log('TransactionForm: Carregando contas e cartões...');
       const [accountsData, cardsData] = await Promise.all([
         fetchBankAccounts(),
         fetchCreditCards()
       ]);
       setAccounts(accountsData);
       setCards(cardsData);
+      console.log('TransactionForm: Contas carregadas:', accountsData.length, 'Cartões carregados:', cardsData.length);
     } catch (error) {
-      console.error('Erro ao carregar contas e cartões:', error);
+      console.error('TransactionForm: Erro ao carregar contas e cartões:', error);
       showError('Erro', 'Erro ao carregar contas e cartões');
     }
+  };
+
+  const validateForm = () => {
+    const errors = [];
+    
+    if (!formData.description.trim()) {
+      errors.push('Descrição é obrigatória');
+    }
+    
+    if (!formData.amount || parseFloat(formData.amount) <= 0) {
+      errors.push('Valor deve ser maior que zero');
+    }
+    
+    if (!formData.category) {
+      errors.push('Categoria é obrigatória');
+    }
+    
+    if (!formData.date) {
+      errors.push('Data é obrigatória');
+    }
+
+    return errors;
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!formData.description || !formData.amount || !formData.category) {
-      showError('Erro', 'Preencha todos os campos obrigatórios');
+    const validationErrors = validateForm();
+    if (validationErrors.length > 0) {
+      showError('Erro de Validação', validationErrors.join('. '));
       return;
     }
 
     setLoading(true);
+    setSubmitAttempts(prev => prev + 1);
+    
     try {
+      console.log('TransactionForm: Iniciando criação de transação (tentativa:', submitAttempts + 1, ')');
+      console.log('TransactionForm: Dados do formulário:', formData);
+
       const transactionData = {
         type: formData.type,
-        description: formData.description,
+        description: formData.description.trim(),
         amount: parseFloat(formData.amount),
         category: formData.category,
         method: formData.method,
         date: formData.date,
         account_id: formData.account_id || null,
         account_type: formData.account_type,
-        tags: formData.tags ? formData.tags.split(',').map(tag => tag.trim()) : [],
-        receipt: formData.receipt || null,
+        tags: formData.tags ? formData.tags.split(',').map(tag => tag.trim()).filter(tag => tag) : [],
+        receipt: formData.receipt.trim() || null,
         user_id: profile?.id,
         user_name: profile?.name || '',
         status: 'completed' as const
       };
 
-      console.log('Criando transação:', transactionData);
+      console.log('TransactionForm: Dados processados para envio:', transactionData);
       
       const { data, error } = await insertTransaction(transactionData);
       
       if (error) {
-        console.error('Erro ao criar transação:', error);
-        showError('Erro', `Erro ao criar transação: ${error}`);
+        console.error('TransactionForm: Erro retornado pela API:', error);
+        
+        // Tratamento específico de erros conhecidos
+        if (error.includes('does not exist')) {
+          showError('Erro de Sistema', 'Função de transação não encontrada. Por favor, contate o administrador do sistema.');
+        } else if (error.includes('inválido')) {
+          showError('Erro de Validação', `Dados inválidos: ${error}`);
+        } else {
+          showError('Erro ao Criar Transação', `Erro: ${error}`);
+        }
         return;
       }
 
-      console.log('Transação criada com sucesso:', data);
+      console.log('TransactionForm: Transação criada com sucesso:', data);
       showSuccess('Sucesso', 'Transação registrada com sucesso!');
       
       // Reset form
@@ -110,18 +149,19 @@ export const TransactionForm = ({ onClose, onSubmit }: TransactionFormProps) => 
         receipt: ''
       });
       
+      setSubmitAttempts(0);
       onSubmit?.(data);
       onClose?.();
     } catch (error) {
-      console.error('Erro inesperado ao criar transação:', error);
-      showError('Erro', 'Erro inesperado ao criar transação');
+      console.error('TransactionForm: Erro inesperado:', error);
+      showError('Erro Inesperado', 'Ocorreu um erro inesperado ao criar transação');
     } finally {
       setLoading(false);
     }
   };
 
   const handleAccountChange = (value: string) => {
-    console.log('Account change value:', value); // Debug log
+    console.log('TransactionForm: Conta selecionada:', value);
     
     if (value === 'none') {
       setFormData(prev => ({
@@ -133,7 +173,7 @@ export const TransactionForm = ({ onClose, onSubmit }: TransactionFormProps) => 
     }
 
     const [type, id] = value.split(':');
-    console.log('Parsed account:', { type, id }); // Debug log
+    console.log('TransactionForm: Dados da conta:', { type, id });
     
     setFormData(prev => ({
       ...prev,
@@ -179,6 +219,7 @@ export const TransactionForm = ({ onClose, onSubmit }: TransactionFormProps) => 
               id="amount"
               type="number"
               step="0.01"
+              min="0.01"
               value={formData.amount}
               onChange={(e) => setFormData(prev => ({ ...prev, amount: e.target.value }))}
               placeholder="0,00"
@@ -320,6 +361,12 @@ export const TransactionForm = ({ onClose, onSubmit }: TransactionFormProps) => 
             </Button>
           )}
         </div>
+        
+        {submitAttempts > 0 && (
+          <div className="text-sm text-gray-500 text-center">
+            Tentativas de envio: {submitAttempts}
+          </div>
+        )}
       </form>
     </Card>
   );

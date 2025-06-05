@@ -55,6 +55,7 @@ export const PaymentForm = () => {
   const [accounts, setAccounts] = useState<any[]>([]);
   const [cards, setCards] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
+  const [submitAttempts, setSubmitAttempts] = useState(0);
 
   const { insertPayment, fetchBankAccounts, fetchCreditCards } = useSupabaseData();
   const { showSuccess, showError } = useToastFeedback();
@@ -65,58 +66,106 @@ export const PaymentForm = () => {
 
   const loadAccountsAndCards = async () => {
     try {
+      console.log('PaymentForm: Carregando contas e cartões...');
       const [accountsData, cardsData] = await Promise.all([
         fetchBankAccounts(),
         fetchCreditCards()
       ]);
       setAccounts(accountsData);
       setCards(cardsData);
+      console.log('PaymentForm: Contas carregadas:', accountsData.length, 'Cartões carregados:', cardsData.length);
     } catch (error) {
-      console.error('Erro ao carregar contas e cartões:', error);
+      console.error('PaymentForm: Erro ao carregar contas e cartões:', error);
     }
+  };
+
+  const validateForm = () => {
+    const errors = [];
+    
+    if (!formData.provider_name.trim()) {
+      errors.push('Nome do prestador é obrigatório');
+    }
+    
+    if (!formData.amount || parseFloat(formData.amount) <= 0) {
+      errors.push('Valor deve ser maior que zero');
+    }
+    
+    if (!formData.description.trim()) {
+      errors.push('Descrição é obrigatória');
+    }
+    
+    if (!formData.due_date) {
+      errors.push('Data de vencimento é obrigatória');
+    }
+
+    // Validações específicas para tipos de pagamento
+    if (formData.type === 'installment') {
+      if (!formData.installments || parseInt(formData.installments) <= 0) {
+        errors.push('Número de parcelas deve ser maior que zero para pagamentos parcelados');
+      }
+      if (!formData.current_installment || parseInt(formData.current_installment) <= 0) {
+        errors.push('Parcela atual deve ser maior que zero para pagamentos parcelados');
+      }
+    }
+
+    return errors;
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!formData.provider_name || !formData.amount || !formData.description) {
-      showError('Erro', 'Preencha todos os campos obrigatórios');
+    const validationErrors = validateForm();
+    if (validationErrors.length > 0) {
+      showError('Erro de Validação', validationErrors.join('. '));
       return;
     }
 
     setLoading(true);
+    setSubmitAttempts(prev => prev + 1);
+    
     try {
+      console.log('PaymentForm: Iniciando criação de pagamento (tentativa:', submitAttempts + 1, ')');
+      console.log('PaymentForm: Dados do formulário:', formData);
+
       const paymentData = {
         provider_id: formData.provider_id || undefined,
-        provider_name: formData.provider_name,
+        provider_name: formData.provider_name.trim(),
         amount: parseFloat(formData.amount),
         due_date: formData.due_date,
         payment_date: formData.payment_date || undefined,
         status: formData.status,
         type: formData.type,
-        description: formData.description,
+        description: formData.description.trim(),
         installments: formData.installments ? parseInt(formData.installments) : undefined,
         current_installment: formData.current_installment ? parseInt(formData.current_installment) : undefined,
-        tags: formData.tags ? formData.tags.split(',').map(tag => tag.trim()) : undefined,
-        notes: formData.notes || undefined,
+        tags: formData.tags ? formData.tags.split(',').map(tag => tag.trim()).filter(tag => tag) : undefined,
+        notes: formData.notes.trim() || undefined,
         account_id: formData.account_id || undefined,
         account_type: formData.account_type
       };
 
-      console.log('Criando pagamento:', paymentData);
+      console.log('PaymentForm: Dados processados para envio:', paymentData);
       
       const { data, error } = await insertPayment(paymentData);
       
       if (error) {
-        console.error('Erro ao criar pagamento:', error);
-        showError('Erro', `Erro ao criar pagamento: ${error}`);
+        console.error('PaymentForm: Erro retornado pela API:', error);
+        
+        // Tratamento específico de erros conhecidos
+        if (error.includes('does not exist')) {
+          showError('Erro de Sistema', 'Função de pagamento não encontrada. Por favor, contate o administrador do sistema.');
+        } else if (error.includes('Status inválido') || error.includes('Tipo inválido')) {
+          showError('Erro de Validação', `Dados inválidos: ${error}`);
+        } else {
+          showError('Erro ao Criar Pagamento', `Erro: ${error}`);
+        }
         return;
       }
 
-      console.log('Pagamento criado com sucesso:', data);
+      console.log('PaymentForm: Pagamento criado com sucesso:', data);
       showSuccess('Sucesso', 'Pagamento registrado com sucesso!');
       
-      // Reset form
+      // Reset form após sucesso
       setFormData({
         provider_id: '',
         provider_name: '',
@@ -133,15 +182,19 @@ export const PaymentForm = () => {
         account_id: '',
         account_type: null
       });
+      
+      setSubmitAttempts(0);
+      
     } catch (error) {
-      console.error('Erro inesperado ao criar pagamento:', error);
-      showError('Erro', 'Erro inesperado ao criar pagamento');
+      console.error('PaymentForm: Erro inesperado:', error);
+      showError('Erro Inesperado', 'Ocorreu um erro inesperado. Tente novamente.');
     } finally {
       setLoading(false);
     }
   };
 
   const handleProviderSelect = (provider: any) => {
+    console.log('PaymentForm: Prestador selecionado:', provider);
     setFormData(prev => ({
       ...prev,
       provider_id: provider.id,
@@ -150,6 +203,8 @@ export const PaymentForm = () => {
   };
 
   const handleAccountChange = (value: string) => {
+    console.log('PaymentForm: Conta selecionada:', value);
+    
     if (value === 'none') {
       setFormData(prev => ({
         ...prev,
@@ -217,6 +272,7 @@ export const PaymentForm = () => {
               id="amount"
               type="number"
               step="0.01"
+              min="0.01"
               value={formData.amount}
               onChange={(e) => setFormData(prev => ({ ...prev, amount: e.target.value }))}
               placeholder="0,00"
@@ -308,24 +364,28 @@ export const PaymentForm = () => {
         {formData.type === 'installment' && (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <Label htmlFor="installments">Número de Parcelas</Label>
+              <Label htmlFor="installments">Número de Parcelas *</Label>
               <Input
                 id="installments"
                 type="number"
+                min="1"
                 value={formData.installments}
                 onChange={(e) => setFormData(prev => ({ ...prev, installments: e.target.value }))}
                 placeholder="Ex: 12"
+                required={formData.type === 'installment'}
               />
             </div>
 
             <div>
-              <Label htmlFor="current_installment">Parcela Atual</Label>
+              <Label htmlFor="current_installment">Parcela Atual *</Label>
               <Input
                 id="current_installment"
                 type="number"
+                min="1"
                 value={formData.current_installment}
                 onChange={(e) => setFormData(prev => ({ ...prev, current_installment: e.target.value }))}
                 placeholder="Ex: 1"
+                required={formData.type === 'installment'}
               />
             </div>
           </div>
@@ -368,6 +428,12 @@ export const PaymentForm = () => {
             {loading ? 'Salvando...' : 'Salvar Pagamento'}
           </Button>
         </div>
+        
+        {submitAttempts > 0 && (
+          <div className="text-sm text-gray-500 text-center">
+            Tentativas de envio: {submitAttempts}
+          </div>
+        )}
       </form>
     </Card>
   );
