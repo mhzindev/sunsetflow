@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
@@ -71,7 +72,7 @@ export const useSupabaseData = () => {
     }
   };
 
-  // Função para buscar pagamentos - OTIMIZADA
+  // Função para buscar pagamentos - CORRIGIDA COM MAPEAMENTO CORRETO
   const fetchPayments = async () => {
     try {
       console.log('Buscando pagamentos com RLS corrigido...');
@@ -88,8 +89,36 @@ export const useSupabaseData = () => {
         return [];
       }
       
-      console.log('Pagamentos encontrados:', data?.length || 0);
-      return data || [];
+      console.log('Dados brutos dos pagamentos:', data);
+      
+      // Mapear os dados para o formato correto (snake_case → camelCase)
+      const mappedPayments = data?.map(payment => ({
+        id: payment.id,
+        providerId: payment.provider_id,
+        providerName: payment.provider_name,
+        amount: payment.amount,
+        dueDate: payment.due_date,
+        paymentDate: payment.payment_date,
+        status: payment.status,
+        type: payment.type,
+        description: payment.description,
+        installments: payment.installments,
+        currentInstallment: payment.current_installment,
+        tags: payment.tags,
+        notes: payment.notes,
+        // Dados do prestador se disponível
+        serviceProvider: payment.service_providers ? {
+          name: payment.service_providers.name,
+          email: payment.service_providers.email,
+          phone: payment.service_providers.phone,
+          service: payment.service_providers.service
+        } : null
+      })) || [];
+      
+      console.log('Pagamentos mapeados:', mappedPayments.length);
+      console.log('Primeiro pagamento mapeado:', mappedPayments[0]);
+      
+      return mappedPayments;
     } catch (err) {
       console.error('Erro ao buscar pagamentos:', err);
       return [];
