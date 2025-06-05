@@ -1,5 +1,3 @@
-
-
 import { useState, useEffect } from 'react';
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -33,7 +31,7 @@ interface ExpenseListItem {
   type?: 'expense' | 'revenue';
   accommodationDetails?: {
     actualCost: number;
-    invoiceAmount: number;
+    reimbursementAmount: number;
     netAmount: number;
   };
   travelDetails?: {
@@ -89,7 +87,7 @@ export const ExpenseList = () => {
     ...data.expenses.map(expense => {
       const accommodationDetails = expense.accommodationDetails ? {
         actualCost: expense.accommodationDetails.actualCost || 0,
-        invoiceAmount: expense.accommodationDetails.invoiceAmount || 0,
+        reimbursementAmount: expense.accommodationDetails.invoiceAmount || 0,
         netAmount: expense.accommodationDetails.netAmount || 0
       } : undefined;
 
@@ -389,7 +387,7 @@ export const ExpenseList = () => {
                     {item.accommodationDetails && (
                       <div className="text-xs text-gray-600 mt-1">
                         <div>Gasto da Empresa: {formatCurrency(item.accommodationDetails.actualCost)}</div>
-                        <div>Nota Fiscal: {formatCurrency(item.accommodationDetails.invoiceAmount)}</div>
+                        <div>Nota Fiscal: {formatCurrency(item.accommodationDetails.reimbursementAmount)}</div>
                         <div className={`font-medium ${item.accommodationDetails.netAmount >= 0 ? 'text-green-600' : 'text-red-600'}`}>
                           Receita Líquida: {item.accommodationDetails.netAmount >= 0 ? '+' : ''}{formatCurrency(item.accommodationDetails.netAmount)}
                         </div>
