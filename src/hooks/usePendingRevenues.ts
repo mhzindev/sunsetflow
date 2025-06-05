@@ -73,6 +73,7 @@ export const usePendingRevenues = () => {
         accountType
       });
 
+      // A função SQL agora usa total_amount corretamente
       const { data, error } = await supabase.rpc('convert_pending_to_received_revenue', {
         pending_revenue_id: pendingRevenueId,
         account_id: accountId,
@@ -86,7 +87,7 @@ export const usePendingRevenues = () => {
       }
 
       if (data?.success) {
-        showSuccess('Sucesso', 'Receita convertida e transação criada com sucesso!');
+        showSuccess('Sucesso', `Receita de R$ ${data.total_amount?.toFixed(2)} convertida e transação criada com sucesso!`);
         await fetchPendingRevenues(); // Recarregar dados
         return { success: true, data };
       } else {

@@ -837,11 +837,12 @@ export const useSupabaseData = () => {
     }
   };
 
-  // Função para converter receita pendente em recebida - NOVA
+  // Função para converter receita pendente em recebida - CORRIGIDA
   const convertPendingRevenue = async (pendingRevenueId: string, accountId: string, accountType: string) => {
     try {
       console.log('Convertendo receita pendente:', { pendingRevenueId, accountId, accountType });
 
+      // A função SQL agora registra o valor total da missão como receita
       const { data, error } = await supabase.rpc('convert_pending_to_received_revenue', {
         pending_revenue_id: pendingRevenueId,
         account_id: accountId,
@@ -853,7 +854,7 @@ export const useSupabaseData = () => {
         return { data: null, error: error.message };
       }
 
-      console.log('Receita convertida com sucesso:', data);
+      console.log('Receita convertida com sucesso - Valor total registrado:', data?.total_amount);
       return { data, error: null };
     } catch (err) {
       console.error('Erro ao converter receita:', err);
