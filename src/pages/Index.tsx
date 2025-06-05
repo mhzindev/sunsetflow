@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Sidebar } from "@/components/layout/Sidebar";
@@ -53,53 +52,53 @@ const IndexContent = () => {
     if (isProvider && !['expenses', 'settings'].includes(activeSection)) {
       console.warn('Prestador em seção não permitida, redirecionando...');
       setActiveSection('expenses');
-      return <ExpenseManager />;
+      return <ExpenseManager onNavigate={handleNavigate} />;
     }
 
     switch (activeSection) {
       case 'dashboard':
         // Bloquear dashboard para prestadores
         if (isProvider) {
-          return <ExpenseManager />;
+          return <ExpenseManager onNavigate={handleNavigate} />;
         }
         return <Dashboard onNavigate={handleNavigate} />;
       case 'transactions':
         // Bloquear transações para prestadores
         if (isProvider) {
-          return <ExpenseManager />;
+          return <ExpenseManager onNavigate={handleNavigate} />;
         }
         return <TransactionManager />;
       case 'payments':
         // Bloquear pagamentos para prestadores
         if (isProvider) {
-          return <ExpenseManager />;
+          return <ExpenseManager onNavigate={handleNavigate} />;
         }
         return <PaymentManager />;
       case 'expenses':
-        return <ExpenseManager />;
+        return <ExpenseManager onNavigate={handleNavigate} />;
       case 'cashflow':
         // Bloquear fluxo de caixa para prestadores
         if (isProvider) {
-          return <ExpenseManager />;
+          return <ExpenseManager onNavigate={handleNavigate} />;
         }
         return <CashFlow />;
       case 'accounts':
         // Bloquear contas para prestadores
         if (isProvider) {
-          return <ExpenseManager />;
+          return <ExpenseManager onNavigate={handleNavigate} />;
         }
         return <AccountsManager />;
       case 'reports':
         // Bloquear relatórios para prestadores
         if (isProvider) {
-          return <ExpenseManager />;
+          return <ExpenseManager onNavigate={handleNavigate} />;
         }
         return <Reports />;
       case 'settings':
         return <Settings />;
       default:
         if (isProvider) {
-          return <ExpenseManager />;
+          return <ExpenseManager onNavigate={handleNavigate} />;
         }
         return <Dashboard onNavigate={handleNavigate} />;
     }
