@@ -22,8 +22,37 @@ export const useCompany = () => {
       setLoading(true);
       console.log('Fetching company for user:', user.id, 'with profile:', profile);
       
-      // Se o usuário tem company_id no perfil, buscar a empresa
-      if (profile.company_id) {
+      // Se o usuário é um prestador, buscar empresa através do prestador
+      if (profile.user_type === 'provider' && profile.provider_id) {
+        console.log('Fetching company for provider:', profile.provider_id);
+        
+        // Buscar o prestador e suas informações
+        const { data: providerData, error: providerError } = await supabase
+          .from('service_providers')
+          .select('*')
+          .eq('id', profile.provider_id)
+          .single();
+
+        if (providerError) {
+          console.error('Error fetching provider:', providerError);
+          setCompany(null);
+        } else if (providerData) {
+          console.log('Provider data found:', providerData);
+          // Para prestadores, criar uma "empresa virtual" com base nos dados do prestador
+          setCompany({
+            id: providerData.id,
+            name: providerData.name,
+            legalName: providerData.name,
+            cnpj: providerData.cpf_cnpj || '',
+            email: providerData.email,
+            phone: providerData.phone,
+            address: providerData.address,
+            createdAt: providerData.created_at,
+            ownerId: providerData.id
+          });
+        }
+      } else if (profile.company_id) {
+        // Se o usuário tem company_id no perfil, buscar a empresa
         console.log('Fetching company by company_id:', profile.company_id);
         const { data, error } = await supabase
           .from('companies')

@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -93,7 +92,102 @@ export const CompanySettings = () => {
       <div className="space-y-6">
         <Card>
           <CardContent className="p-6">
-            <div className="text-center">Carregando informações da empresa...</div>
+            <div className="text-center">Carregando informações...</div>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  // Se é prestador, mostrar informações do prestador
+  if (profile?.user_type === 'provider') {
+    if (!company) {
+      return (
+        <div className="space-y-6">
+          <Card>
+            <CardContent className="p-6">
+              <div className="text-center">
+                <Building2 className="h-12 w-12 text-slate-400 mx-auto mb-4" />
+                <h3 className="text-lg font-semibold text-slate-800 mb-2">Informações não encontradas</h3>
+                <p className="text-slate-600">
+                  Não foi possível carregar suas informações de prestador. Entre em contato com o administrador.
+                </p>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      );
+    }
+
+    return (
+      <div className="space-y-6">
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Building2 className="h-5 w-5" />
+              Minhas Informações de Prestador
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <Label htmlFor="name">Nome</Label>
+                <Input
+                  id="name"
+                  value={company.name}
+                  disabled
+                  className="bg-gray-50"
+                />
+              </div>
+              <div>
+                <Label htmlFor="cnpj">CPF/CNPJ</Label>
+                <Input
+                  id="cnpj"
+                  value={company.cnpj}
+                  disabled
+                  className="bg-gray-50"
+                />
+              </div>
+            </div>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <Label htmlFor="email">E-mail</Label>
+                <Input
+                  id="email"
+                  value={company.email}
+                  disabled
+                  className="bg-gray-50"
+                />
+              </div>
+              <div>
+                <Label htmlFor="phone">Telefone</Label>
+                <Input
+                  id="phone"
+                  value={company.phone || ''}
+                  disabled
+                  className="bg-gray-50"
+                />
+              </div>
+            </div>
+            
+            <div>
+              <Label htmlFor="address">Endereço</Label>
+              <Textarea
+                id="address"
+                value={company.address || ''}
+                disabled
+                className="bg-gray-50"
+                rows={3}
+              />
+            </div>
+            
+            <div className="bg-blue-50 p-4 rounded-lg">
+              <p className="text-sm text-blue-800">
+                <strong>Informação:</strong> Estas são suas informações de prestador de serviço cadastradas no sistema. 
+                Para alterações, entre em contato com o administrador.
+              </p>
+            </div>
           </CardContent>
         </Card>
       </div>

@@ -26,6 +26,15 @@ export const TopBar = ({ activeSection, sidebarOpen, setSidebarOpen }: TopBarPro
   const { profile, signOut } = useAuth();
 
   const getSectionTitle = () => {
+    if (profile?.user_type === 'provider') {
+      if (activeSection === 'expenses') {
+        return 'Minhas Despesas';
+      }
+      if (activeSection === 'settings') {
+        return 'Meus Dados';
+      }
+    }
+    
     if (activeSection === 'transactions' && profile?.role === 'user') {
       return 'Minhas Despesas';
     }
@@ -44,6 +53,13 @@ export const TopBar = ({ activeSection, sidebarOpen, setSidebarOpen }: TopBarPro
 
   const handleLogout = async () => {
     await signOut();
+  };
+
+  const getUserTypeLabel = () => {
+    if (profile?.user_type === 'provider') {
+      return 'Prestador de Serviço';
+    }
+    return profile?.role === 'admin' ? 'Administrador' : 'Usuário';
   };
 
   return (
@@ -69,18 +85,21 @@ export const TopBar = ({ activeSection, sidebarOpen, setSidebarOpen }: TopBarPro
         </div>
 
         <div className="flex items-center space-x-4">
-          <div className="text-right">
-            <p className="text-sm text-slate-600">Saldo Atual</p>
-            <p className="font-bold text-lg text-slate-800">
-              {formatCurrency(data.totalBalance)}
-            </p>
-          </div>
+          {/* Mostrar saldo apenas para admins e usuários regulares */}
+          {profile?.user_type !== 'provider' && (
+            <div className="text-right">
+              <p className="text-sm text-slate-600">Saldo Atual</p>
+              <p className="font-bold text-lg text-slate-800">
+                {formatCurrency(data.totalBalance)}
+              </p>
+            </div>
+          )}
           
           <div className="flex items-center space-x-2">
             <div className="text-right">
               <p className="text-sm font-medium text-slate-800">{profile?.name}</p>
               <p className="text-xs text-slate-500">
-                {profile?.role === 'admin' ? 'Administrador' : 'Usuário'}
+                {getUserTypeLabel()}
               </p>
             </div>
             

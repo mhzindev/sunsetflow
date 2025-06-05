@@ -1,3 +1,4 @@
+
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -26,58 +27,90 @@ interface SidebarProps {
 }
 
 export const Sidebar = ({ activeSection, setActiveSection, isOpen, setIsOpen }: SidebarProps) => {
-  const { signOut } = useAuth();
+  const { signOut, profile } = useAuth();
 
-  const menuItems = [
-    {
-      id: 'dashboard' as PageSection,
-      label: 'Dashboard',
-      icon: LayoutDashboard,
-      description: 'Visão geral'
-    },
-    {
-      id: 'transactions' as PageSection,
-      label: 'Transações',
-      icon: ArrowRightLeft,
-      description: 'Entradas e saídas'
-    },
-    {
-      id: 'payments' as PageSection,
-      label: 'Pagamentos',
-      icon: CreditCard,
-      description: 'Contas a pagar'
-    },
-    {
-      id: 'expenses' as PageSection,
-      label: 'Despesas de Viagem',
-      icon: Receipt,
-      description: 'Reembolsos'
-    },
-    {
-      id: 'cashflow' as PageSection,
-      label: 'Fluxo de Caixa',
-      icon: TrendingUp,
-      description: 'Projeções'
-    },
-    {
-      id: 'accounts' as PageSection,
-      label: 'Minhas Contas',
-      icon: Wallet,
-      description: 'Contas e cartões'
-    },
-    {
-      id: 'reports' as PageSection,
-      label: 'Relatórios',
-      icon: FileText,
-      description: 'Análises'
-    },
-    {
-      id: 'settings' as PageSection,
-      label: 'Configurações',
-      icon: Settings,
-      description: 'Sistema'
+  // Definir menus baseado no tipo de usuário
+  const getMenuItems = () => {
+    const isProvider = profile?.user_type === 'provider';
+    
+    if (isProvider) {
+      // Menus específicos para prestadores
+      return [
+        {
+          id: 'dashboard' as PageSection,
+          label: 'Dashboard',
+          icon: LayoutDashboard,
+          description: 'Visão geral'
+        },
+        {
+          id: 'expenses' as PageSection,
+          label: 'Minhas Despesas',
+          icon: Receipt,
+          description: 'Criar despesas'
+        },
+        {
+          id: 'settings' as PageSection,
+          label: 'Configurações',
+          icon: Settings,
+          description: 'Dados pessoais'
+        }
+      ];
     }
-  ];
+
+    // Menus completos para admins e usuários regulares
+    return [
+      {
+        id: 'dashboard' as PageSection,
+        label: 'Dashboard',
+        icon: LayoutDashboard,
+        description: 'Visão geral'
+      },
+      {
+        id: 'transactions' as PageSection,
+        label: 'Transações',
+        icon: ArrowRightLeft,
+        description: 'Entradas e saídas'
+      },
+      {
+        id: 'payments' as PageSection,
+        label: 'Pagamentos',
+        icon: CreditCard,
+        description: 'Contas a pagar'
+      },
+      {
+        id: 'expenses' as PageSection,
+        label: 'Despesas de Viagem',
+        icon: Receipt,
+        description: 'Reembolsos'
+      },
+      {
+        id: 'cashflow' as PageSection,
+        label: 'Fluxo de Caixa',
+        icon: TrendingUp,
+        description: 'Projeções'
+      },
+      {
+        id: 'accounts' as PageSection,
+        label: 'Minhas Contas',
+        icon: Wallet,
+        description: 'Contas e cartões'
+      },
+      {
+        id: 'reports' as PageSection,
+        label: 'Relatórios',
+        icon: FileText,
+        description: 'Análises'
+      },
+      {
+        id: 'settings' as PageSection,
+        label: 'Configurações',
+        icon: Settings,
+        description: 'Sistema'
+      }
+    ];
+  };
+
+  const menuItems = getMenuItems();
 
   const handleLogout = async () => {
     await signOut();
@@ -107,7 +140,9 @@ export const Sidebar = ({ activeSection, setActiveSection, isOpen, setIsOpen }: 
               </div>
               <div>
                 <h1 className="font-bold text-slate-800">Sunsettrack</h1>
-                <p className="text-xs text-slate-600">Gestão Financeira</p>
+                <p className="text-xs text-slate-600">
+                  {profile?.user_type === 'provider' ? 'Prestador' : 'Gestão Financeira'}
+                </p>
               </div>
             </div>
           )}

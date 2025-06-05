@@ -229,6 +229,7 @@ const Auth = () => {
       // 4. Tentar autenticação
       let authSuccess = false;
       let authError = null;
+      let authResult = null;
 
       // Para prestadores, usar o password_hash decodificado
       let password = cleanCode;
@@ -273,9 +274,11 @@ const Auth = () => {
           console.error('Erro no signup:', signupResult.error);
         } else {
           authSuccess = true;
+          authResult = signupResult;
         }
       } else {
         authSuccess = true;
+        authResult = loginResult;
       }
 
       if (!authSuccess) {
@@ -289,7 +292,69 @@ const Auth = () => {
 
       console.log('=== AUTENTICAÇÃO BEM-SUCEDIDA ===');
 
-      // 5. Atualizar registros conforme o tipo
+      // 5. Aguardar um pouco para garantir que o usuário foi criado
+      await new Promise(resolve => setTimeout(resolve, 1000));
+
+      // 6. Atualizar/Criar perfil específico baseado no tipo
+      if (authResult?.data?.user) {
+        console.log('Criando/atualizando perfil do usuário...');
+        
+        if (userType === 'provider') {
+          // Buscar dados do prestador para associar à empresa
+          const { data: providerInfo } = await supabase
+            .from('service_providers')
+            .select('*')
+            .eq('id', accessRecord.provider_id)
+            .single();
+
+          const profileData = {
+            id: authResult.data.user.id,
+            email: cleanEmail,
+            name: providerInfo?.name || 'Prestador de Serviço',
+            role: 'user' as const,
+            user_type: 'provider' as const,
+            provider_id: accessRecord.provider_id,
+            company_id: null, // Prestadores não estão associados diretamente à empresa
+            active: true
+          };
+
+          console.log('Dados do perfil do prestador:', profileData);
+
+          const { error: profileError } = await supabase
+            .from('profiles')
+            .upsert(profileData, { onConflict: 'id' });
+
+          if (profileError) {
+            console.error('Erro ao criar/atualizar perfil do prestador:', profileError);
+          } else {
+            console.log('Perfil do prestador criado/atualizado com sucesso');
+          }
+        } else if (userType === 'employee') {
+          const profileData = {
+            id: authResult.data.user.id,
+            email: cleanEmail,
+            name: accessRecord.employee_name,
+            role: 'user' as const,
+            user_type: 'user' as const,
+            company_id: accessRecord.company_id,
+            active: true
+          };
+
+          console.log('Dados do perfil do funcionário:', profileData);
+
+          const { error: profileError } = await supabase
+            .from('profiles')
+            .upsert(profileData, { onConflict: 'id' });
+
+          if (profileError) {
+            console.error('Erro ao criar/atualizar perfil do funcionário:', profileError);
+          } else {
+            console.log('Perfil do funcionário criado/atualizado com sucesso');
+          }
+        }
+      }
+
+      // 7. Atualizar registros conforme o tipo
       if (userType === 'employee') {
         console.log('Marcando código de funcionário como usado...');
         const { error: updateError } = await supabase
@@ -304,18 +369,6 @@ const Auth = () => {
           console.error('Erro ao marcar código como usado:', updateError);
         } else {
           console.log('Código de funcionário marcado como usado com sucesso');
-        }
-
-        // Usar RPC para associar à empresa
-        console.log('Associando funcionário à empresa...');
-        const { data: rpcResult, error: rpcError } = await supabase
-          .rpc('use_access_code', { 
-            access_code: cleanCode 
-          });
-
-        console.log('Resultado do RPC:', rpcResult);
-        if (rpcError) {
-          console.error('Erro no RPC:', rpcError);
         }
       } else if (userType === 'provider') {
         console.log('Atualizando último login do prestador...');
