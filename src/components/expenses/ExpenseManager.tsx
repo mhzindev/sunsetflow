@@ -7,11 +7,21 @@ import { ExpenseList } from './ExpenseList';
 import { MissionManager } from './MissionManager';
 import { ExpensesByEmployee } from './ExpensesByEmployee';
 import { ExpensesByMission } from './ExpensesByMission';
+import { ProviderExpensesList } from './ProviderExpensesList';
 import { useToastFeedback } from '@/hooks/useToastFeedback';
+import { useAuth } from '@/contexts/AuthContext';
 
-export const ExpenseManager = () => {
+interface ExpenseManagerProps {
+  onNavigate?: (section: string) => void;
+}
+
+export const ExpenseManager = ({ onNavigate }: ExpenseManagerProps) => {
   const [activeTab, setActiveTab] = useState('new-expense');
   const { showSuccess } = useToastFeedback();
+  const { profile } = useAuth();
+  
+  // Verificar se é prestador
+  const isProvider = profile?.user_type === 'provider';
 
   const handleExpenseSubmitted = () => {
     showSuccess('Despesa Registrada', 'A despesa foi registrada com sucesso!');
@@ -23,6 +33,41 @@ export const ExpenseManager = () => {
     setActiveTab('missions');
   };
 
+  // Se for prestador, mostrar interface simplificada
+  if (isProvider) {
+    return (
+      <div className="space-y-6">
+        <Card className="p-6">
+          <h3 className="text-lg font-semibold text-slate-800 mb-4">
+            Minhas Despesas de Viagem
+          </h3>
+          <p className="text-slate-600 mb-6">
+            Registre e acompanhe suas despesas de viagem para instalação e manutenção de rastreadores.
+          </p>
+
+          <Tabs value={activeTab} onValueChange={setActiveTab}>
+            <TabsList className="grid w-full grid-cols-2">
+              <TabsTrigger value="new-expense">Nova Despesa</TabsTrigger>
+              <TabsTrigger value="my-expenses">Minhas Despesas</TabsTrigger>
+            </TabsList>
+
+            <TabsContent value="new-expense" className="mt-6">
+              <ExpenseForm 
+                onSave={handleExpenseSubmitted} 
+                onCancel={() => setActiveTab('my-expenses')} 
+              />
+            </TabsContent>
+
+            <TabsContent value="my-expenses" className="mt-6">
+              <ProviderExpensesList />
+            </TabsContent>
+          </Tabs>
+        </Card>
+      </div>
+    );
+  }
+
+  // Interface completa para administradores
   return (
     <div className="space-y-6">
       <Card className="p-6">
