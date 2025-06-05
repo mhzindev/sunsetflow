@@ -7,26 +7,28 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { usePendingRevenues } from '@/hooks/usePendingRevenues';
 import { useAccounts } from '@/hooks/useAccounts';
-import { DollarSign, Calendar, RefreshCw, CheckCircle, X, Building, AlertCircle } from 'lucide-react';
+import { DollarSign, Calendar, RefreshCw, CheckCircle, X, Building, AlertCircle, Clock } from 'lucide-react';
 import { formatCurrency, formatDate } from '@/utils/dateUtils';
 
 export const PendingRevenuesManager = () => {
-  const { pendingRevenues, loading, fetchPendingRevenues, convertToReceived, cancelPendingRevenue } = usePendingRevenues();
+  const { pendingRevenues, loading, fetchPendingRevenues, convertToConfirmed, cancelPendingRevenue } = usePendingRevenues();
   const { bankAccounts, creditCards } = useAccounts();
   const [selectedAccount, setSelectedAccount] = useState<{ id: string; type: 'bank_account' | 'credit_card' }>({ id: '', type: 'bank_account' });
+  const [selectedPaymentMethod, setSelectedPaymentMethod] = useState('transfer');
   const [convertingId, setConvertingId] = useState<string | null>(null);
 
-  const handleConvertToReceived = async (pendingRevenueId: string) => {
+  const handleConvertToConfirmed = async (pendingRevenueId: string) => {
     if (!selectedAccount.id) {
       return;
     }
 
     setConvertingId(pendingRevenueId);
     try {
-      await convertToReceived(pendingRevenueId, selectedAccount.id, selectedAccount.type);
+      await convertToConfirmed(pendingRevenueId, selectedAccount.id, selectedAccount.type, selectedPaymentMethod);
     } finally {
       setConvertingId(null);
       setSelectedAccount({ id: '', type: 'bank_account' });
+      setSelectedPaymentMethod('transfer');
     }
   };
 
@@ -65,13 +67,13 @@ export const PendingRevenuesManager = () => {
         <CardHeader>
           <div className="flex justify-between items-center">
             <CardTitle className="flex items-center gap-2">
-              <DollarSign className="w-5 h-5" />
+              <Clock className="w-5 h-5 text-yellow-600" />
               Receitas Pendentes ({pendingOnly.length})
             </CardTitle>
             <div className="flex items-center gap-4">
               <div className="text-right">
-                <p className="text-sm text-gray-600">Total Pendente (Valor Total)</p>
-                <p className="text-lg font-semibold text-green-600">
+                <p className="text-sm text-gray-600">Total Pendente</p>
+                <p className="text-lg font-semibold text-yellow-600">
                   {formatCurrency(totalPending)}
                 </p>
               </div>
@@ -84,16 +86,12 @@ export const PendingRevenuesManager = () => {
         </CardHeader>
         
         <CardContent>
-          <div className="mb-4 p-3 bg-blue-50 rounded-lg border border-blue-200">
+          <div className="mb-4 p-3 bg-yellow-50 rounded-lg border border-yellow-200">
             <div className="flex items-start gap-2">
-              <AlertCircle className="w-5 h-5 text-blue-600 mt-0.5" />
-              <div className="text-sm text-blue-800">
-                <strong>Nova Lógica Financeira:</strong>
-                <ul className="mt-1 space-y-1">
-                  <li>• O valor <strong>total da missão</strong> será registrado como receita da empresa</li>
-                  <li>• A porcentagem do prestador já foi adicionada ao saldo dele na aprovação</li>
-                  <li>• Pagamentos aos prestadores serão registrados como despesas separadas</li>
-                </ul>
+              <AlertCircle className="w-5 h-5 text-yellow-600 mt-0.5" />
+              <div className="text-sm text-yellow-800">
+                <strong>Receitas Pendentes:</strong>
+                <p className="mt-1">Serviços realizados aguardando pagamento do cliente. Confirme quando o pagamento for recebido.</p>
               </div>
             </div>
           </div>
@@ -111,7 +109,7 @@ export const PendingRevenuesManager = () => {
           ) : (
             <div className="space-y-4">
               {pendingRevenues.map((revenue) => (
-                <Card key={revenue.id} className="p-4">
+                <Card key={revenue.id} className="p-4 border-yellow-200">
                   <div className="flex items-start justify-between">
                     <div className="flex-1">
                       <div className="flex items-center gap-2 mb-2">
@@ -133,11 +131,11 @@ export const PendingRevenuesManager = () => {
                         </p>
                         
                         <div className="grid grid-cols-1 gap-4 mt-3">
-                          <div className="p-3 bg-green-50 rounded border border-green-200">
-                            <div className="font-medium text-green-800 mb-1">💰 Valor Total da Missão</div>
-                            <div className="text-xl font-bold text-green-900">{formatCurrency(revenue.total_amount)}</div>
-                            <div className="text-xs text-green-700 mt-1">
-                              Este valor será registrado como receita total da empresa
+                          <div className="p-3 bg-yellow-50 rounded border border-yellow-200">
+                            <div className="font-medium text-yellow-800 mb-1">💰 Valor Total Aguardando</div>
+                            <div className="text-xl font-bold text-yellow-900">{formatCurrency(revenue.total_amount)}</div>
+                            <div className="text-xs text-yellow-700 mt-1">
+                              Aguardando confirmação de pagamento do cliente
                             </div>
                           </div>
                           
@@ -147,7 +145,7 @@ export const PendingRevenuesManager = () => {
                               <div className="text-sm font-semibold text-blue-900">{formatCurrency(revenue.company_amount)}</div>
                             </div>
                             <div className="p-2 bg-purple-50 rounded border border-purple-200">
-                              <div className="text-xs font-medium text-purple-800">Saldo do Prestador</div>
+                              <div className="text-xs font-medium text-purple-800">Parte do Prestador</div>
                               <div className="text-sm font-semibold text-purple-900">{formatCurrency(revenue.provider_amount)}</div>
                             </div>
                           </div>
@@ -165,72 +163,93 @@ export const PendingRevenuesManager = () => {
                           <DialogTrigger asChild>
                             <Button size="sm" className="bg-green-600 hover:bg-green-700">
                               <CheckCircle className="w-4 h-4 mr-1" />
-                              Receber Valor Total
+                              Confirmar Pagamento
                             </Button>
                           </DialogTrigger>
                           <DialogContent>
                             <DialogHeader>
-                              <DialogTitle>Registrar Recebimento do Valor Total</DialogTitle>
+                              <DialogTitle>Confirmar Recebimento de Pagamento</DialogTitle>
                             </DialogHeader>
                             <div className="space-y-4">
                               <div className="p-3 bg-green-50 rounded border border-green-200">
                                 <div className="text-sm text-green-800">
-                                  <strong>Valor total a ser registrado como receita:</strong>
+                                  <strong>Valor total a ser confirmado:</strong>
                                   <div className="text-lg font-bold text-green-900 mt-1">
                                     {formatCurrency(revenue.total_amount)}
                                   </div>
                                 </div>
                               </div>
                               
-                              <p className="text-sm text-gray-600">
-                                Selecione a conta onde o valor será creditado:
-                              </p>
+                              <div>
+                                <label className="text-sm font-medium">Método de Pagamento:</label>
+                                <Select
+                                  value={selectedPaymentMethod}
+                                  onValueChange={setSelectedPaymentMethod}
+                                >
+                                  <SelectTrigger className="mt-1">
+                                    <SelectValue placeholder="Selecione o método" />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    <SelectItem value="transfer">Transferência</SelectItem>
+                                    <SelectItem value="pix">PIX</SelectItem>
+                                    <SelectItem value="cash">Dinheiro</SelectItem>
+                                    <SelectItem value="credit_card">Cartão de Crédito</SelectItem>
+                                    <SelectItem value="debit_card">Cartão de Débito</SelectItem>
+                                  </SelectContent>
+                                </Select>
+                              </div>
                               
-                              <Select
-                                value={selectedAccount.type}
-                                onValueChange={(value: 'bank_account' | 'credit_card') => 
-                                  setSelectedAccount({ ...selectedAccount, type: value, id: '' })
-                                }
-                              >
-                                <SelectTrigger>
-                                  <SelectValue placeholder="Tipo de conta" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                  <SelectItem value="bank_account">Conta Bancária</SelectItem>
-                                  <SelectItem value="credit_card">Cartão de Crédito</SelectItem>
-                                </SelectContent>
-                              </Select>
-                              
-                              <Select
-                                value={selectedAccount.id}
-                                onValueChange={(value) => setSelectedAccount({ ...selectedAccount, id: value })}
-                              >
-                                <SelectTrigger>
-                                  <SelectValue placeholder="Selecione a conta" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                  {selectedAccount.type === 'bank_account' 
-                                    ? bankAccounts.map((account) => (
-                                        <SelectItem key={account.id} value={account.id}>
-                                          {account.bank} - {account.name}
-                                        </SelectItem>
-                                      ))
-                                    : creditCards.map((card) => (
-                                        <SelectItem key={card.id} value={card.id}>
-                                          {card.bank} - {card.name}
-                                        </SelectItem>
-                                      ))
+                              <div>
+                                <label className="text-sm font-medium">Tipo de Conta:</label>
+                                <Select
+                                  value={selectedAccount.type}
+                                  onValueChange={(value: 'bank_account' | 'credit_card') => 
+                                    setSelectedAccount({ ...selectedAccount, type: value, id: '' })
                                   }
-                                </SelectContent>
-                              </Select>
+                                >
+                                  <SelectTrigger className="mt-1">
+                                    <SelectValue placeholder="Tipo de conta" />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    <SelectItem value="bank_account">Conta Bancária</SelectItem>
+                                    <SelectItem value="credit_card">Cartão de Crédito</SelectItem>
+                                  </SelectContent>
+                                </Select>
+                              </div>
+                              
+                              <div>
+                                <label className="text-sm font-medium">Conta de Destino:</label>
+                                <Select
+                                  value={selectedAccount.id}
+                                  onValueChange={(value) => setSelectedAccount({ ...selectedAccount, id: value })}
+                                >
+                                  <SelectTrigger className="mt-1">
+                                    <SelectValue placeholder="Selecione a conta" />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    {selectedAccount.type === 'bank_account' 
+                                      ? bankAccounts.map((account) => (
+                                          <SelectItem key={account.id} value={account.id}>
+                                            {account.bank} - {account.name}
+                                          </SelectItem>
+                                        ))
+                                      : creditCards.map((card) => (
+                                          <SelectItem key={card.id} value={card.id}>
+                                            {card.bank} - {card.name}
+                                          </SelectItem>
+                                        ))
+                                    }
+                                  </SelectContent>
+                                </Select>
+                              </div>
                               
                               <div className="flex justify-end gap-2">
                                 <Button
-                                  onClick={() => handleConvertToReceived(revenue.id)}
+                                  onClick={() => handleConvertToConfirmed(revenue.id)}
                                   disabled={!selectedAccount.id || convertingId === revenue.id}
                                   className="bg-green-600 hover:bg-green-700"
                                 >
-                                  {convertingId === revenue.id ? 'Processando...' : 'Confirmar Recebimento Total'}
+                                  {convertingId === revenue.id ? 'Processando...' : 'Confirmar Recebimento'}
                                 </Button>
                               </div>
                             </div>

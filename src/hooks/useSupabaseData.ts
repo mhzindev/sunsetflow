@@ -903,6 +903,67 @@ export const useSupabaseData = () => {
     }
   };
 
+  // Função para buscar receitas confirmadas - NOVA
+  const fetchConfirmedRevenues = async () => {
+    try {
+      console.log('Buscando receitas confirmadas...');
+      
+      const { data, error } = await supabase
+        .from('confirmed_revenues')
+        .select(`
+          *,
+          missions:mission_id(title, location)
+        `)
+        .order('received_date', { ascending: false });
+
+      if (error) {
+        console.error('Erro SQL ao buscar receitas confirmadas:', error);
+        return [];
+      }
+      
+      console.log('Receitas confirmadas encontradas:', data?.length || 0);
+      return data || [];
+    } catch (err) {
+      console.error('Erro ao buscar receitas confirmadas:', err);
+      return [];
+    }
+  };
+
+  // Função para converter receita pendente em confirmada - ATUALIZADA
+  const convertPendingToConfirmedRevenue = async (
+    pendingRevenueId: string, 
+    accountId: string, 
+    accountType: string, 
+    paymentMethod: string = 'transfer'
+  ) => {
+    try {
+      console.log('Convertendo receita pendente para confirmada:', { 
+        pendingRevenueId, 
+        accountId, 
+        accountType, 
+        paymentMethod 
+      });
+
+      const { data, error } = await supabase.rpc('convert_pending_to_confirmed_revenue', {
+        pending_revenue_id: pendingRevenueId,
+        account_id: accountId,
+        account_type: accountType,
+        payment_method: paymentMethod
+      });
+
+      if (error) {
+        console.error('Erro RPC ao converter receita para confirmada:', error);
+        return { data: null, error: error.message };
+      }
+
+      console.log('Receita convertida para confirmada com sucesso:', data);
+      return { data, error: null };
+    } catch (err) {
+      console.error('Erro ao converter receita para confirmada:', err);
+      return { data: null, error: err instanceof Error ? err.message : 'Erro desconhecido' };
+    }
+  };
+
   return {
     loading,
     error,
@@ -929,6 +990,8 @@ export const useSupabaseData = () => {
     insertServiceProvider,
     insertServiceProviderWithAccess,
     fetchProviderAccess,
-    deleteServiceProviderWithAccess
+    deleteServiceProviderWithAccess,
+    fetchConfirmedRevenues,
+    convertPendingToConfirmedRevenue
   };
 };

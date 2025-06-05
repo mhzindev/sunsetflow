@@ -134,6 +134,65 @@ export type Database = {
           },
         ]
       }
+      confirmed_revenues: {
+        Row: {
+          account_id: string | null
+          account_type: string | null
+          client_name: string
+          company_amount: number
+          created_at: string
+          description: string | null
+          id: string
+          mission_id: string | null
+          payment_method: string
+          provider_amount: number
+          received_date: string
+          total_amount: number
+          transaction_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          account_id?: string | null
+          account_type?: string | null
+          client_name: string
+          company_amount: number
+          created_at?: string
+          description?: string | null
+          id?: string
+          mission_id?: string | null
+          payment_method?: string
+          provider_amount: number
+          received_date?: string
+          total_amount: number
+          transaction_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          account_id?: string | null
+          account_type?: string | null
+          client_name?: string
+          company_amount?: number
+          created_at?: string
+          description?: string | null
+          id?: string
+          mission_id?: string | null
+          payment_method?: string
+          provider_amount?: number
+          received_date?: string
+          total_amount?: number
+          transaction_id?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "confirmed_revenues_mission_id_fkey"
+            columns: ["mission_id"]
+            isOneToOne: false
+            referencedRelation: "missions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       credit_cards: {
         Row: {
           available_limit: number
@@ -859,6 +918,15 @@ export type Database = {
           last_login: string
           permissions: Json
         }[]
+      }
+      convert_pending_to_confirmed_revenue: {
+        Args: {
+          pending_revenue_id: string
+          account_id: string
+          account_type: string
+          payment_method?: string
+        }
+        Returns: Json
       }
       convert_pending_to_received_revenue: {
         Args: {

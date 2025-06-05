@@ -3,27 +3,7 @@ import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToastFeedback } from './useToastFeedback';
-
-export interface PendingRevenue {
-  id: string;
-  mission_id: string;
-  client_name: string;
-  total_amount: number;
-  company_amount: number;
-  provider_amount: number;
-  due_date: string;
-  status: 'pending' | 'received' | 'cancelled';
-  description: string;
-  created_at: string;
-  updated_at: string;
-  received_at?: string;
-  account_id?: string;
-  account_type?: string;
-  missions?: {
-    title: string;
-    location: string;
-  };
-}
+import type { PendingRevenue } from '@/types/revenue';
 
 export const usePendingRevenues = () => {
   const [pendingRevenues, setPendingRevenues] = useState<PendingRevenue[]>([]);
@@ -50,7 +30,6 @@ export const usePendingRevenues = () => {
       }
 
       console.log('Receitas pendentes encontradas:', data?.length || 0);
-      console.log('Primeira receita pendente (debug):', data?.[0]);
       setPendingRevenues(data || []);
       return data || [];
     } catch (err) {
@@ -62,29 +41,22 @@ export const usePendingRevenues = () => {
     }
   };
 
-  const convertToReceived = async (
+  const convertToConfirmed = async (
     pendingRevenueId: string,
     accountId: string,
-    accountType: 'bank_account' | 'credit_card'
+    accountType: 'bank_account' | 'credit_card',
+    paymentMethod: string = 'transfer'
   ) => {
     try {
-      console.log('=== CONVERTENDO RECEITA PENDENTE ===');
+      console.log('=== CONVERTENDO RECEITA PENDENTE PARA CONFIRMADA ===');
       console.log('ID da receita:', pendingRevenueId);
-      console.log('Conta:', { accountId, accountType });
+      console.log('Conta:', { accountId, accountType, paymentMethod });
 
-      // Buscar dados da receita pendente antes da conversão para debug
-      const { data: pendingData } = await supabase
-        .from('pending_revenues')
-        .select('*')
-        .eq('id', pendingRevenueId)
-        .single();
-
-      console.log('Dados da receita pendente antes da conversão:', pendingData);
-
-      const { data, error } = await supabase.rpc('convert_pending_to_received_revenue', {
+      const { data, error } = await supabase.rpc('convert_pending_to_confirmed_revenue', {
         pending_revenue_id: pendingRevenueId,
         account_id: accountId,
-        account_type: accountType
+        account_type: accountType,
+        payment_method: paymentMethod
       });
 
       if (error) {
@@ -96,8 +68,8 @@ export const usePendingRevenues = () => {
       console.log('Resultado da conversão RPC:', data);
 
       if (data?.success) {
-        const valorTotal = data.total_amount || pendingData?.total_amount || 0;
-        showSuccess('Sucesso', `Receita total de R$ ${valorTotal.toFixed(2)} convertida e registrada como receita da empresa!`);
+        const valorTotal = data.total_amount || 0;
+        showSuccess('Sucesso', `Receita de R$ ${valorTotal.toFixed(2)} confirmada e registrada como receita da empresa!`);
         await fetchPendingRevenues();
         return { success: true, data };
       } else {
@@ -148,7 +120,7 @@ export const usePendingRevenues = () => {
     pendingRevenues,
     loading,
     fetchPendingRevenues,
-    convertToReceived,
+    convertToConfirmed,
     cancelPendingRevenue
   };
 };
