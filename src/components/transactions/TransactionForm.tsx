@@ -213,7 +213,7 @@ export const TransactionForm = ({ onClose, onSubmit }: TransactionFormProps) => 
               <SelectContent>
                 <SelectItem value="service_payment">Pagamento de Serviço</SelectItem>
                 <SelectItem value="client_payment">Pagamento de Cliente</SelectItem>
-                <SelectItem value="fuel">Combustível</SelectItem>
+                <SelectItem value="fuel">Deslocamento</SelectItem>
                 <SelectItem value="accommodation">Hospedagem</SelectItem>
                 <SelectItem value="meals">Alimentação</SelectItem>
                 <SelectItem value="materials">Materiais</SelectItem>

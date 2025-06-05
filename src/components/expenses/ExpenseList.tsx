@@ -120,7 +120,7 @@ export const ExpenseList = () => {
         client_name: 'N/A'
       } : 'Sem missão',
       employee: revenue.user_name || 'Sistema',
-      category: revenue.category,
+      category: revenue.category === 'fuel' ? 'displacement' : revenue.category, // Mapear fuel para displacement na exibição
       description: revenue.description,
       amount: revenue.amount,
       date: revenue.date,
@@ -236,7 +236,8 @@ export const ExpenseList = () => {
 
   const getCategoryColor = (category: string) => {
     const colors = {
-      fuel: 'bg-orange-100 text-orange-800',
+      displacement: 'bg-orange-100 text-orange-800', // Mudança aqui: displacement em vez de fuel
+      fuel: 'bg-orange-100 text-orange-800', // Manter fuel para compatibilidade
       accommodation: 'bg-blue-100 text-blue-800',
       meals: 'bg-green-100 text-green-800',
       transportation: 'bg-purple-100 text-purple-800',
@@ -257,7 +258,8 @@ export const ExpenseList = () => {
 
   const getCategoryLabel = (category: string) => {
     const labels = {
-      fuel: 'Deslocamento',
+      displacement: 'Deslocamento', // Mudança aqui: displacement label
+      fuel: 'Deslocamento', // Manter fuel para compatibilidade, mas exibir como Deslocamento
       accommodation: 'Hospedagem',
       meals: 'Alimentação',
       transportation: 'Transporte',
@@ -283,7 +285,8 @@ export const ExpenseList = () => {
   ];
 
   const availableCategories = [
-    { value: 'fuel', label: 'Deslocamento' },
+    { value: 'displacement', label: 'Deslocamento' }, // Mudança aqui: displacement em vez de fuel
+    { value: 'fuel', label: 'Deslocamento' }, // Manter fuel para compatibilidade
     { value: 'accommodation', label: 'Hospedagem' },
     { value: 'meals', label: 'Alimentação' },
     { value: 'transportation', label: 'Transporte' },

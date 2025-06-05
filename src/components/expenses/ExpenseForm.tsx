@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -73,7 +72,7 @@ export const ExpenseForm = ({ onSave, onCancel }: ExpenseFormProps) => {
 
     setLoading(true);
     try {
-      if (formData.category === 'fuel') {
+      if (formData.category === 'displacement') {
         // LÓGICA PARA DESLOCAMENTO
         if (!formData.travel_km || !formData.travel_km_rate) {
           showError('Erro', 'Para deslocamento, informe a distância e valor por KM');
@@ -84,10 +83,10 @@ export const ExpenseForm = ({ onSave, onCancel }: ExpenseFormProps) => {
         const rate = parseFloat(formData.travel_km_rate);
         const totalRevenue = km * rate;
 
-        // 1. Criar registro na tabela expenses
+        // 1. Criar registro na tabela expenses com categoria "displacement"
         const expenseData = {
           mission_id: formData.mission_id === 'none' ? null : formData.mission_id || null,
-          category: formData.category,
+          category: 'displacement', // Mudança aqui: usar "displacement" em vez de "fuel"
           description: formData.description,
           amount: totalRevenue, // Valor da receita
           date: formData.date,
@@ -108,10 +107,10 @@ export const ExpenseForm = ({ onSave, onCancel }: ExpenseFormProps) => {
           return;
         }
 
-        // 2. Criar transação de receita
+        // 2. Criar transação de receita com categoria "fuel" (para manter compatibilidade com o sistema de transações)
         const revenueData = {
           type: 'income' as const,
-          category: 'fuel' as const,
+          category: 'fuel' as const, // Manter "fuel" para transações por compatibilidade
           description: `Receita de deslocamento: ${formData.description}`,
           amount: totalRevenue,
           date: formData.date,
@@ -265,7 +264,7 @@ export const ExpenseForm = ({ onSave, onCancel }: ExpenseFormProps) => {
     setFormData(prev => ({ ...prev, is_advanced: booleanValue }));
   };
 
-  const isDisplacementCategory = formData.category === 'fuel';
+  const isDisplacementCategory = formData.category === 'displacement';
   const isAccommodationCategory = formData.category === 'accommodation';
 
   return (
@@ -315,7 +314,7 @@ export const ExpenseForm = ({ onSave, onCancel }: ExpenseFormProps) => {
                 <SelectValue placeholder="Selecione uma categoria" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="fuel">Deslocamento</SelectItem>
+                <SelectItem value="displacement">Deslocamento</SelectItem>
                 <SelectItem value="accommodation">Hospedagem</SelectItem>
                 <SelectItem value="meals">Alimentação</SelectItem>
                 <SelectItem value="materials">Materiais</SelectItem>
