@@ -1,4 +1,5 @@
 
+
 import { useState, useEffect } from 'react';
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -41,6 +42,7 @@ interface ExpenseListItem {
     totalRevenue: number;
   };
   employee_role?: string;
+  receipt?: string;
 }
 
 export const ExpenseList = () => {
