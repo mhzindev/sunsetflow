@@ -366,7 +366,7 @@ export const useSupabaseData = () => {
     }
   };
 
-  // Função para inserir pagamento - VERSÃO FINAL MELHORADA
+  // Função para inserir pagamento - VERSÃO ATUALIZADA PARA USAR A FUNÇÃO WRAPPER
   const insertPayment = async (paymentData: PaymentCreateData) => {
     try {
       console.log('insertPayment: Iniciando inserção de pagamento:', paymentData);
@@ -384,8 +384,8 @@ export const useSupabaseData = () => {
         return { data: null, error: 'Descrição é obrigatória' };
       }
 
-      // Usar a função RPC que faz o casting correto dos enums
-      const { data, error } = await supabase.rpc('insert_payment_with_casting', {
+      // Usar a função wrapper que aceita parâmetros como texto
+      const { data, error } = await supabase.rpc('insert_payment_with_casting_wrapper', {
         p_provider_id: paymentData.provider_id,
         p_provider_name: paymentData.provider_name.trim(),
         p_amount: paymentData.amount,
@@ -403,11 +403,11 @@ export const useSupabaseData = () => {
       });
 
       if (error) {
-        console.error('insertPayment: Erro no RPC insert_payment_with_casting:', error);
+        console.error('insertPayment: Erro no RPC insert_payment_with_casting_wrapper:', error);
         return { data: null, error: error.message || 'Erro ao inserir pagamento' };
       }
 
-      console.log('insertPayment: Pagamento inserido com sucesso via RPC:', data);
+      console.log('insertPayment: Pagamento inserido com sucesso via wrapper RPC:', data);
       return { data: data?.[0], error: null };
     } catch (error) {
       console.error('insertPayment: Erro inesperado:', error);

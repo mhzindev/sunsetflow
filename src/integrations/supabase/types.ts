@@ -888,6 +888,43 @@ export type Database = {
           updated_at: string
         }[]
       }
+      insert_payment_with_casting_wrapper: {
+        Args: {
+          p_provider_name: string
+          p_amount: number
+          p_due_date: string
+          p_status: string
+          p_type: string
+          p_description: string
+          p_provider_id?: string
+          p_payment_date?: string
+          p_installments?: number
+          p_current_installment?: number
+          p_tags?: string[]
+          p_notes?: string
+          p_account_id?: string
+          p_account_type?: string
+        }
+        Returns: {
+          id: string
+          provider_id: string
+          provider_name: string
+          amount: number
+          due_date: string
+          payment_date: string
+          status: Database["public"]["Enums"]["payment_status"]
+          type: Database["public"]["Enums"]["payment_type"]
+          description: string
+          installments: number
+          current_installment: number
+          tags: string[]
+          notes: string
+          account_id: string
+          account_type: string
+          created_at: string
+          updated_at: string
+        }[]
+      }
       insert_transaction_with_casting: {
         Args: {
           p_type: string
