@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -8,7 +7,7 @@ import { TransactionForm } from './TransactionForm';
 import { TransactionCategories } from './TransactionCategories';
 import { useAuth } from "@/contexts/AuthContext";
 import { useSupabaseData } from "@/hooks/useSupabaseData";
-import { Plus, RefreshCw, AlertCircle, Info, CheckCircle } from "lucide-react";
+import { Plus, RefreshCw, AlertCircle, Info, CheckCircle, Eye } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 
@@ -22,33 +21,47 @@ export const TransactionManager = () => {
   const [debugInfo, setDebugInfo] = useState<string>('');
   const { fetchTransactions } = useSupabaseData();
 
+  const isOwner = profile?.role === 'admin' || profile?.user_type === 'admin';
+  const isProvider = profile?.user_type === 'provider';
+
   const loadTransactions = async (showToast = false) => {
     try {
       setLoading(true);
       setError(null);
       setDebugInfo('');
       
-      console.log('=== DEBUG: Iniciando carregamento de transações ===');
+      console.log('=== DEBUG: Carregando transações com nova lógica hierárquica ===');
       console.log('User ID:', user?.id);
       console.log('User email:', user?.email);
       console.log('Profile:', profile);
+      console.log('É dono?', isOwner);
+      console.log('É prestador?', isProvider);
       
       const data = await fetchTransactions();
       
-      console.log('=== DEBUG: Dados retornados ===');
+      console.log('=== DEBUG: Dados retornados com RLS hierárquica ===');
       console.log('Tipo dos dados:', typeof data);
       console.log('É array?', Array.isArray(data));
       console.log('Quantidade de items:', data?.length);
-      console.log('Primeiros 3 items:', data?.slice(0, 3));
+      
+      if (isOwner) {
+        console.log('DONO DA EMPRESA: Deve ver todas as transações');
+        const revenueTransactions = data?.filter(t => 
+          t.type === 'income' && (t.category === 'fuel' || t.category === 'accommodation')
+        ) || [];
+        console.log('Receitas de deslocamento/hospedagem:', revenueTransactions.length);
+      } else {
+        console.log('PRESTADOR: Deve ver apenas suas próprias transações');
+      }
       
       if (Array.isArray(data)) {
         setTransactions(data);
-        setDebugInfo(`Carregados ${data.length} registros via RPC`);
+        setDebugInfo(`${isOwner ? 'DONO' : 'PRESTADOR'}: ${data.length} transações carregadas`);
         
         if (showToast) {
           toast({
             title: "Transações atualizadas",
-            description: `${data.length} transações carregadas com sucesso.`,
+            description: `${data.length} transações carregadas ${isOwner ? '(visão completa da empresa)' : '(suas transações)'}.`,
           });
         }
       } else {
@@ -76,9 +89,9 @@ export const TransactionManager = () => {
   };
 
   useEffect(() => {
-    console.log('=== DEBUG: useEffect executado ===');
+    console.log('=== DEBUG: useEffect executado com nova lógica ===');
     loadTransactions();
-  }, [user]); // Dependência do user para recarregar quando mudar
+  }, [user, profile]); // Dependência do profile para recarregar quando o tipo mudar
 
   const handleNewTransaction = () => {
     setActiveTab('new');
@@ -128,6 +141,13 @@ export const TransactionManager = () => {
     method: t.method || t.payment_method
   }));
 
+  // Filtrar transações por tipo para mostrar estatísticas
+  const revenueTransactions = mappedTransactions.filter(t => t.type === 'income');
+  const expenseTransactions = mappedTransactions.filter(t => t.type === 'expense');
+  const providerRevenueTransactions = revenueTransactions.filter(t => 
+    t.category === 'fuel' || t.category === 'accommodation'
+  );
+
   if (error && !loading) {
     return (
       <Card className="p-6">
@@ -161,20 +181,28 @@ export const TransactionManager = () => {
           <div>
             <h3 className="text-lg font-semibold text-slate-800 mb-2">
               Gerenciador de Transações
+              {isOwner && <span className="ml-2 text-green-600">(Visão da Empresa)</span>}
+              {isProvider && <span className="ml-2 text-blue-600">(Minhas Transações)</span>}
             </h3>
             <p className="text-slate-600">
-              {profile?.role === 'admin' 
-                ? 'Visualize e gerencie todas as transações da empresa, incluindo entradas via PIX, cartões de crédito e outras formas de pagamento.'
+              {isOwner 
+                ? 'Visualize e gerencie todas as transações da empresa, incluindo receitas de deslocamento e hospedagem dos prestadores.'
                 : 'Registre suas despesas de viagem e visualize seus lançamentos.'
               }
             </p>
-            <div className="text-sm text-slate-500 mt-1 space-y-1">
+            <div className="text-sm text-slate-500 mt-2 space-y-1">
               <div className="flex items-center gap-2">
-                <span>Total de transações carregadas: {mappedTransactions.length}</span>
+                <span>Total de transações: {mappedTransactions.length}</span>
                 {!loading && mappedTransactions.length > 0 && (
                   <CheckCircle className="w-4 h-4 text-green-500" />
                 )}
               </div>
+              {isOwner && providerRevenueTransactions.length > 0 && (
+                <div className="flex items-center gap-2 text-green-600">
+                  <Eye className="w-4 h-4" />
+                  <span>Receitas de prestadores: {providerRevenueTransactions.length}</span>
+                </div>
+              )}
               {debugInfo && (
                 <p className="text-blue-600">Debug: {debugInfo}</p>
               )}
@@ -200,13 +228,28 @@ export const TransactionManager = () => {
           </div>
         </div>
 
+        {/* Mostrar estatísticas para donos */}
+        {isOwner && !loading && (
+          <Alert className="mb-4">
+            <Info className="h-4 w-4" />
+            <AlertDescription>
+              <strong>Estatísticas:</strong> {revenueTransactions.length} receitas, {expenseTransactions.length} despesas.
+              {providerRevenueTransactions.length > 0 && (
+                <span className="text-green-600 ml-2">
+                  Incluindo {providerRevenueTransactions.length} receitas de deslocamento/hospedagem.
+                </span>
+              )}
+            </AlertDescription>
+          </Alert>
+        )}
+
         <Tabs value={activeTab} onValueChange={setActiveTab}>
           <TabsList className={`grid w-full ${profile?.role === 'admin' ? 'grid-cols-3' : 'grid-cols-2'}`}>
             <TabsTrigger value="list">
               Transações ({mappedTransactions.length})
             </TabsTrigger>
             <TabsTrigger value="new">Nova Transação</TabsTrigger>
-            {profile?.role === 'admin' && (
+            {isOwner && (
               <TabsTrigger value="categories">Categorias</TabsTrigger>
             )}
           </TabsList>
@@ -216,7 +259,7 @@ export const TransactionManager = () => {
               <div className="text-center py-8">
                 <RefreshCw className="w-8 h-8 animate-spin mx-auto mb-4 text-blue-500" />
                 <p className="text-slate-600">Carregando transações...</p>
-                <p className="text-sm text-blue-500 mt-2">Usando nova função RPC para evitar problemas de RLS</p>
+                <p className="text-sm text-blue-500 mt-2">Usando nova lógica hierárquica RLS</p>
                 {debugInfo && (
                   <p className="text-sm text-blue-500 mt-2">Debug: {debugInfo}</p>
                 )}
@@ -235,7 +278,7 @@ export const TransactionManager = () => {
             <TransactionForm onClose={handleTransactionSubmitted} />
           </TabsContent>
 
-          {profile?.role === 'admin' && (
+          {isOwner && (
             <TabsContent value="categories" className="mt-6">
               <TransactionCategories />
             </TabsContent>

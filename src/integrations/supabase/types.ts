@@ -885,6 +885,14 @@ export type Database = {
           updated_at: string
         }[]
       }
+      is_company_owner: {
+        Args: Record<PropertyKey, never>
+        Returns: boolean
+      }
+      is_linked_provider: {
+        Args: { transaction_user_id: string }
+        Returns: boolean
+      }
       use_access_code: {
         Args: { access_code: string }
         Returns: Json
