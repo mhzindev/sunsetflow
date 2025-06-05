@@ -888,6 +888,43 @@ export type Database = {
           updated_at: string
         }[]
       }
+      insert_transaction_with_casting: {
+        Args: {
+          p_type: string
+          p_category: string
+          p_amount: number
+          p_description: string
+          p_date: string
+          p_method: string
+          p_status: string
+          p_user_id: string
+          p_user_name: string
+          p_mission_id?: string
+          p_receipt?: string
+          p_tags?: string[]
+          p_account_id?: string
+          p_account_type?: string
+        }
+        Returns: {
+          id: string
+          type: string
+          category: string
+          amount: number
+          description: string
+          date: string
+          method: string
+          status: string
+          user_id: string
+          user_name: string
+          receipt: string
+          tags: string[]
+          mission_id: string
+          account_id: string
+          account_type: string
+          created_at: string
+          updated_at: string
+        }[]
+      }
       is_company_owner: {
         Args: Record<PropertyKey, never>
         Returns: boolean
