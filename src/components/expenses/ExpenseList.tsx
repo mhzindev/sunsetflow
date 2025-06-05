@@ -1,4 +1,5 @@
-import { useState } from 'react';
+
+import { useState, useEffect } from 'react';
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -64,7 +65,7 @@ export const ExpenseList = () => {
   const { fetchTransactions } = useSupabaseData();
 
   // Carregar receitas de hospedagem/deslocamento
-  useState(() => {
+  useEffect(() => {
     const loadRevenues = async () => {
       try {
         const transactionsData = await fetchTransactions();
@@ -78,7 +79,7 @@ export const ExpenseList = () => {
       }
     };
     loadRevenues();
-  }, []);
+  }, [fetchTransactions]);
 
   // Combinar despesas e receitas
   const allItems: ExpenseListItem[] = [
@@ -86,7 +87,7 @@ export const ExpenseList = () => {
     ...data.expenses.map(expense => {
       const accommodationDetails = expense.accommodationDetails ? {
         actualCost: expense.accommodationDetails.actualCost || 0,
-        invoiceAmount: expense.accommodationDetails.reimbursementAmount || 0,
+        invoiceAmount: expense.accommodationDetails.invoiceAmount || 0,
         netAmount: expense.accommodationDetails.netAmount || 0
       } : undefined;
 
