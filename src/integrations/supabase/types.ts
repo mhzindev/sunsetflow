@@ -518,7 +518,9 @@ export type Database = {
           id: string
           name: string
           phone: string | null
+          provider_id: string | null
           role: Database["public"]["Enums"]["user_role"]
+          user_type: string | null
         }
         Insert: {
           active?: boolean
@@ -528,7 +530,9 @@ export type Database = {
           id: string
           name: string
           phone?: string | null
+          provider_id?: string | null
           role?: Database["public"]["Enums"]["user_role"]
+          user_type?: string | null
         }
         Update: {
           active?: boolean
@@ -538,7 +542,9 @@ export type Database = {
           id?: string
           name?: string
           phone?: string | null
+          provider_id?: string | null
           role?: Database["public"]["Enums"]["user_role"]
+          user_type?: string | null
         }
         Relationships: [
           {
@@ -546,6 +552,13 @@ export type Database = {
             columns: ["company_id"]
             isOneToOne: false
             referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "profiles_provider_id_fkey"
+            columns: ["provider_id"]
+            isOneToOne: false
+            referencedRelation: "service_providers"
             referencedColumns: ["id"]
           },
         ]
