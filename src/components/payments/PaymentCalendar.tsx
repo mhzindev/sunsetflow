@@ -334,8 +334,10 @@ export const PaymentCalendar = () => {
 
       <PaymentModal
         isOpen={isPaymentModalOpen}
-        onClose={handleCloseModals}
+        onOpenChange={setIsPaymentModalOpen}
         provider={selectedPayment}
+        paymentType="advance_payment"
+        onSuccess={handleCloseModals}
       />
     </div>
   );

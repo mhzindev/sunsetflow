@@ -350,98 +350,38 @@ export const useSupabaseData = () => {
   };
 
   // Função para inserir pagamento - VERSÃO FINAL CORRIGIDA
-  const insertPayment = async (payment: {
-    provider_id?: string;
-    provider_name: string;
-    amount: number;
-    due_date: string;
-    payment_date?: string;
-    status: 'pending' | 'partial' | 'completed' | 'overdue' | 'cancelled';
-    type: 'full' | 'installment' | 'advance';
-    description: string;
-    installments?: number;
-    current_installment?: number;
-    tags?: string[];
-    notes?: string;
-    account_id?: string;
-    account_type?: 'bank_account' | 'credit_card';
-  }) => {
+  const insertPayment = async (paymentData: PaymentCreateData) => {
     try {
-      console.log('=== useSupabaseData.insertPayment - VERSÃO FINAL CORRIGIDA ===');
-      console.log('Payload recebido:', payment);
-
-      // Validações básicas
-      if (!payment.provider_name?.trim()) {
-        throw new Error('Nome do prestador é obrigatório');
-      }
-
-      if (!payment.amount || payment.amount <= 0) {
-        throw new Error('Valor deve ser maior que zero');
-      }
-
-      if (!payment.due_date) {
-        throw new Error('Data de vencimento é obrigatória');
-      }
-
-      if (!payment.description?.trim()) {
-        throw new Error('Descrição é obrigatória');
-      }
-
-      // Validação rigorosa dos ENUMs - valores exatos
-      const validStatuses = ['pending', 'partial', 'completed', 'overdue', 'cancelled'] as const;
-      const validTypes = ['full', 'installment', 'advance'] as const;
-
-      if (!validStatuses.includes(payment.status as any)) {
-        console.error('Status inválido recebido:', payment.status, typeof payment.status);
-        throw new Error(`Status inválido: ${payment.status}. Valores aceitos: ${validStatuses.join(', ')}`);
-      }
-
-      if (!validTypes.includes(payment.type as any)) {
-        console.error('Tipo inválido recebido:', payment.type, typeof payment.type);
-        throw new Error(`Tipo inválido: ${payment.type}. Valores aceitos: ${validTypes.join(', ')}`);
-      }
-
-      console.log('=== INSERÇÃO COM RPC - ESTRUTURA CORRIGIDA ===');
-      console.log('Status final:', payment.status, '(tipo:', typeof payment.status, ')');
-      console.log('Type final:', payment.type, '(tipo:', typeof payment.type, ')');
-
-      // Usar a função RPC com a estrutura corrigida
+      console.log('Inserindo pagamento com dados:', paymentData);
+      
+      // Usar a função RPC que faz o casting correto dos enums
       const { data, error } = await supabase.rpc('insert_payment_with_casting', {
-        p_provider_name: payment.provider_name.trim(),
-        p_amount: payment.amount,
-        p_due_date: payment.due_date,
-        p_status: payment.status,
-        p_type: payment.type,
-        p_description: payment.description.trim(),
-        p_provider_id: payment.provider_id || null,
-        p_payment_date: payment.payment_date || null,
-        p_installments: payment.installments || null,
-        p_current_installment: payment.current_installment || null,
-        p_tags: payment.tags || null,
-        p_notes: payment.notes?.trim() || null,
-        p_account_id: payment.account_id || null,
-        p_account_type: payment.account_type || null
+        p_provider_id: paymentData.provider_id,
+        p_provider_name: paymentData.provider_name,
+        p_amount: paymentData.amount,
+        p_due_date: paymentData.due_date,
+        p_payment_date: paymentData.payment_date,
+        p_status: paymentData.status,
+        p_type: paymentData.type,
+        p_description: paymentData.description,
+        p_installments: paymentData.installments,
+        p_current_installment: paymentData.current_installment,
+        p_tags: paymentData.tags,
+        p_notes: paymentData.notes,
+        p_account_id: paymentData.account_id,
+        p_account_type: paymentData.account_type
       });
 
       if (error) {
-        console.error('=== ERRO DO SUPABASE RPC ===');
-        console.error('Erro completo:', error);
-        throw new Error(error.message || 'Erro desconhecido do banco de dados');
+        console.error('Erro no RPC insert_payment_with_casting:', error);
+        throw error.message || 'Erro ao inserir pagamento';
       }
 
-      console.log('=== SUCESSO ===');
-      console.log('Pagamento inserido:', data);
-      return { data, error: null };
-
-    } catch (err) {
-      console.error('=== ERRO NA FUNÇÃO insertPayment ===');
-      console.error('Erro:', err);
-      
-      if (err instanceof Error) {
-        return { data: null, error: err.message };
-      } else {
-        return { data: null, error: 'Erro desconhecido na inserção do pagamento' };
-      }
+      console.log('Pagamento inserido com sucesso via RPC:', data);
+      return { data: data?.[0], error: null };
+    } catch (error) {
+      console.error('Erro ao inserir pagamento:', error);
+      return { data: null, error: error instanceof Error ? error.message : 'Erro desconhecido' };
     }
   };
 

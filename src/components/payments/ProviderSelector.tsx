@@ -6,8 +6,9 @@ import { RefreshCw } from 'lucide-react';
 
 interface ProviderSelectorProps {
   value?: string;
-  onValueChange: (value: string) => void;
+  onValueChange?: (value: string) => void;
   onProviderSelect?: (provider: any) => void;
+  selectedProvider?: string;
   placeholder?: string;
 }
 
@@ -15,6 +16,7 @@ export const ProviderSelector = ({
   value, 
   onValueChange, 
   onProviderSelect, 
+  selectedProvider,
   placeholder = "Selecionar prestador" 
 }: ProviderSelectorProps) => {
   const [providers, setProviders] = useState<any[]>([]);
@@ -39,15 +41,19 @@ export const ProviderSelector = ({
   };
 
   const handleValueChange = (providerId: string) => {
-    onValueChange(providerId);
+    if (onValueChange) {
+      onValueChange(providerId);
+    }
     const selectedProvider = providers.find(p => p.id === providerId);
     if (selectedProvider && onProviderSelect) {
       onProviderSelect(selectedProvider);
     }
   };
 
+  const currentValue = value || (selectedProvider ? providers.find(p => p.name === selectedProvider)?.id : undefined);
+
   return (
-    <Select value={value} onValueChange={handleValueChange}>
+    <Select value={currentValue} onValueChange={handleValueChange}>
       <SelectTrigger>
         <SelectValue placeholder={loading ? "Carregando..." : placeholder} />
       </SelectTrigger>
