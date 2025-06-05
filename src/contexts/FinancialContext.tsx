@@ -21,7 +21,20 @@ interface FinancialData {
   error: string | null;
 }
 
-const FinancialContext = createContext<{ data: FinancialData; refetch: () => Promise<void> } | undefined>(undefined);
+interface FinancialContextType {
+  data: FinancialData;
+  refetch: () => Promise<void>;
+  refreshData: () => Promise<void>;
+  loading: boolean;
+  error: string | null;
+  getRecentTransactions: (limit?: number) => any[];
+  updateExpenseStatus: (id: string, status: string) => void;
+  processPayment: (payment: any) => void;
+  updatePayment: (id: string, updates: any) => void;
+  updatePaymentStatus: (id: string, status: string) => void;
+}
+
+const FinancialContext = createContext<FinancialContextType | undefined>(undefined);
 
 export const FinancialProvider = ({ children }: { children: React.ReactNode }) => {
   const { profile } = useAuth();
@@ -132,14 +145,84 @@ export const FinancialProvider = ({ children }: { children: React.ReactNode }) =
     }
   };
 
+  // Função para obter transações recentes
+  const getRecentTransactions = (limit: number = 10) => {
+    return data.transactions
+      .sort((a, b) => new Date(b.created_at || b.date).getTime() - new Date(a.created_at || a.date).getTime())
+      .slice(0, limit)
+      .map(t => ({
+        id: t.id,
+        type: t.type,
+        category: t.category,
+        description: t.description,
+        amount: t.amount,
+        date: t.date,
+        status: t.status,
+        userName: t.user_name
+      }));
+  };
+
+  // Função para atualizar status de despesa
+  const updateExpenseStatus = (id: string, status: string) => {
+    setData(prev => ({
+      ...prev,
+      expenses: prev.expenses.map(expense => 
+        expense.id === id ? { ...expense, status } : expense
+      )
+    }));
+  };
+
+  // Função para processar pagamento
+  const processPayment = (payment: any) => {
+    setData(prev => ({
+      ...prev,
+      payments: prev.payments.map(p => 
+        p.id === payment.id ? { ...p, status: 'completed', payment_date: new Date().toISOString().split('T')[0] } : p
+      )
+    }));
+  };
+
+  // Função para atualizar pagamento
+  const updatePayment = (id: string, updates: any) => {
+    setData(prev => ({
+      ...prev,
+      payments: prev.payments.map(payment => 
+        payment.id === id ? { ...payment, ...updates } : payment
+      )
+    }));
+  };
+
+  // Função para atualizar status de pagamento
+  const updatePaymentStatus = (id: string, status: string) => {
+    setData(prev => ({
+      ...prev,
+      payments: prev.payments.map(payment => 
+        payment.id === id ? { ...payment, status } : payment
+      )
+    }));
+  };
+
   useEffect(() => {
     if (profile) {
       fetchData();
     }
   }, [profile]);
 
+  const contextValue: FinancialContextType = {
+    data,
+    refetch: fetchData,
+    refreshData: fetchData,
+    loading: data.loading,
+    error: data.error,
+    getRecentTransactions,
+    updateExpenseStatus,
+    processPayment,
+    updatePayment,
+    updatePaymentStatus
+  };
+
   return (
-    <FinancialContext.Provider value={{ data, refetch: fetchData }}>
+    <FinancialContext.Provider value={contextValue}>
       {children}
     </FinancialContext.Provider>
   );
