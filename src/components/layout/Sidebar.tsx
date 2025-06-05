@@ -34,14 +34,8 @@ export const Sidebar = ({ activeSection, setActiveSection, isOpen, setIsOpen }: 
     const isProvider = profile?.user_type === 'provider';
     
     if (isProvider) {
-      // Menus específicos para prestadores
+      // Menus específicos para prestadores - REMOVIDO O DASHBOARD
       return [
-        {
-          id: 'dashboard' as PageSection,
-          label: 'Dashboard',
-          icon: LayoutDashboard,
-          description: 'Visão geral'
-        },
         {
           id: 'expenses' as PageSection,
           label: 'Minhas Despesas',

@@ -372,6 +372,7 @@ export type Database = {
           id: string
           is_approved: boolean | null
           location: string
+          provider_id: string | null
           provider_percentage: number | null
           provider_value: number | null
           service_value: number | null
@@ -397,6 +398,7 @@ export type Database = {
           id?: string
           is_approved?: boolean | null
           location: string
+          provider_id?: string | null
           provider_percentage?: number | null
           provider_value?: number | null
           service_value?: number | null
@@ -422,6 +424,7 @@ export type Database = {
           id?: string
           is_approved?: boolean | null
           location?: string
+          provider_id?: string | null
           provider_percentage?: number | null
           provider_value?: number | null
           service_value?: number | null
@@ -437,6 +440,13 @@ export type Database = {
             columns: ["created_by"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "missions_provider_id_fkey"
+            columns: ["provider_id"]
+            isOneToOne: false
+            referencedRelation: "service_providers"
             referencedColumns: ["id"]
           },
         ]

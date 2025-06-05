@@ -3,7 +3,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 
 export const useSupabaseData = () => {
-  const { user } = useAuth();
+  const { user, profile } = useAuth();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -27,10 +27,10 @@ export const useSupabaseData = () => {
     }
   };
 
-  // Função para buscar despesas - OTIMIZADA
+  // Função para buscar despesas - OTIMIZADA COM FILTRO PARA PRESTADORES
   const fetchExpenses = async () => {
     try {
-      console.log('Buscando despesas com política RLS corrigida...');
+      console.log('Buscando despesas com filtro por prestador...');
       
       const { data, error } = await supabase
         .from('expenses')
@@ -43,7 +43,8 @@ export const useSupabaseData = () => {
             start_date,
             end_date,
             budget,
-            total_expenses
+            total_expenses,
+            provider_id
           )
         `)
         .order('created_at', { ascending: false });
@@ -54,6 +55,14 @@ export const useSupabaseData = () => {
       }
       
       console.log('Despesas encontradas:', data?.length || 0);
+      console.log('Tipo de usuário:', profile?.user_type);
+      
+      // As políticas RLS já filtram automaticamente os dados
+      // Mas podemos adicionar um log para debug
+      if (profile?.user_type === 'provider') {
+        console.log('Usuário é prestador - dados filtrados pelas políticas RLS');
+      }
+      
       return data || [];
     } catch (err) {
       console.error('Erro ao buscar despesas:', err);
@@ -86,10 +95,10 @@ export const useSupabaseData = () => {
     }
   };
 
-  // Função para buscar missões - ATUALIZADA
+  // Função para buscar missões - ATUALIZADA COM FILTRO PARA PRESTADORES
   const fetchMissions = async () => {
     try {
-      console.log('Buscando missões...');
+      console.log('Buscando missões com filtro por prestador...');
       const { data, error } = await supabase
         .from('missions')
         .select('*')
@@ -101,6 +110,13 @@ export const useSupabaseData = () => {
       }
       
       console.log('Missões encontradas:', data?.length || 0);
+      console.log('Tipo de usuário:', profile?.user_type);
+      
+      // As políticas RLS já filtram automaticamente os dados
+      if (profile?.user_type === 'provider') {
+        console.log('Usuário é prestador - missões filtradas pelas políticas RLS');
+      }
+      
       return data || [];
     } catch (err) {
       console.error('Erro ao buscar missões:', err);
@@ -256,7 +272,7 @@ export const useSupabaseData = () => {
     }
   };
 
-  // Função para inserir despesa - MELHORADA COM NOVOS CAMPOS
+  // Função para inserir despesa - MELHORADA COM PRESTADOR
   const insertExpense = async (expense: {
     mission_id?: string;
     category: string;
@@ -276,13 +292,19 @@ export const useSupabaseData = () => {
       if (!user) throw new Error('Usuário não autenticado');
 
       console.log('Inserindo despesa:', expense);
+      console.log('Perfil do usuário:', profile);
+
+      // Para prestadores, usar dados do perfil linkado
+      const employeeName = profile?.user_type === 'provider' 
+        ? profile.name 
+        : user.user_metadata?.name || user.email?.split('@')[0] || 'Usuário';
 
       const { data, error } = await supabase
         .from('expenses')
         .insert({
           ...expense,
           employee_id: user.id,
-          employee_name: user.user_metadata?.name || user.email?.split('@')[0] || 'Usuário',
+          employee_name: employeeName,
           employee_role: expense.employee_role || 'Funcionário',
           status: 'pending'
         })
@@ -463,6 +485,7 @@ export const useSupabaseData = () => {
     client_id?: string;
     assigned_providers?: string[];
     status?: string;
+    provider_id?: string;
   }) => {
     try {
       if (!user) {
@@ -471,15 +494,24 @@ export const useSupabaseData = () => {
       }
 
       console.log('Inserindo missão:', mission);
+      console.log('Perfil do usuário:', profile);
+
+      // Para prestadores, usar o provider_id do perfil
+      const finalMission = {
+        ...mission,
+        created_by: user.id,
+        status: mission.status || 'planning',
+        is_approved: false
+      };
+
+      // Se é prestador, vincular a missão ao prestador automaticamente
+      if (profile?.user_type === 'provider' && profile.provider_id) {
+        finalMission.provider_id = profile.provider_id;
+      }
 
       const { data, error } = await supabase
         .from('missions')
-        .insert({
-          ...mission,
-          created_by: user.id,
-          status: mission.status || 'planning',
-          is_approved: false
-        })
+        .insert(finalMission)
         .select()
         .single();
 
