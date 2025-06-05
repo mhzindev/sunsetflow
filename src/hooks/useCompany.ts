@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
@@ -25,10 +26,23 @@ export const useCompany = () => {
       if (profile.user_type === 'provider' && profile.provider_id) {
         console.log('Fetching company for provider:', profile.provider_id);
         
-        // Buscar o prestador e suas informações COM company_id
+        // Buscar o prestador e sua empresa através da nova estrutura
         const { data: providerData, error: providerError } = await supabase
           .from('service_providers')
-          .select('*, companies(*)')
+          .select(`
+            *,
+            companies:company_id (
+              id,
+              name,
+              legal_name,
+              cnpj,
+              email,
+              phone,
+              address,
+              created_at,
+              owner_id
+            )
+          `)
           .eq('id', profile.provider_id)
           .single();
 
@@ -37,7 +51,7 @@ export const useCompany = () => {
           setCompany(null);
         } else if (providerData && providerData.companies) {
           console.log('Provider data found with company:', providerData);
-          // Usar os dados da empresa real, não criar uma virtual
+          // Usar os dados da empresa real
           setCompany({
             id: providerData.companies.id,
             name: providerData.companies.name,
