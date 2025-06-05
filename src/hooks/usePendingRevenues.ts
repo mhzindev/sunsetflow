@@ -50,6 +50,7 @@ export const usePendingRevenues = () => {
       }
 
       console.log('Receitas pendentes encontradas:', data?.length || 0);
+      console.log('Primeira receita pendente (debug):', data?.[0]);
       setPendingRevenues(data || []);
       return data || [];
     } catch (err) {
@@ -67,13 +68,19 @@ export const usePendingRevenues = () => {
     accountType: 'bank_account' | 'credit_card'
   ) => {
     try {
-      console.log('Convertendo receita pendente para recebida:', {
-        pendingRevenueId,
-        accountId,
-        accountType
-      });
+      console.log('=== CONVERTENDO RECEITA PENDENTE ===');
+      console.log('ID da receita:', pendingRevenueId);
+      console.log('Conta:', { accountId, accountType });
 
-      // A função SQL agora usa total_amount corretamente
+      // Buscar dados da receita pendente antes da conversão para debug
+      const { data: pendingData } = await supabase
+        .from('pending_revenues')
+        .select('*')
+        .eq('id', pendingRevenueId)
+        .single();
+
+      console.log('Dados da receita pendente antes da conversão:', pendingData);
+
       const { data, error } = await supabase.rpc('convert_pending_to_received_revenue', {
         pending_revenue_id: pendingRevenueId,
         account_id: accountId,
@@ -86,9 +93,12 @@ export const usePendingRevenues = () => {
         return { success: false, error: error.message };
       }
 
+      console.log('Resultado da conversão RPC:', data);
+
       if (data?.success) {
-        showSuccess('Sucesso', `Receita de R$ ${data.total_amount?.toFixed(2)} convertida e transação criada com sucesso!`);
-        await fetchPendingRevenues(); // Recarregar dados
+        const valorTotal = data.total_amount || pendingData?.total_amount || 0;
+        showSuccess('Sucesso', `Receita total de R$ ${valorTotal.toFixed(2)} convertida e registrada como receita da empresa!`);
+        await fetchPendingRevenues();
         return { success: true, data };
       } else {
         showError('Erro', data?.message || 'Erro ao converter receita');

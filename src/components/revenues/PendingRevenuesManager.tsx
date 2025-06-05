@@ -7,7 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { usePendingRevenues } from '@/hooks/usePendingRevenues';
 import { useAccounts } from '@/hooks/useAccounts';
-import { DollarSign, Calendar, RefreshCw, CheckCircle, X, Building } from 'lucide-react';
+import { DollarSign, Calendar, RefreshCw, CheckCircle, X, Building, AlertCircle } from 'lucide-react';
 import { formatCurrency, formatDate } from '@/utils/dateUtils';
 
 export const PendingRevenuesManager = () => {
@@ -46,7 +46,7 @@ export const PendingRevenuesManager = () => {
   };
 
   const pendingOnly = pendingRevenues.filter(revenue => revenue.status === 'pending');
-  const totalPending = pendingOnly.reduce((sum, revenue) => sum + revenue.company_amount, 0);
+  const totalPending = pendingOnly.reduce((sum, revenue) => sum + revenue.total_amount, 0);
 
   if (loading) {
     return (
@@ -70,7 +70,7 @@ export const PendingRevenuesManager = () => {
             </CardTitle>
             <div className="flex items-center gap-4">
               <div className="text-right">
-                <p className="text-sm text-gray-600">Total Pendente</p>
+                <p className="text-sm text-gray-600">Total Pendente (Valor Total)</p>
                 <p className="text-lg font-semibold text-green-600">
                   {formatCurrency(totalPending)}
                 </p>
@@ -84,6 +84,20 @@ export const PendingRevenuesManager = () => {
         </CardHeader>
         
         <CardContent>
+          <div className="mb-4 p-3 bg-blue-50 rounded-lg border border-blue-200">
+            <div className="flex items-start gap-2">
+              <AlertCircle className="w-5 h-5 text-blue-600 mt-0.5" />
+              <div className="text-sm text-blue-800">
+                <strong>Nova Lógica Financeira:</strong>
+                <ul className="mt-1 space-y-1">
+                  <li>• O valor <strong>total da missão</strong> será registrado como receita da empresa</li>
+                  <li>• A porcentagem do prestador já foi adicionada ao saldo dele na aprovação</li>
+                  <li>• Pagamentos aos prestadores serão registrados como despesas separadas</li>
+                </ul>
+              </div>
+            </div>
+          </div>
+
           {pendingRevenues.length === 0 ? (
             <div className="text-center py-8">
               <DollarSign className="w-12 h-12 text-gray-400 mx-auto mb-4" />
@@ -118,14 +132,24 @@ export const PendingRevenuesManager = () => {
                           Vencimento: {formatDate(revenue.due_date)}
                         </p>
                         
-                        <div className="grid grid-cols-2 gap-4 mt-3">
-                          <div className="p-2 bg-green-50 rounded">
-                            <div className="font-medium text-green-800">Valor Total</div>
-                            <div className="text-green-900">{formatCurrency(revenue.total_amount)}</div>
+                        <div className="grid grid-cols-1 gap-4 mt-3">
+                          <div className="p-3 bg-green-50 rounded border border-green-200">
+                            <div className="font-medium text-green-800 mb-1">💰 Valor Total da Missão</div>
+                            <div className="text-xl font-bold text-green-900">{formatCurrency(revenue.total_amount)}</div>
+                            <div className="text-xs text-green-700 mt-1">
+                              Este valor será registrado como receita total da empresa
+                            </div>
                           </div>
-                          <div className="p-2 bg-blue-50 rounded">
-                            <div className="font-medium text-blue-800">Valor da Empresa</div>
-                            <div className="text-blue-900">{formatCurrency(revenue.company_amount)}</div>
+                          
+                          <div className="grid grid-cols-2 gap-3">
+                            <div className="p-2 bg-blue-50 rounded border border-blue-200">
+                              <div className="text-xs font-medium text-blue-800">Parte da Empresa</div>
+                              <div className="text-sm font-semibold text-blue-900">{formatCurrency(revenue.company_amount)}</div>
+                            </div>
+                            <div className="p-2 bg-purple-50 rounded border border-purple-200">
+                              <div className="text-xs font-medium text-purple-800">Saldo do Prestador</div>
+                              <div className="text-sm font-semibold text-purple-900">{formatCurrency(revenue.provider_amount)}</div>
+                            </div>
                           </div>
                         </div>
                         
@@ -141,15 +165,26 @@ export const PendingRevenuesManager = () => {
                           <DialogTrigger asChild>
                             <Button size="sm" className="bg-green-600 hover:bg-green-700">
                               <CheckCircle className="w-4 h-4 mr-1" />
-                              Receber
+                              Receber Valor Total
                             </Button>
                           </DialogTrigger>
                           <DialogContent>
                             <DialogHeader>
-                              <DialogTitle>Registrar Recebimento</DialogTitle>
+                              <DialogTitle>Registrar Recebimento do Valor Total</DialogTitle>
                             </DialogHeader>
                             <div className="space-y-4">
-                              <p>Selecione a conta onde o valor será creditado:</p>
+                              <div className="p-3 bg-green-50 rounded border border-green-200">
+                                <div className="text-sm text-green-800">
+                                  <strong>Valor total a ser registrado como receita:</strong>
+                                  <div className="text-lg font-bold text-green-900 mt-1">
+                                    {formatCurrency(revenue.total_amount)}
+                                  </div>
+                                </div>
+                              </div>
+                              
+                              <p className="text-sm text-gray-600">
+                                Selecione a conta onde o valor será creditado:
+                              </p>
                               
                               <Select
                                 value={selectedAccount.type}
@@ -195,7 +230,7 @@ export const PendingRevenuesManager = () => {
                                   disabled={!selectedAccount.id || convertingId === revenue.id}
                                   className="bg-green-600 hover:bg-green-700"
                                 >
-                                  {convertingId === revenue.id ? 'Processando...' : 'Confirmar Recebimento'}
+                                  {convertingId === revenue.id ? 'Processando...' : 'Confirmar Recebimento Total'}
                                 </Button>
                               </div>
                             </div>
