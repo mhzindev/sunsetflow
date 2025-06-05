@@ -121,7 +121,7 @@ export const ProviderExpensesList = () => {
         <Card className="p-4">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm text-gray-600">Total Despesas</p>
+              <p className="text-sm text-gray-600">Total Despesas da Empresa</p>
               <p className="text-lg font-semibold text-red-600 flex items-center">
                 <Minus className="w-4 h-4 mr-1" />
                 R$ {totals.expenses.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
@@ -239,7 +239,7 @@ export const ProviderExpensesList = () => {
                     {item.type === 'expense' ? (
                       <Badge variant="destructive" className="flex items-center">
                         <Minus className="w-3 h-3 mr-1" />
-                        Despesa
+                        Despesa da Empresa
                       </Badge>
                     ) : (
                       <Badge variant="default" className="bg-green-100 text-green-800 flex items-center">
@@ -259,17 +259,17 @@ export const ProviderExpensesList = () => {
                     <div className="font-medium">{item.description}</div>
                     {item.accommodationDetails && (
                       <div className="text-xs text-gray-600 mt-1">
-                        <div>Gasto: R$ {(item.accommodationDetails.actualCost || 0).toFixed(2)}</div>
-                        <div>Nota: R$ {(item.accommodationDetails.reimbursementAmount || 0).toFixed(2)}</div>
+                        <div>Gasto da Empresa: R$ {(item.accommodationDetails.actualCost || 0).toFixed(2)}</div>
+                        <div>Nota Fiscal: R$ {(item.accommodationDetails.reimbursementAmount || 0).toFixed(2)}</div>
                         <div className={`font-medium ${(item.accommodationDetails.netAmount || 0) >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                          Líquido: {(item.accommodationDetails.netAmount || 0) >= 0 ? '+' : ''}R$ {(item.accommodationDetails.netAmount || 0).toFixed(2)}
+                          Receita Líquida: {(item.accommodationDetails.netAmount || 0) >= 0 ? '+' : ''}R$ {(item.accommodationDetails.netAmount || 0).toFixed(2)}
                         </div>
                       </div>
                     )}
                     {item.travelDetails && (
                       <div className="text-xs text-gray-600 mt-1">
                         <div>{(item.travelDetails.kilometers || 0)} km × R$ {(item.travelDetails.ratePerKm || 0).toFixed(2)}</div>
-                        <div>Total: R$ {(item.travelDetails.totalRevenue || 0).toFixed(2)}</div>
+                        <div className="font-medium text-green-600">Receita Total: +R$ {(item.travelDetails.totalRevenue || 0).toFixed(2)}</div>
                       </div>
                     )}
                   </div>

@@ -9,16 +9,16 @@ export interface Expense {
   amount: number;
   date: string;
   isAdvanced: boolean;
-  status: 'pending' | 'approved' | 'reimbursed' | 'rejected';
+  status: 'pending' | 'approved' | 'completed' | 'rejected';
   submittedAt: string;
   approvedAt?: string;
-  reimbursedAt?: string;
+  completedAt?: string;
   receipt?: string;
   // Campos específicos para hospedagem
   accommodationDetails?: {
-    actualCost: number; // Valor realmente gasto
-    reimbursementAmount: number; // Valor da nota de ressarcimento
-    netAmount: number; // Valor líquido (reimbursementAmount - actualCost)
+    actualCost: number; // Valor realmente gasto pela empresa
+    invoiceAmount: number; // Valor da nota fiscal para ressarcimento
+    netAmount: number; // Valor líquido (invoiceAmount - actualCost)
     outsourcingCompany?: string; // Nome da empresa terceirizada
     invoiceNumber?: string; // Número da nota fiscal
   };

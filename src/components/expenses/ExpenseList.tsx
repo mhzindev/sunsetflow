@@ -4,7 +4,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Search, Filter, Download, Eye, Edit } from 'lucide-react';
+import { Search, Filter, Download, Eye, Edit, Plus, Minus } from 'lucide-react';
 import { FilterModal, FilterConfig } from '@/components/common/FilterModal';
 import { ExportModal } from '@/components/common/ExportModal';
 import { ExpenseViewModal } from './ExpenseViewModal';
@@ -12,6 +12,7 @@ import { ExpenseEditModal } from './ExpenseEditModal';
 import { exportToCSV, exportToPDF, exportToExcel, ExportOptions } from '@/utils/exportUtils';
 import { useToastFeedback } from '@/hooks/useToastFeedback';
 import { useFinancial } from '@/contexts/FinancialContext';
+import { useSupabaseData } from '@/hooks/useSupabaseData';
 
 interface ExpenseListItem {
   id: string;
@@ -27,10 +28,16 @@ interface ExpenseListItem {
   date: string;
   isAdvanced: boolean;
   status: string;
+  type?: 'expense' | 'revenue';
   accommodationDetails?: {
     actualCost: number;
-    reimbursementAmount: number;
+    invoiceAmount: number;
     netAmount: number;
+  };
+  travelDetails?: {
+    kilometers: number;
+    ratePerKm: number;
+    totalRevenue: number;
   };
   employee_role?: string;
 }
@@ -42,6 +49,7 @@ export const ExpenseList = () => {
   const [isViewModalOpen, setIsViewModalOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [selectedExpense, setSelectedExpense] = useState<ExpenseListItem | null>(null);
+  const [revenues, setRevenues] = useState<any[]>([]);
   
   const [activeFilters, setActiveFilters] = useState<FilterConfig>({
     dateRange: { start: null, end: null },
@@ -53,34 +61,74 @@ export const ExpenseList = () => {
 
   const { showSuccess, showError } = useToastFeedback();
   const { data, updateExpenseStatus } = useFinancial();
+  const { fetchTransactions } = useSupabaseData();
 
-  // Usar dados reais do contexto financeiro
-  const expenses: ExpenseListItem[] = data.expenses.map(expense => {
-    // Ensure accommodationDetails has the required structure if it exists
-    const accommodationDetails = expense.accommodationDetails ? {
-      actualCost: expense.accommodationDetails.actualCost || 0,
-      reimbursementAmount: expense.accommodationDetails.reimbursementAmount || 0,
-      netAmount: expense.accommodationDetails.netAmount || 0
-    } : undefined;
-
-    return {
-      id: expense.id,
-      mission: expense.missions ? {
-        title: expense.missions.title || `Missão ${expense.missionId?.slice(0, 8)}`,
-        location: expense.missions.location,
-        client_name: expense.missions.client_name
-      } : `Missão ${expense.missionId?.slice(0, 8) || 'N/A'}`,
-      employee: expense.employeeName,
-      category: expense.category,
-      description: expense.description,
-      amount: expense.amount,
-      date: expense.date,
-      isAdvanced: expense.isAdvanced,
-      status: expense.status,
-      accommodationDetails,
-      employee_role: expense.employee_role || 'Funcionário'
+  // Carregar receitas de hospedagem/deslocamento
+  useState(() => {
+    const loadRevenues = async () => {
+      try {
+        const transactionsData = await fetchTransactions();
+        const revenueTransactions = transactionsData.filter((transaction: any) => 
+          transaction.type === 'income' && 
+          (transaction.category === 'fuel' || transaction.category === 'accommodation')
+        );
+        setRevenues(revenueTransactions);
+      } catch (error) {
+        console.error('Erro ao carregar receitas:', error);
+      }
     };
-  });
+    loadRevenues();
+  }, []);
+
+  // Combinar despesas e receitas
+  const allItems: ExpenseListItem[] = [
+    // Despesas normais
+    ...data.expenses.map(expense => {
+      const accommodationDetails = expense.accommodationDetails ? {
+        actualCost: expense.accommodationDetails.actualCost || 0,
+        invoiceAmount: expense.accommodationDetails.reimbursementAmount || 0,
+        netAmount: expense.accommodationDetails.netAmount || 0
+      } : undefined;
+
+      return {
+        id: expense.id,
+        mission: expense.missions ? {
+          title: expense.missions.title || `Missão ${expense.missionId?.slice(0, 8)}`,
+          location: expense.missions.location,
+          client_name: expense.missions.client_name
+        } : `Missão ${expense.missionId?.slice(0, 8) || 'N/A'}`,
+        employee: expense.employeeName,
+        category: expense.category,
+        description: expense.description,
+        amount: expense.amount,
+        date: expense.date,
+        isAdvanced: expense.isAdvanced,
+        status: expense.status,
+        type: 'expense' as const,
+        accommodationDetails,
+        employee_role: expense.employee_role || 'Funcionário'
+      };
+    }),
+    
+    // Receitas de hospedagem/deslocamento
+    ...revenues.map(revenue => ({
+      id: revenue.id,
+      mission: revenue.mission_id ? {
+        title: `Missão ${revenue.mission_id.slice(0, 8)}`,
+        location: 'N/A',
+        client_name: 'N/A'
+      } : 'Sem missão',
+      employee: revenue.user_name || 'Sistema',
+      category: revenue.category,
+      description: revenue.description,
+      amount: revenue.amount,
+      date: revenue.date,
+      isAdvanced: false,
+      status: revenue.status,
+      type: 'revenue' as const,
+      employee_role: 'Prestador'
+    }))
+  ];
 
   // Função auxiliar para formatar valores com segurança
   const formatCurrency = (value?: number) => {
@@ -88,38 +136,38 @@ export const ExpenseList = () => {
     return `R$ ${value.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`;
   };
 
-  const applyFilters = (expenses: ExpenseListItem[]) => {
-    return expenses.filter(expense => {
-      const missionTitle = typeof expense.mission === 'object' ? expense.mission.title : expense.mission;
+  const applyFilters = (items: ExpenseListItem[]) => {
+    return items.filter(item => {
+      const missionTitle = typeof item.mission === 'object' ? item.mission.title : item.mission;
       const searchMatch = !activeFilters.search || 
-        expense.employee.toLowerCase().includes(activeFilters.search.toLowerCase()) ||
-        expense.description.toLowerCase().includes(activeFilters.search.toLowerCase()) ||
+        item.employee.toLowerCase().includes(activeFilters.search.toLowerCase()) ||
+        item.description.toLowerCase().includes(activeFilters.search.toLowerCase()) ||
         (missionTitle && missionTitle.toLowerCase().includes(activeFilters.search.toLowerCase()));
 
       const statusMatch = !activeFilters.status?.length || 
-        activeFilters.status.includes(expense.status);
+        activeFilters.status.includes(item.status);
 
       const categoryMatch = !activeFilters.category?.length || 
-        activeFilters.category.includes(expense.category);
+        activeFilters.category.includes(item.category);
 
-      const amountMatch = (!activeFilters.amountRange?.min || expense.amount >= activeFilters.amountRange.min) &&
-        (!activeFilters.amountRange?.max || expense.amount <= activeFilters.amountRange.max);
+      const amountMatch = (!activeFilters.amountRange?.min || item.amount >= activeFilters.amountRange.min) &&
+        (!activeFilters.amountRange?.max || item.amount <= activeFilters.amountRange.max);
 
       const dateMatch = (!activeFilters.dateRange?.start || 
-        new Date(expense.date) >= activeFilters.dateRange.start) &&
+        new Date(item.date) >= activeFilters.dateRange.start) &&
         (!activeFilters.dateRange?.end || 
-        new Date(expense.date) <= activeFilters.dateRange.end);
+        new Date(item.date) <= activeFilters.dateRange.end);
 
       return searchMatch && statusMatch && categoryMatch && amountMatch && dateMatch;
     });
   };
 
-  const filteredExpenses = applyFilters(expenses.filter(expense => {
+  const filteredItems = applyFilters(allItems.filter(item => {
     if (!searchTerm) return true;
     
-    const missionTitle = typeof expense.mission === 'object' ? expense.mission.title : expense.mission;
-    return expense.employee.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      expense.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    const missionTitle = typeof item.mission === 'object' ? item.mission.title : item.mission;
+    return item.employee.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      item.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
       (missionTitle && missionTitle.toLowerCase().includes(searchTerm.toLowerCase()));
   }));
 
@@ -148,24 +196,24 @@ export const ExpenseList = () => {
 
   const handleExport = (options: ExportOptions) => {
     try {
-      const headers = ['Missão', 'Cliente', 'Funcionário', 'Cargo', 'Categoria', 'Descrição', 'Valor', 'Data', 'Tipo', 'Status'];
-      const exportData = filteredExpenses.map(expense => {
-        const mission = typeof expense.mission === 'object' ? expense.mission : { title: expense.mission };
+      const headers = ['Tipo', 'Missão', 'Cliente', 'Funcionário', 'Cargo', 'Categoria', 'Descrição', 'Valor', 'Data', 'Status'];
+      const exportData = filteredItems.map(item => {
+        const mission = typeof item.mission === 'object' ? item.mission : { title: item.mission };
         return {
+          tipo: item.type === 'revenue' ? 'Receita' : 'Despesa',
           missao: mission.title || 'N/A',
           cliente: mission.client_name || 'N/A',
-          funcionario: expense.employee,
-          cargo: expense.employee_role,
-          categoria: getCategoryLabel(expense.category),
-          descricao: expense.description,
-          valor: expense.amount,
-          data: new Date(expense.date).toLocaleDateString('pt-BR'),
-          tipo: expense.isAdvanced ? 'Adiantamento' : 'Reembolso',
-          status: getStatusLabel(expense.status)
+          funcionario: item.employee,
+          cargo: item.employee_role,
+          categoria: getCategoryLabel(item.category),
+          descricao: item.description,
+          valor: item.amount,
+          data: new Date(item.date).toLocaleDateString('pt-BR'),
+          status: getStatusLabel(item.status)
         };
       });
 
-      const filename = options.filename || `despesas_${new Date().toISOString().split('T')[0]}`;
+      const filename = options.filename || `despesas_receitas_${new Date().toISOString().split('T')[0]}`;
 
       switch (options.format) {
         case 'csv':
@@ -175,7 +223,7 @@ export const ExpenseList = () => {
           exportToExcel(exportData, headers, filename);
           break;
         case 'pdf':
-          exportToPDF(exportData, headers, filename, 'Relatório de Despesas');
+          exportToPDF(exportData, headers, filename, 'Relatório de Despesas e Receitas');
           break;
       }
 
@@ -201,14 +249,14 @@ export const ExpenseList = () => {
     const colors = {
       pending: 'bg-yellow-100 text-yellow-800',
       approved: 'bg-green-100 text-green-800',
-      reimbursed: 'bg-blue-100 text-blue-800'
+      completed: 'bg-blue-100 text-blue-800'
     };
     return colors[status as keyof typeof colors] || colors.pending;
   };
 
   const getCategoryLabel = (category: string) => {
     const labels = {
-      fuel: 'Combustível',
+      fuel: 'Deslocamento',
       accommodation: 'Hospedagem',
       meals: 'Alimentação',
       transportation: 'Transporte',
@@ -220,21 +268,21 @@ export const ExpenseList = () => {
 
   const getStatusLabel = (status: string) => {
     const labels = {
-      pending: 'Pendente',
+      pending: 'Aguardando Aprovação',
       approved: 'Aprovado',
-      reimbursed: 'Reembolsado'
+      completed: 'Concluído'
     };
-    return labels[status as keyof typeof labels] || 'Pendente';
+    return labels[status as keyof typeof labels] || 'Aguardando Aprovação';
   };
 
   const availableStatuses = [
-    { value: 'pending', label: 'Pendente' },
+    { value: 'pending', label: 'Aguardando Aprovação' },
     { value: 'approved', label: 'Aprovado' },
-    { value: 'reimbursed', label: 'Reembolsado' }
+    { value: 'completed', label: 'Concluído' }
   ];
 
   const availableCategories = [
-    { value: 'fuel', label: 'Combustível' },
+    { value: 'fuel', label: 'Deslocamento' },
     { value: 'accommodation', label: 'Hospedagem' },
     { value: 'meals', label: 'Alimentação' },
     { value: 'transportation', label: 'Transporte' },
@@ -246,9 +294,9 @@ export const ExpenseList = () => {
     <Card className="p-6">
       <div className="flex flex-col md:flex-row items-start md:items-center justify-between mb-6 gap-4">
         <div>
-          <h4 className="text-lg font-semibold text-slate-800">Todas as Despesas</h4>
+          <h4 className="text-lg font-semibold text-slate-800">Todas as Despesas e Receitas</h4>
           <p className="text-sm text-gray-600 mt-1">
-            {filteredExpenses.length} despesa(s) encontrada(s)
+            {filteredItems.length} registro(s) encontrado(s)
           </p>
         </div>
         
@@ -256,7 +304,7 @@ export const ExpenseList = () => {
           <div className="relative flex-1 md:w-64">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
             <Input
-              placeholder="Buscar despesas..."
+              placeholder="Buscar..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               className="pl-10"
@@ -279,22 +327,37 @@ export const ExpenseList = () => {
       <Table>
         <TableHeader>
           <TableRow>
+            <TableHead>Tipo</TableHead>
             <TableHead>Missão/Cliente</TableHead>
             <TableHead>Funcionário</TableHead>
             <TableHead>Categoria</TableHead>
             <TableHead>Descrição</TableHead>
             <TableHead>Valor</TableHead>
             <TableHead>Data</TableHead>
-            <TableHead>Tipo</TableHead>
             <TableHead>Status</TableHead>
             <TableHead>Ações</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
-          {filteredExpenses.map((expense) => {
-            const mission = typeof expense.mission === 'object' ? expense.mission : { title: expense.mission };
+          {filteredItems.map((item) => {
+            const mission = typeof item.mission === 'object' ? item.mission : { title: item.mission };
             return (
-              <TableRow key={expense.id}>
+              <TableRow key={`${item.type}-${item.id}`}>
+                <TableCell>
+                  <div className="flex items-center">
+                    {item.type === 'expense' ? (
+                      <Badge variant="destructive" className="flex items-center">
+                        <Minus className="w-3 h-3 mr-1" />
+                        Despesa
+                      </Badge>
+                    ) : (
+                      <Badge variant="default" className="bg-green-100 text-green-800 flex items-center">
+                        <Plus className="w-3 h-3 mr-1" />
+                        Receita
+                      </Badge>
+                    )}
+                  </div>
+                </TableCell>
                 <TableCell className="font-medium">
                   <div>
                     <div className="font-semibold">{mission.title || 'N/A'}</div>
@@ -308,50 +371,45 @@ export const ExpenseList = () => {
                 </TableCell>
                 <TableCell>
                   <div>
-                    <div className="font-medium">{expense.employee}</div>
-                    <div className="text-xs text-gray-600">{expense.employee_role}</div>
+                    <div className="font-medium">{item.employee}</div>
+                    <div className="text-xs text-gray-600">{item.employee_role}</div>
                   </div>
                 </TableCell>
                 <TableCell>
-                  <Badge className={getCategoryColor(expense.category)}>
-                    {getCategoryLabel(expense.category)}
+                  <Badge className={getCategoryColor(item.category)}>
+                    {getCategoryLabel(item.category)}
                   </Badge>
                 </TableCell>
                 <TableCell>
                   <div>
-                    <div>{expense.description}</div>
-                    {expense.accommodationDetails && (
+                    <div>{item.description}</div>
+                    {item.accommodationDetails && (
                       <div className="text-xs text-gray-600 mt-1">
-                        <div>Gasto: {formatCurrency(expense.accommodationDetails.actualCost)}</div>
-                        <div>Ressarcimento: {formatCurrency(expense.accommodationDetails.reimbursementAmount)}</div>
-                        <div className={`font-medium ${expense.accommodationDetails.netAmount >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                          Líquido: {expense.accommodationDetails.netAmount >= 0 ? '+' : ''}{formatCurrency(expense.accommodationDetails.netAmount)}
+                        <div>Gasto da Empresa: {formatCurrency(item.accommodationDetails.actualCost)}</div>
+                        <div>Nota Fiscal: {formatCurrency(item.accommodationDetails.invoiceAmount)}</div>
+                        <div className={`font-medium ${item.accommodationDetails.netAmount >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                          Receita Líquida: {item.accommodationDetails.netAmount >= 0 ? '+' : ''}{formatCurrency(item.accommodationDetails.netAmount)}
                         </div>
+                      </div>
+                    )}
+                    {item.travelDetails && (
+                      <div className="text-xs text-gray-600 mt-1">
+                        <div>{item.travelDetails.kilometers} km × {formatCurrency(item.travelDetails.ratePerKm)}</div>
+                        <div className="font-medium text-green-600">Receita Total: +{formatCurrency(item.travelDetails.totalRevenue)}</div>
                       </div>
                     )}
                   </div>
                 </TableCell>
                 <TableCell className="font-semibold">
-                  {expense.accommodationDetails ? (
-                    <div>
-                      <div className="text-red-600">{formatCurrency(expense.amount)}</div>
-                      <div className="text-xs text-gray-500">
-                        Líquido: {expense.accommodationDetails.netAmount >= 0 ? '+' : ''}{formatCurrency(expense.accommodationDetails.netAmount)}
-                      </div>
-                    </div>
-                  ) : (
-                    formatCurrency(expense.amount)
-                  )}
+                  <span className={`${item.type === 'expense' ? 'text-red-600' : 'text-green-600'}`}>
+                    {item.type === 'expense' ? '-' : '+'}
+                    {formatCurrency(item.amount)}
+                  </span>
                 </TableCell>
-                <TableCell>{new Date(expense.date).toLocaleDateString('pt-BR')}</TableCell>
+                <TableCell>{new Date(item.date).toLocaleDateString('pt-BR')}</TableCell>
                 <TableCell>
-                  <Badge variant={expense.isAdvanced ? 'default' : 'secondary'}>
-                    {expense.category === 'accommodation' ? 'Hospedagem' : (expense.isAdvanced ? 'Adiantamento' : 'Reembolso')}
-                  </Badge>
-                </TableCell>
-                <TableCell>
-                  <Badge className={getStatusColor(expense.status)}>
-                    {getStatusLabel(expense.status)}
+                  <Badge className={getStatusColor(item.status)}>
+                    {getStatusLabel(item.status)}
                   </Badge>
                 </TableCell>
                 <TableCell>
@@ -359,19 +417,21 @@ export const ExpenseList = () => {
                     <Button 
                       variant="outline" 
                       size="sm"
-                      onClick={() => handleViewExpense(expense)}
-                      title="Visualizar despesa"
+                      onClick={() => handleViewExpense(item)}
+                      title="Visualizar"
                     >
                       <Eye className="w-4 h-4" />
                     </Button>
-                    <Button 
-                      variant="outline" 
-                      size="sm"
-                      onClick={() => handleEditExpense(expense)}
-                      title="Editar despesa"
-                    >
-                      <Edit className="w-4 h-4" />
-                    </Button>
+                    {item.type === 'expense' && (
+                      <Button 
+                        variant="outline" 
+                        size="sm"
+                        onClick={() => handleEditExpense(item)}
+                        title="Editar"
+                      >
+                        <Edit className="w-4 h-4" />
+                      </Button>
+                    )}
                   </div>
                 </TableCell>
               </TableRow>
@@ -380,15 +440,15 @@ export const ExpenseList = () => {
         </TableBody>
       </Table>
 
-      {filteredExpenses.length === 0 && (
+      {filteredItems.length === 0 && (
         <div className="text-center py-8 text-gray-500">
-          {expenses.length === 0 ? (
+          {allItems.length === 0 ? (
             <div>
-              <p>Nenhuma despesa registrada ainda</p>
+              <p>Nenhuma despesa ou receita registrada ainda</p>
               <p className="text-sm mt-1">Comece registrando sua primeira despesa</p>
             </div>
           ) : (
-            <p>Nenhuma despesa encontrada com os filtros aplicados</p>
+            <p>Nenhum registro encontrado com os filtros aplicados</p>
           )}
         </div>
       )}
@@ -415,15 +475,15 @@ export const ExpenseList = () => {
         onFiltersChange={setActiveFilters}
         availableStatuses={availableStatuses}
         availableCategories={availableCategories}
-        title="Filtros Avançados - Despesas"
+        title="Filtros Avançados - Despesas e Receitas"
       />
 
       <ExportModal
         isOpen={isExportModalOpen}
         onOpenChange={setIsExportModalOpen}
         onExport={handleExport}
-        title="Exportar Despesas"
-        totalRecords={filteredExpenses.length}
+        title="Exportar Despesas e Receitas"
+        totalRecords={filteredItems.length}
       />
     </Card>
   );

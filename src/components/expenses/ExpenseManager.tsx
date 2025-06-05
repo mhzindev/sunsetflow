@@ -8,6 +8,7 @@ import { MissionManager } from './MissionManager';
 import { ExpensesByEmployee } from './ExpensesByEmployee';
 import { ExpensesByMission } from './ExpensesByMission';
 import { ProviderExpensesList } from './ProviderExpensesList';
+import { ProviderMissionPanel } from './ProviderMissionPanel';
 import { useToastFeedback } from '@/hooks/useToastFeedback';
 import { useAuth } from '@/contexts/AuthContext';
 
@@ -33,22 +34,23 @@ export const ExpenseManager = ({ onNavigate }: ExpenseManagerProps) => {
     setActiveTab('missions');
   };
 
-  // Se for prestador, mostrar interface simplificada
+  // Se for prestador, mostrar interface para prestadores
   if (isProvider) {
     return (
       <div className="space-y-6">
         <Card className="p-6">
           <h3 className="text-lg font-semibold text-slate-800 mb-4">
-            Minhas Despesas de Viagem
+            Painel do Prestador
           </h3>
           <p className="text-slate-600 mb-6">
-            Registre e acompanhe suas despesas de viagem para instalação e manutenção de rastreadores.
+            Gerencie suas missões e despesas de viagem para instalação e manutenção de rastreadores.
           </p>
 
           <Tabs value={activeTab} onValueChange={setActiveTab}>
-            <TabsList className="grid w-full grid-cols-2">
+            <TabsList className="grid w-full grid-cols-3">
               <TabsTrigger value="new-expense">Nova Despesa</TabsTrigger>
               <TabsTrigger value="my-expenses">Minhas Despesas</TabsTrigger>
+              <TabsTrigger value="my-missions">Minhas Missões</TabsTrigger>
             </TabsList>
 
             <TabsContent value="new-expense" className="mt-6">
@@ -60,6 +62,10 @@ export const ExpenseManager = ({ onNavigate }: ExpenseManagerProps) => {
 
             <TabsContent value="my-expenses" className="mt-6">
               <ProviderExpensesList />
+            </TabsContent>
+
+            <TabsContent value="my-missions" className="mt-6">
+              <ProviderMissionPanel />
             </TabsContent>
           </Tabs>
         </Card>
