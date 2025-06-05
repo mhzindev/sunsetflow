@@ -22,4 +22,24 @@ export interface Expense {
     outsourcingCompany?: string; // Nome da empresa terceirizada
     invoiceNumber?: string; // Número da nota fiscal
   };
+  // Campos específicos para deslocamento
+  travelDetails?: {
+    kilometers: number; // Distância em KM
+    ratePerKm: number; // Valor por KM
+    totalRevenue: number; // Total da receita (km * rate)
+  };
+}
+
+export interface ExpenseFormData {
+  mission_id?: string;
+  category: string;
+  description: string;
+  amount?: number;
+  invoice_amount?: number; // Para hospedagem - valor da nota
+  date: string;
+  is_advanced?: boolean;
+  receipt?: string;
+  travel_km?: number; // Para deslocamento
+  travel_km_rate?: number; // Para deslocamento
+  travel_total_value?: number; // Para deslocamento - calculado
 }
