@@ -226,7 +226,7 @@ export const useSupabaseData = () => {
     }
   };
 
-  // Função para inserir transação - CORRIGIDA
+  // Função para inserir transação - CORRIGIDA COM CASTING
   const insertTransaction = async (transaction: {
     type: 'income' | 'expense';
     category: string;
@@ -249,24 +249,31 @@ export const useSupabaseData = () => {
 
       console.log('Inserindo transação:', transaction);
 
-      const { data, error } = await supabase
-        .from('transactions')
-        .insert({
-          ...transaction,
-          user_id: user.id,
-          user_name: user.user_metadata?.name || user.email?.split('@')[0] || 'Usuário',
-          status: transaction.status || 'completed'
-        })
-        .select()
-        .single();
+      // Usar RPC para inserir transação com casting correto
+      const { data, error } = await supabase.rpc('insert_transaction_with_casting', {
+        p_type: transaction.type,
+        p_category: transaction.category,
+        p_amount: transaction.amount,
+        p_description: transaction.description,
+        p_date: transaction.date,
+        p_method: transaction.method,
+        p_status: transaction.status || 'completed',
+        p_user_id: user.id,
+        p_user_name: user.user_metadata?.name || user.email?.split('@')[0] || 'Usuário',
+        p_mission_id: transaction.mission_id,
+        p_receipt: transaction.receipt,
+        p_tags: transaction.tags,
+        p_account_id: transaction.account_id,
+        p_account_type: transaction.account_type
+      });
 
       if (error) {
-        console.error('Erro SQL ao inserir transação:', error);
+        console.error('Erro RPC ao inserir transação:', error);
         return { data: null, error: error.message };
       }
 
-      console.log('Transação inserida com sucesso:', data);
-      return { data, error: null };
+      console.log('Transação inserida com sucesso via RPC:', data);
+      return { data: data?.[0], error: null };
     } catch (err) {
       console.error('Erro ao inserir transação:', err);
       return { data: null, error: err instanceof Error ? err.message : 'Erro desconhecido' };
