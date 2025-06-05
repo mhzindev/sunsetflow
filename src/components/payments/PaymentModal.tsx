@@ -13,7 +13,7 @@ import { ServiceProvider, PaymentType } from '@/types/payment';
 interface PaymentModalProps {
   isOpen: boolean;
   onOpenChange: (open: boolean) => void;
-  provider: ServiceProvider;
+  provider: ServiceProvider | null;
   paymentType: 'balance_payment' | 'advance_payment';
   onSuccess: () => void;
 }
@@ -40,8 +40,13 @@ export const PaymentModal = ({
   const { insertPayment, fetchBankAccounts, fetchCreditCards } = useSupabaseData();
   const { showSuccess, showError } = useToastFeedback();
 
+  // Early return if provider is null
+  if (!provider) {
+    return null;
+  }
+
   useEffect(() => {
-    if (isOpen) {
+    if (isOpen && provider) {
       loadAccountsAndCards();
       // Definir valor padrão baseado no tipo de pagamento
       if (paymentType === 'balance_payment' && provider.currentBalance) {
@@ -75,6 +80,11 @@ export const PaymentModal = ({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    if (!provider) {
+      showError('Erro', 'Prestador não selecionado');
+      return;
+    }
     
     if (!formData.amount || !formData.description) {
       showError('Erro', 'Preencha todos os campos obrigatórios');
