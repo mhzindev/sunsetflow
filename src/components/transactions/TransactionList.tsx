@@ -6,7 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Eye, Edit, Trash2, DollarSign } from 'lucide-react';
 import { TransactionViewModal } from './TransactionViewModal';
 import { TransactionEditModal } from './TransactionEditModal';
-import { useSupabaseData } from '@/hooks/useSupabaseData';
+import { supabase } from '@/integrations/supabase/client';
 import { useToastFeedback } from '@/hooks/useToastFeedback';
 import { 
   AlertDialog, 

@@ -42,3 +42,20 @@ export const formatDateForDisplay = (dateString: string): string => {
   
   return `${day}/${month}/${year}`;
 };
+
+/**
+ * Formata uma data para exibição (DD/MM/YYYY)
+ */
+export const formatDate = (dateString: string): string => {
+  return formatDateForDisplay(dateString);
+};
+
+/**
+ * Formata um valor para moeda brasileira
+ */
+export const formatCurrency = (value: number): string => {
+  return new Intl.NumberFormat('pt-BR', {
+    style: 'currency',
+    currency: 'BRL'
+  }).format(value);
+};
