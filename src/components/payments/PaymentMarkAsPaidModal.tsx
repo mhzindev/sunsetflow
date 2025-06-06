@@ -32,7 +32,7 @@ export const PaymentMarkAsPaidModal = ({
     type: 'bank_account' | 'credit_card';
   } | null>(null);
   const [loading, setLoading] = useState(false);
-  const [isProcessing, setIsProcessing] = useState(false); // Evitar cliques duplos
+  const [isProcessing, setIsProcessing] = useState(false);
   
   const { fetchBankAccounts, fetchCreditCards, updatePayment } = useSupabaseData();
   const { updatePaymentStatus } = useFinancial();
@@ -42,7 +42,7 @@ export const PaymentMarkAsPaidModal = ({
     if (isOpen) {
       loadAccountsAndCards();
       setSelectedAccount(null);
-      setIsProcessing(false); // Reset ao abrir modal
+      setIsProcessing(false);
     }
   }, [isOpen]);
 
@@ -82,7 +82,7 @@ export const PaymentMarkAsPaidModal = ({
   };
 
   const handleMarkAsPaid = async () => {
-    // Evitar processamento duplo
+    // Prevenir processamento duplo
     if (isProcessing || !payment || !selectedAccount) {
       if (!selectedAccount) {
         showError('Erro', 'Selecione uma conta ou cartão');
@@ -94,11 +94,11 @@ export const PaymentMarkAsPaidModal = ({
     setIsProcessing(true);
     
     try {
-      console.log('PaymentMarkAsPaidModal: Iniciando marcação como pago (ÚNICA)');
+      console.log('PaymentMarkAsPaidModal: Marcando como pago - OPERAÇÃO ÚNICA');
       console.log('Payment ID:', payment.id);
       console.log('Account:', selectedAccount);
 
-      // Validação crítica do ID do pagamento
+      // Validação do ID do pagamento
       if (!payment.id || payment.id.trim().length === 0) {
         showError('Erro', 'ID do pagamento é inválido');
         return;
@@ -108,7 +108,7 @@ export const PaymentMarkAsPaidModal = ({
       const currentBrasiliaDate = getCurrentDate();
       console.log('PaymentMarkAsPaidModal: Data atual Brasília:', currentBrasiliaDate);
 
-      // Atualizar o pagamento com status completed, data de Brasília e conta selecionada
+      // Preparar updates
       const updates = {
         status: 'completed' as const,
         payment_date: currentBrasiliaDate,
@@ -116,8 +116,9 @@ export const PaymentMarkAsPaidModal = ({
         account_type: selectedAccount.type
       };
 
-      console.log('PaymentMarkAsPaidModal: Enviando updates únicos:', updates);
+      console.log('PaymentMarkAsPaidModal: Enviando updates:', updates);
 
+      // Atualizar pagamento uma única vez
       const { data, error } = await updatePayment(payment.id, updates);
       
       if (error) {
@@ -132,9 +133,9 @@ export const PaymentMarkAsPaidModal = ({
         return;
       }
 
-      console.log('PaymentMarkAsPaidModal: Pagamento atualizado com sucesso (ÚNICO):', data);
+      console.log('PaymentMarkAsPaidModal: Pagamento atualizado com sucesso:', data);
 
-      // Atualizar também via contexto para garantir sincronização
+      // Atualizar contexto
       updatePaymentStatus(payment.id, 'completed');
 
       const updatedPayment: Payment = {
@@ -215,7 +216,7 @@ export const PaymentMarkAsPaidModal = ({
               </SelectContent>
             </Select>
             <p className="text-xs text-gray-600 mt-1">
-              O valor será debitado da conta/cartão selecionado na data atual de Brasília
+              O valor será debitado da conta/cartão selecionado
             </p>
           </div>
 

@@ -1,66 +1,73 @@
 
 /**
- * Formata uma data para o formato YYYY-MM-DD garantindo que o dia selecionado seja preservado
- * independente do fuso horário - CORRIGIDO para timezone de Brasília
+ * Utilitários de data corrigidos para timezone de Brasília (America/Sao_Paulo)
+ */
+
+/**
+ * Cria uma data no timezone de Brasília
+ */
+const createBrasiliaDate = (date?: Date): Date => {
+  const targetDate = date || new Date();
+  // Criar data no timezone de Brasília usando Intl API
+  const brasiliaTime = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'America/Sao_Paulo',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit'
+  }).format(targetDate);
+  
+  // Retornar como Date object local
+  return new Date(brasiliaTime + 'T12:00:00');
+};
+
+/**
+ * Formata uma data para o formato YYYY-MM-DD no timezone de Brasília
  */
 export const formatDateForDatabase = (date: Date): string => {
   console.log('formatDateForDatabase - Data recebida:', date);
   
-  // Converter para timezone de Brasília (UTC-3)
-  const brasiliaOffset = -3 * 60; // -3 horas em minutos
-  const utc = date.getTime() + (date.getTimezoneOffset() * 60000);
-  const brasiliaTime = new Date(utc + (brasiliaOffset * 60000));
+  const brasiliaDateStr = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'America/Sao_Paulo',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit'
+  }).format(date);
   
-  const year = brasiliaTime.getFullYear();
-  const month = String(brasiliaTime.getMonth() + 1).padStart(2, '0');
-  const day = String(brasiliaTime.getDate()).padStart(2, '0');
-  
-  const formattedDate = `${year}-${month}-${day}`;
-  console.log('formatDateForDatabase - Data formatada (Brasília):', formattedDate);
-  
-  return formattedDate;
+  console.log('formatDateForDatabase - Data formatada (Brasília):', brasiliaDateStr);
+  return brasiliaDateStr;
 };
 
 /**
- * Converte uma string de data do banco (YYYY-MM-DD) para um objeto Date local de Brasília
+ * Converte uma string de data do banco (YYYY-MM-DD) para um objeto Date
  */
 export const parseDatabaseDate = (dateString: string): Date => {
   console.log('parseDatabaseDate - String recebida:', dateString);
   
   const [year, month, day] = dateString.split('-').map(Number);
-  // Criar data no timezone de Brasília
-  const brasiliaDate = new Date(year, month - 1, day, 12, 0, 0); // Meio-dia para evitar problemas de DST
+  // Criar data no timezone local às 12:00 para evitar problemas de DST
+  const localDate = new Date(year, month - 1, day, 12, 0, 0);
   
-  console.log('parseDatabaseDate - Data Brasília criada:', brasiliaDate);
-  
-  return brasiliaDate;
+  console.log('parseDatabaseDate - Data criada:', localDate);
+  return localDate;
 };
 
 /**
- * Retorna a data atual no formato YYYY-MM-DD para usar em inputs HTML
- * Garante que seja sempre a data local de Brasília
+ * Retorna a data atual no formato YYYY-MM-DD no timezone de Brasília
  */
 export const getCurrentDateForInput = (): string => {
-  const now = new Date();
+  const brasiliaDateStr = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'America/Sao_Paulo',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit'
+  }).format(new Date());
   
-  // Converter para timezone de Brasília
-  const brasiliaOffset = -3 * 60; // -3 horas em minutos
-  const utc = now.getTime() + (now.getTimezoneOffset() * 60000);
-  const brasiliaTime = new Date(utc + (brasiliaOffset * 60000));
-  
-  const year = brasiliaTime.getFullYear();
-  const month = String(brasiliaTime.getMonth() + 1).padStart(2, '0');
-  const day = String(brasiliaTime.getDate()).padStart(2, '0');
-  
-  const currentDate = `${year}-${month}-${day}`;
-  console.log('getCurrentDateForInput - Data atual Brasília:', currentDate);
-  
-  return currentDate;
+  console.log('getCurrentDateForInput - Data atual Brasília:', brasiliaDateStr);
+  return brasiliaDateStr;
 };
 
 /**
  * Converte uma data do banco para o formato de input HTML (YYYY-MM-DD)
- * Mantém a data local de Brasília sem conversão para UTC
  */
 export const formatDateForInput = (dateString: string): string => {
   console.log('formatDateForInput - String recebida:', dateString);
@@ -123,14 +130,7 @@ export const formatCurrency = (value: number): string => {
  * Retorna timestamp atual para registros do banco em timezone de Brasília
  */
 export const getCurrentTimestamp = (): string => {
-  const now = new Date();
-  
-  // Converter para timezone de Brasília
-  const brasiliaOffset = -3 * 60; // -3 horas em minutos
-  const utc = now.getTime() + (now.getTimezoneOffset() * 60000);
-  const brasiliaTime = new Date(utc + (brasiliaOffset * 60000));
-  
-  return brasiliaTime.toISOString();
+  return new Date().toISOString();
 };
 
 /**

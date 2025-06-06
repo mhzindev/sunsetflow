@@ -15,16 +15,16 @@ export const useTransactionSync = () => {
   const syncTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   const syncTransactions = useCallback(async (silent: boolean = false) => {
-    // Evitar sincronizações simultâneas ou muito frequentes
+    // Evitar sincronizações simultâneas
     if (isSyncing) {
       console.log('Sincronização já em andamento, ignorando...');
       return { success: false, error: 'Sync already in progress' };
     }
 
-    // Throttle: evitar sync muito frequente (mínimo 60 segundos para evitar duplicações)
+    // Throttle mais restritivo: 2 minutos para evitar duplicações
     const now = Date.now();
     const timeSinceLastSync = now - lastSyncRef.current;
-    if (timeSinceLastSync < 60000 && !silent) {
+    if (timeSinceLastSync < 120000 && !silent) {
       console.log(`Sync muito recente (${Math.round(timeSinceLastSync/1000)}s atrás), ignorando para evitar duplicações...`);
       return { success: false, error: 'Too soon since last sync' };
     }
@@ -33,44 +33,44 @@ export const useTransactionSync = () => {
     lastSyncRef.current = now;
 
     try {
-      console.log('Iniciando sincronização única de transações...');
+      console.log('Iniciando sincronização controlada de transações...');
       
-      // Limpar timeout anterior se existir
+      // Limpar timeout anterior
       if (syncTimeoutRef.current) {
         clearTimeout(syncTimeoutRef.current);
         syncTimeoutRef.current = null;
       }
       
-      // Buscar transações atualizadas com retry limitado
-      const transactions = await fetchTransactions();
-      console.log('Transações sincronizadas (único):', transactions?.length || 0);
+      // Buscar dados atualizados
+      const [transactions, payments] = await Promise.all([
+        fetchTransactions(),
+        fetchPayments()
+      ]);
       
-      // Buscar pagamentos atualizados
-      const payments = await fetchPayments();
-      console.log('Pagamentos sincronizados (único):', payments?.length || 0);
+      console.log('Sincronização concluída - Transações:', transactions?.length || 0, 'Pagamentos:', payments?.length || 0);
       
-      // Forçar atualização do contexto financeiro apenas se necessário
+      // Atualizar contexto apenas se necessário
       if (!silent) {
         await refreshData();
       }
       
-      console.log('Sincronização única concluída com sucesso');
-      setRetryCount(0); // Reset retry count on success
+      console.log('Sincronização controlada concluída com sucesso');
+      setRetryCount(0);
       setIsRetrying(false);
       
       return { success: true, data: { transactions, payments } };
     } catch (error) {
       console.error('Erro na sincronização:', error);
       
-      if (!silent && retryCount < 1) { // Reduzido para apenas 1 retry para evitar duplicações
-        console.log(`Tentando novamente... (tentativa ${retryCount + 1}/1)`);
-        setRetryCount(prev => prev + 1);
+      // Retry apenas uma vez e com delay maior
+      if (!silent && retryCount === 0) {
+        console.log('Agendando retry único em 30 segundos...');
+        setRetryCount(1);
         setIsRetrying(true);
         
-        // Retry com delay maior (10 segundos) para evitar conflitos
         syncTimeoutRef.current = setTimeout(() => {
           syncTransactions(true);
-        }, 10000);
+        }, 30000);
       } else if (!silent) {
         showError('Erro de Sincronização', 'Não foi possível sincronizar os dados');
         setIsRetrying(false);
@@ -82,20 +82,20 @@ export const useTransactionSync = () => {
     }
   }, [fetchTransactions, fetchPayments, refreshData, showError, retryCount, isSyncing]);
 
-  // Auto-sync com intervalo MUITO maior - 15 minutos para evitar duplicações
+  // Auto-sync com intervalo muito maior - 20 minutos
   useEffect(() => {
-    // Initial sync apenas se não estiver fazendo retry
+    // Sync inicial apenas se não estiver em retry
     if (!isRetrying) {
       syncTransactions(true);
     }
     
-    // Sync a cada 15 minutos (900 segundos) se não estiver fazendo retry ou sync
+    // Auto-sync a cada 20 minutos para reduzir carga
     const interval = setInterval(() => {
       if (!isRetrying && !isSyncing) {
-        console.log('Sincronização automática (15 minutos)');
+        console.log('Sincronização automática (20 minutos)');
         syncTransactions(true);
       }
-    }, 900000); // 15 minutos
+    }, 1200000); // 20 minutos
 
     return () => {
       clearInterval(interval);

@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -29,7 +30,6 @@ export const ExpenseForm = ({ onSave, onCancel }: ExpenseFormProps) => {
     travel_km: '',
     travel_km_rate: '',
     travel_total_value: '',
-    accommodation_reimbursement: ''
   });
 
   const [missions, setMissions] = useState<any[]>([]);
@@ -74,7 +74,7 @@ export const ExpenseForm = ({ onSave, onCancel }: ExpenseFormProps) => {
     setLoading(true);
     try {
       if (formData.category === 'displacement') {
-        // LÓGICA PARA DESLOCAMENTO
+        // LÓGICA PARA DESLOCAMENTO - SÓ REGISTRA RECEITA
         if (!formData.travel_km || !formData.travel_km_rate) {
           showError('Erro', 'Para deslocamento, informe a distância e valor por KM');
           return;
@@ -84,12 +84,12 @@ export const ExpenseForm = ({ onSave, onCancel }: ExpenseFormProps) => {
         const rate = parseFloat(formData.travel_km_rate);
         const totalRevenue = km * rate;
 
-        // 1. Criar registro na tabela expenses com categoria "displacement"
+        // 1. Criar registro na tabela expenses
         const expenseData = {
           mission_id: formData.mission_id === 'none' ? null : formData.mission_id || null,
-          category: 'displacement', // Mudança aqui: usar "displacement" em vez de "fuel"
+          category: 'displacement',
           description: formData.description,
-          amount: totalRevenue, // Valor da receita
+          amount: totalRevenue,
           date: formData.date,
           is_advanced: false,
           receipt: formData.receipt || null,
@@ -108,10 +108,10 @@ export const ExpenseForm = ({ onSave, onCancel }: ExpenseFormProps) => {
           return;
         }
 
-        // 2. Criar transação de receita com categoria "fuel" (para manter compatibilidade com o sistema de transações)
+        // 2. Criar APENAS uma transação de receita
         const revenueData = {
           type: 'income' as const,
-          category: 'fuel' as const, // Manter "fuel" para transações por compatibilidade
+          category: 'fuel' as const,
           description: `Receita de deslocamento: ${formData.description}`,
           amount: totalRevenue,
           date: formData.date,
@@ -135,7 +135,7 @@ export const ExpenseForm = ({ onSave, onCancel }: ExpenseFormProps) => {
         showSuccess('Sucesso', `Deslocamento registrado: R$ ${totalRevenue.toFixed(2)}`);
 
       } else if (formData.category === 'accommodation') {
-        // LÓGICA PARA HOSPEDAGEM
+        // LÓGICA PARA HOSPEDAGEM - SÓ REGISTRA RECEITA LÍQUIDA
         if (!formData.invoice_amount || !formData.amount) {
           showError('Erro', 'Para hospedagem, informe o valor da nota fiscal e o valor gasto pela empresa');
           return;
@@ -145,12 +145,12 @@ export const ExpenseForm = ({ onSave, onCancel }: ExpenseFormProps) => {
         const companyCost = parseFloat(formData.amount);
         const netRevenue = invoiceAmount - companyCost;
 
-        // 1. Criar registro na tabela expenses
+        // 1. Criar registro na tabela expenses com o gasto da empresa
         const expenseData = {
           mission_id: formData.mission_id === 'none' ? null : formData.mission_id || null,
           category: formData.category,
           description: formData.description,
-          amount: companyCost, // Valor gasto pela empresa
+          amount: companyCost,
           invoice_amount: invoiceAmount,
           date: formData.date,
           is_advanced: false,
@@ -172,12 +172,12 @@ export const ExpenseForm = ({ onSave, onCancel }: ExpenseFormProps) => {
           return;
         }
 
-        // 2. Se há receita líquida positiva, registrar transação de receita
+        // 2. Se há receita líquida positiva, registrar APENAS uma transação de receita
         if (netRevenue > 0) {
           const revenueData = {
             type: 'income' as const,
             category: 'accommodation' as const,
-            description: `Receita de hospedagem: ${formData.description}`,
+            description: `Receita líquida de hospedagem: ${formData.description}`,
             amount: netRevenue, // APENAS A RECEITA LÍQUIDA
             date: formData.date,
             method: 'transfer' as const,
@@ -186,7 +186,7 @@ export const ExpenseForm = ({ onSave, onCancel }: ExpenseFormProps) => {
             status: 'completed' as const
           };
 
-          console.log('Criando receita de hospedagem:', revenueData);
+          console.log('Criando receita líquida de hospedagem:', revenueData);
           
           const { data: revenueResult, error: revenueError } = await insertTransaction(revenueData);
           
@@ -196,15 +196,15 @@ export const ExpenseForm = ({ onSave, onCancel }: ExpenseFormProps) => {
             return;
           }
 
-          console.log('Hospedagem registrada com receita:', { expenseResult, revenueResult });
-          showSuccess('Sucesso', `Hospedagem registrada - Gasto da Empresa: R$ ${companyCost.toFixed(2)}, Receita Líquida: R$ ${netRevenue.toFixed(2)}`);
+          console.log('Hospedagem registrada com receita líquida:', { expenseResult, revenueResult });
+          showSuccess('Sucesso', `Hospedagem registrada - Receita Líquida: R$ ${netRevenue.toFixed(2)}`);
         } else {
-          console.log('Hospedagem registrada sem receita:', expenseResult);
+          console.log('Hospedagem registrada sem receita líquida:', expenseResult);
           showSuccess('Sucesso', `Hospedagem registrada - Gasto da Empresa: R$ ${companyCost.toFixed(2)} (sem receita adicional)`);
         }
 
       } else {
-        // Para outras categorias, registrar como despesa normal da empresa
+        // Para outras categorias, registrar apenas como despesa normal da empresa
         if (!formData.amount) {
           showError('Erro', 'Informe o valor da despesa');
           return;
@@ -248,7 +248,6 @@ export const ExpenseForm = ({ onSave, onCancel }: ExpenseFormProps) => {
         travel_km: '',
         travel_km_rate: '',
         travel_total_value: '',
-        accommodation_reimbursement: ''
       });
 
       onSave?.();
@@ -307,7 +306,6 @@ export const ExpenseForm = ({ onSave, onCancel }: ExpenseFormProps) => {
                   travel_km: '', 
                   travel_km_rate: '', 
                   travel_total_value: '', 
-                  accommodation_reimbursement: '' 
                 }))
               }
             >
@@ -397,7 +395,7 @@ export const ExpenseForm = ({ onSave, onCancel }: ExpenseFormProps) => {
                   required
                 />
                 <p className="text-xs text-gray-600 mt-1">
-                  Valor que a empresa realmente gastou
+                  Valor que a empresa realmente gastou. Só a receita líquida será registrada.
                 </p>
               </div>
             </>
