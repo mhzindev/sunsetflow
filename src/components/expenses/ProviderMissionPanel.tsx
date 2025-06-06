@@ -13,6 +13,7 @@ import { useSupabaseData } from '@/hooks/useSupabaseData';
 import { useToastFeedback } from '@/hooks/useToastFeedback';
 import { useAuth } from '@/contexts/AuthContext';
 import { ClientAutocomplete } from '@/components/clients/ClientAutocomplete';
+import { getCurrentDateForInput } from '@/utils/dateUtils';
 
 export const ProviderMissionPanel = () => {
   const [missions, setMissions] = useState<any[]>([]);
@@ -23,7 +24,7 @@ export const ProviderMissionPanel = () => {
     title: '',
     description: '',
     location: '',
-    start_date: '',
+    start_date: getCurrentDateForInput(),
     end_date: '',
     service_value: 0,
     client_name: '',
@@ -43,14 +44,32 @@ export const ProviderMissionPanel = () => {
   const loadProviderMissions = async () => {
     try {
       setLoading(true);
+      console.log('Carregando missões para prestador:', profile?.provider_id);
+      console.log('User ID:', user?.id);
+      
       const missionsData = await fetchMissions();
+      console.log('Todas as missões retornadas:', missionsData);
       
-      // Filtrar apenas missões onde o prestador está designado
-      const providerMissions = missionsData.filter((mission: any) => 
-        mission.assigned_providers && mission.assigned_providers.includes(user?.id)
-      );
+      // Filtrar missões onde o prestador está vinculado
+      const providerMissions = missionsData.filter((mission: any) => {
+        const isAssigned = mission.assigned_providers && 
+          Array.isArray(mission.assigned_providers) && 
+          mission.assigned_providers.includes(profile?.provider_id);
+        
+        const isMainProvider = mission.provider_id === profile?.provider_id;
+        
+        console.log(`Missão ${mission.title}:`, {
+          assigned_providers: mission.assigned_providers,
+          provider_id: mission.provider_id,
+          current_provider_id: profile?.provider_id,
+          isAssigned,
+          isMainProvider
+        });
+        
+        return isAssigned || isMainProvider;
+      });
       
-      console.log('Missões do prestador:', providerMissions);
+      console.log('Missões filtradas para o prestador:', providerMissions);
       setMissions(providerMissions || []);
     } catch (error) {
       console.error('Erro ao carregar missões:', error);
@@ -77,9 +96,9 @@ export const ProviderMissionPanel = () => {
         end_date: formData.end_date || null,
         service_value: formData.service_value || null,
         client_name: formData.client_name,
-        assigned_providers: [user?.id], // Auto-atribuir ao prestador atual
-        status: 'planning', // Sempre inicia como planejamento
-        is_approved: false, // Precisa aprovação do dono
+        assigned_providers: [profile?.provider_id], // Auto-atribuir ao prestador atual
+        status: 'planning',
+        is_approved: false,
         created_by: user?.id
       };
 
@@ -99,7 +118,7 @@ export const ProviderMissionPanel = () => {
         title: '',
         description: '',
         location: '',
-        start_date: '',
+        start_date: getCurrentDateForInput(),
         end_date: '',
         service_value: 0,
         client_name: '',
@@ -110,6 +129,22 @@ export const ProviderMissionPanel = () => {
       console.error('Erro ao criar missão:', error);
       showError('Erro', 'Erro ao criar missão. Tente novamente.');
     }
+  };
+
+  // Calcular valor que o prestador receberá
+  const calculateProviderEarning = (mission: any) => {
+    if (!mission.is_approved || !mission.provider_value) return 0;
+    
+    const isMainProvider = mission.provider_id === profile?.provider_id;
+    const isAssignedProvider = mission.assigned_providers?.includes(profile?.provider_id);
+    
+    if (isMainProvider) {
+      return mission.provider_value;
+    } else if (isAssignedProvider && mission.assigned_providers?.length > 0) {
+      return mission.provider_value / mission.assigned_providers.length;
+    }
+    
+    return 0;
   };
 
   const filteredMissions = missions.filter(mission => {
@@ -302,9 +337,8 @@ export const ProviderMissionPanel = () => {
                 <TableHead>Missão</TableHead>
                 <TableHead>Cliente</TableHead>
                 <TableHead>Data</TableHead>
-                <TableHead>Valor</TableHead>
+                <TableHead>Meu Valor</TableHead>
                 <TableHead>Status</TableHead>
-                <TableHead>Ações</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -333,28 +367,21 @@ export const ProviderMissionPanel = () => {
                     </div>
                   </TableCell>
                   <TableCell>
-                    {mission.service_value ? (
+                    {mission.is_approved ? (
                       <div className="text-sm">
-                        <div className="font-medium">
-                          R$ {Number(mission.service_value).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                        <div className="font-medium text-green-600">
+                          R$ {Number(calculateProviderEarning(mission)).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                         </div>
-                        {mission.provider_value && (
-                          <div className="text-green-600 text-xs">
-                            Prestador: R$ {Number(mission.provider_value).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                          </div>
-                        )}
+                        <div className="text-xs text-gray-500">
+                          {mission.provider_id === profile?.provider_id ? 'Prestador Principal' : 'Prestador Designado'}
+                        </div>
                       </div>
                     ) : (
-                      <span className="text-gray-400">Não definido</span>
+                      <span className="text-gray-400">Aguardando aprovação</span>
                     )}
                   </TableCell>
                   <TableCell>
                     {getStatusBadge(mission)}
-                  </TableCell>
-                  <TableCell>
-                    <Button variant="outline" size="sm" title="Visualizar detalhes">
-                      <Eye className="w-4 h-4" />
-                    </Button>
                   </TableCell>
                 </TableRow>
               ))}

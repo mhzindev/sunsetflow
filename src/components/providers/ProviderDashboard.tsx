@@ -6,10 +6,11 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { BalanceCard } from './BalanceCard';
+import { ProviderBalanceDetails } from './ProviderBalanceDetails';
 import { useProviderBalanceDetails } from '@/hooks/useProviderBalanceDetails';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
-import { DollarSign, TrendingUp, Calendar, MapPin, RefreshCw, Bell, Eye, AlertCircle } from 'lucide-react';
+import { DollarSign, TrendingUp, Calendar, MapPin, RefreshCw, Bell, Eye, AlertCircle, ChevronDown, ChevronUp } from 'lucide-react';
 
 interface Mission {
   id: string;
@@ -37,6 +38,7 @@ export const ProviderDashboard = () => {
   const [missions, setMissions] = useState<Mission[]>([]);
   const [payments, setPayments] = useState<Payment[]>([]);
   const [loading, setLoading] = useState(true);
+  const [showBalanceDetails, setShowBalanceDetails] = useState(false);
 
   const { balanceDetails, loading: balanceLoading, recalculate } = useProviderBalanceDetails(profile?.provider_id || '');
 
@@ -45,8 +47,9 @@ export const ProviderDashboard = () => {
 
     try {
       setLoading(true);
+      console.log('Carregando dados do prestador:', profile.provider_id);
 
-      // Buscar missões do prestador
+      // Buscar missões do prestador com filtro correto
       const { data: missionsData, error: missionsError } = await supabase
         .from('missions')
         .select(`
@@ -57,6 +60,28 @@ export const ProviderDashboard = () => {
 
       if (missionsError) {
         console.error('Erro ao buscar missões:', missionsError);
+      } else {
+        console.log('Missões encontradas:', missionsData);
+        
+        // Processar dados das missões
+        const processedMissions = missionsData?.map(mission => {
+          let earnedValue = 0;
+          
+          if (mission.is_approved) {
+            if (mission.provider_id === profile.provider_id) {
+              earnedValue = mission.provider_value;
+            } else if (mission.assigned_providers?.includes(profile.provider_id)) {
+              earnedValue = mission.provider_value / (mission.assigned_providers?.length || 1);
+            }
+          }
+          
+          return {
+            ...mission,
+            earned_value: earnedValue
+          };
+        }) || [];
+        
+        setMissions(processedMissions);
       }
 
       // Buscar pagamentos do prestador
@@ -64,32 +89,13 @@ export const ProviderDashboard = () => {
         .from('payments')
         .select('*')
         .eq('provider_id', profile.provider_id)
-        .order('due_date', { ascending: false });
+        .order('created_at', { ascending: false });
 
       if (paymentsError) {
         console.error('Erro ao buscar pagamentos:', paymentsError);
+      } else {
+        setPayments(paymentsData || []);
       }
-
-      // Processar dados das missões
-      const processedMissions = missionsData?.map(mission => {
-        let earnedValue = 0;
-        
-        if (mission.is_approved) {
-          if (mission.provider_id === profile.provider_id) {
-            earnedValue = mission.provider_value;
-          } else if (mission.assigned_providers?.includes(profile.provider_id)) {
-            earnedValue = mission.provider_value / (mission.assigned_providers?.length || 1);
-          }
-        }
-        
-        return {
-          ...mission,
-          earned_value: earnedValue
-        };
-      }) || [];
-
-      setMissions(processedMissions);
-      setPayments(paymentsData || []);
     } catch (error) {
       console.error('Erro ao carregar dados:', error);
     } finally {
@@ -157,8 +163,8 @@ export const ProviderDashboard = () => {
         </div>
       </div>
 
-      {/* Cards de Estatísticas Melhorados */}
-      <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
+      {/* Cards de Estatísticas */}
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <BalanceCard
           title="Saldo Atual"
           value={formatCurrency(balanceDetails.currentBalance)}
@@ -187,23 +193,53 @@ export const ProviderDashboard = () => {
         />
 
         <BalanceCard
-          title="Missões"
-          value={`${balanceDetails.missionsCount} aprovadas`}
-          icon={<Calendar className="w-6 h-6 text-purple-600" />}
-          className="bg-purple-50"
+          title="Missões Aprovadas"
+          value={`${balanceDetails.missionsCount}`}
+          icon={<Calendar className="w-6 h-6 text-orange-600" />}
+          className="bg-orange-50"
           tooltip={getTooltipText('missions')}
           isProvider={true}
         />
-
-        <BalanceCard
-          title="Pag. Pendentes"
-          value={formatCurrency(balanceDetails.totalPaid)}
-          icon={<Bell className="w-6 h-6 text-orange-600" />}
-          className="bg-orange-50"
-          tooltip="Total já recebido em pagamentos"
-          isProvider={true}
-        />
       </div>
+
+      {/* Botão para ver detalhes do saldo */}
+      <Card>
+        <CardHeader>
+          <div className="flex justify-between items-center">
+            <CardTitle className="flex items-center gap-2">
+              <DollarSign className="w-5 h-5" />
+              Detalhes do Saldo
+            </CardTitle>
+            <Button 
+              onClick={() => setShowBalanceDetails(!showBalanceDetails)}
+              variant="outline"
+            >
+              {showBalanceDetails ? (
+                <>
+                  <ChevronUp className="w-4 h-4 mr-2" />
+                  Ocultar Detalhes
+                </>
+              ) : (
+                <>
+                  <ChevronDown className="w-4 h-4 mr-2" />
+                  Ver Detalhes
+                </>
+              )}
+            </Button>
+          </div>
+        </CardHeader>
+        
+        {showBalanceDetails && (
+          <CardContent>
+            <ProviderBalanceDetails
+              providerId={profile?.provider_id || ''}
+              providerName={profile?.name || 'Prestador'}
+              currentBalance={balanceDetails.currentBalance}
+              onRecalculate={recalculate}
+            />
+          </CardContent>
+        )}
+      </Card>
 
       {/* Alertas sobre Saldo Previsto */}
       {balanceDetails.pendingBalance > 0 && (
@@ -221,44 +257,6 @@ export const ProviderDashboard = () => {
           </div>
         </Card>
       )}
-
-      {/* Informações sobre Saldo */}
-      <Card>
-        <CardHeader>
-          <div className="flex justify-between items-center">
-            <CardTitle className="flex items-center gap-2">
-              <DollarSign className="w-5 h-5" />
-              Sobre Seu Saldo
-            </CardTitle>
-            <Button onClick={recalculate} variant="outline" size="sm">
-              <RefreshCw className="w-4 h-4 mr-2" />
-              Atualizar
-            </Button>
-          </div>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-4">
-            <div className="p-4 bg-blue-50 rounded-lg">
-              <h4 className="font-semibold text-blue-800 mb-2">Como funciona seu saldo?</h4>
-              <p className="text-blue-700 text-sm">
-                Seu saldo é calculado automaticamente com base nas missões aprovadas. 
-                Quando uma missão é aprovada, sua parte do valor é adicionada ao seu saldo. 
-                Quando você recebe um pagamento, o valor é deduzido do saldo.
-              </p>
-            </div>
-            
-            {balanceDetails.currentBalance > 0 && (
-              <div className="p-4 bg-green-50 rounded-lg">
-                <h4 className="font-semibold text-green-800 mb-2">💰 Você tem saldo para receber!</h4>
-                <p className="text-green-700 text-sm">
-                  Seu saldo atual é de <strong>{formatCurrency(balanceDetails.currentBalance)}</strong>. 
-                  Entre em contato com a empresa para solicitar o pagamento.
-                </p>
-              </div>
-            )}
-          </div>
-        </CardContent>
-      </Card>
 
       {/* Tabs para Missões e Pagamentos */}
       <Tabs defaultValue="missions" className="w-full">
@@ -290,7 +288,7 @@ export const ProviderDashboard = () => {
                       <TableHead>Local</TableHead>
                       <TableHead>Data</TableHead>
                       <TableHead>Status</TableHead>
-                      <TableHead>Valor Ganho</TableHead>
+                      <TableHead>Meu Valor</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -317,7 +315,7 @@ export const ProviderDashboard = () => {
                               {formatCurrency(mission.earned_value)}
                             </span>
                           ) : (
-                            <span className="text-gray-400">-</span>
+                            <span className="text-gray-400">Aguardando aprovação</span>
                           )}
                         </TableCell>
                       </TableRow>

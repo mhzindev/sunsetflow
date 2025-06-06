@@ -9,6 +9,7 @@ import { ExpensesByEmployee } from './ExpensesByEmployee';
 import { ExpensesByMission } from './ExpensesByMission';
 import { ProviderExpensesList } from './ProviderExpensesList';
 import { ProviderMissionPanel } from './ProviderMissionPanel';
+import { ProviderDashboard } from '../providers/ProviderDashboard';
 import { useToastFeedback } from '@/hooks/useToastFeedback';
 import { useAuth } from '@/contexts/AuthContext';
 
@@ -17,7 +18,7 @@ interface ExpenseManagerProps {
 }
 
 export const ExpenseManager = ({ onNavigate }: ExpenseManagerProps) => {
-  const [activeTab, setActiveTab] = useState('new-expense');
+  const [activeTab, setActiveTab] = useState('dashboard');
   const { showSuccess } = useToastFeedback();
   const { profile } = useAuth();
   
@@ -47,11 +48,16 @@ export const ExpenseManager = ({ onNavigate }: ExpenseManagerProps) => {
           </p>
 
           <Tabs value={activeTab} onValueChange={setActiveTab}>
-            <TabsList className="grid w-full grid-cols-3">
+            <TabsList className="grid w-full grid-cols-4">
+              <TabsTrigger value="dashboard">Painel</TabsTrigger>
               <TabsTrigger value="new-expense">Nova Despesa</TabsTrigger>
               <TabsTrigger value="my-expenses">Minhas Despesas</TabsTrigger>
               <TabsTrigger value="my-missions">Minhas Missões</TabsTrigger>
             </TabsList>
+
+            <TabsContent value="dashboard" className="mt-6">
+              <ProviderDashboard />
+            </TabsContent>
 
             <TabsContent value="new-expense" className="mt-6">
               <ExpenseForm 
