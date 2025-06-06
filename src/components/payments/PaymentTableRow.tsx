@@ -1,3 +1,4 @@
+
 import { useState } from 'react';
 import { TableCell, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
@@ -7,17 +8,18 @@ import { Payment } from '@/types/payment';
 import { PaymentViewModal } from './PaymentViewModal';
 import { PaymentEditModal } from './PaymentEditModal';
 import { useToastFeedback } from '@/hooks/useToastFeedback';
-import { useFinancial } from '@/contexts/FinancialContext';
+import { supabase } from '@/integrations/supabase/client';
 
 interface PaymentTableRowProps {
   payment: Payment;
+  onPaymentUpdate?: () => void;
 }
 
-export const PaymentTableRow = ({ payment }: PaymentTableRowProps) => {
+export const PaymentTableRow = ({ payment, onPaymentUpdate }: PaymentTableRowProps) => {
   const [isViewModalOpen, setIsViewModalOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
-  const { showSuccess } = useToastFeedback();
-  const { updatePaymentStatus } = useFinancial();
+  const [isProcessing, setIsProcessing] = useState(false);
+  const { showSuccess, showError } = useToastFeedback();
 
   const getStatusColor = (status: string) => {
     const colors = {
@@ -78,22 +80,61 @@ export const PaymentTableRow = ({ payment }: PaymentTableRowProps) => {
   const handleSavePayment = (updatedPayment: Payment) => {
     console.log('Payment updated via modal:', updatedPayment);
     showSuccess('Sucesso', 'Pagamento atualizado com sucesso!');
-    // O modal já chama as funções do contexto, não precisamos fazer nada adicional aqui
+    onPaymentUpdate?.();
   };
 
   const handleMarkAsPaid = async (payment: Payment) => {
-    console.log('Processing payment via button:', payment.id);
+    if (isProcessing) return;
     
     try {
-      await updatePaymentStatus(payment.id, 'completed');
+      setIsProcessing(true);
+      console.log('Marcando pagamento como pago:', payment.id);
+      
+      // Atualizar o pagamento no banco de dados
+      const { error: updateError } = await supabase
+        .from('payments')
+        .update({ 
+          status: 'completed',
+          payment_date: new Date().toISOString().split('T')[0]
+        })
+        .eq('id', payment.id);
+
+      if (updateError) {
+        console.error('Erro ao atualizar pagamento:', updateError);
+        showError('Erro', 'Erro ao processar pagamento');
+        return;
+      }
+
+      // Recalcular saldo do prestador se houver provider_id
+      if (payment.providerId) {
+        console.log('Recalculando saldo do prestador:', payment.providerId);
+        
+        const { data: recalculateData, error: recalculateError } = await supabase.rpc(
+          'recalculate_provider_balance', 
+          { provider_uuid: payment.providerId }
+        );
+
+        if (recalculateError) {
+          console.error('Erro ao recalcular saldo:', recalculateError);
+          // Não bloqueia o sucesso do pagamento, apenas loga o erro
+        } else {
+          console.log('Saldo recalculado:', recalculateData);
+        }
+      }
       
       showSuccess(
         'Pagamento Confirmado', 
         `Pagamento de R$ ${payment.amount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} para ${payment.providerName} foi processado! Status atualizado para concluído.`
       );
+
+      // Notificar componente pai para atualizar a lista
+      onPaymentUpdate?.();
+      
     } catch (error) {
       console.error('Erro ao processar pagamento:', error);
-      showSuccess('Erro', 'Erro ao processar pagamento');
+      showError('Erro', 'Erro inesperado ao processar pagamento');
+    } finally {
+      setIsProcessing(false);
     }
   };
 
@@ -141,6 +182,7 @@ export const PaymentTableRow = ({ payment }: PaymentTableRowProps) => {
                 size="sm" 
                 className="bg-green-600 hover:bg-green-700"
                 onClick={() => handleMarkAsPaid(payment)}
+                disabled={isProcessing}
               >
                 <DollarSign className="w-4 h-4" />
               </Button>

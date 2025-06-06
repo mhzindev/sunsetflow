@@ -1,13 +1,15 @@
 
+import React from 'react';
 import { Table, TableBody, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Payment } from '@/types/payment';
 import { PaymentTableRow } from './PaymentTableRow';
+import { Payment } from '@/types/payment';
 
 interface PaymentTableProps {
   payments: Payment[];
+  onPaymentUpdate?: () => void;
 }
 
-export const PaymentTable = ({ payments }: PaymentTableProps) => {
+export const PaymentTable = ({ payments, onPaymentUpdate }: PaymentTableProps) => {
   return (
     <Table>
       <TableHeader>
@@ -24,7 +26,11 @@ export const PaymentTable = ({ payments }: PaymentTableProps) => {
       </TableHeader>
       <TableBody>
         {payments.map((payment) => (
-          <PaymentTableRow key={payment.id} payment={payment} />
+          <PaymentTableRow 
+            key={payment.id} 
+            payment={payment} 
+            onPaymentUpdate={onPaymentUpdate}
+          />
         ))}
       </TableBody>
     </Table>
