@@ -956,7 +956,7 @@ export const useSupabaseData = () => {
         return { data: null, error: error.message };
       }
 
-      console.log('Receita convertida para confirmada com sucesso:', data);
+      console.log('Receita convertida para confirmada com sucesso - Pagamentos dos prestadores criados automaticamente:', data);
       return { data, error: null };
     } catch (err) {
       console.error('Erro ao converter receita para confirmada:', err);

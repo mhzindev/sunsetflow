@@ -69,7 +69,10 @@ export const usePendingRevenues = () => {
 
       if (data?.success) {
         const valorTotal = data.total_amount || 0;
-        showSuccess('Sucesso', `Receita de R$ ${valorTotal.toFixed(2)} confirmada e registrada como receita da empresa!`);
+        showSuccess(
+          'Sucesso', 
+          `Receita de R$ ${valorTotal.toFixed(2)} confirmada! A receita foi registrada e os pagamentos dos prestadores foram criados automaticamente.`
+        );
         await fetchPendingRevenues();
         return { success: true, data };
       } else {
