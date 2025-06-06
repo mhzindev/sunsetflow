@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -9,6 +8,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { useSupabaseData } from '@/hooks/useSupabaseData';
 import { useToastFeedback } from '@/hooks/useToastFeedback';
 import { useAuth } from '@/contexts/AuthContext';
+import { getCurrentDateForInput } from '@/utils/dateUtils';
 
 type TransactionCategory = 'service_payment' | 'client_payment' | 'fuel' | 'accommodation' | 'meals' | 'materials' | 'maintenance' | 'office_expense' | 'other';
 type PaymentMethod = 'pix' | 'transfer' | 'credit_card' | 'debit_card' | 'cash';
@@ -33,7 +33,7 @@ export const TransactionForm = ({ onClose, onSubmit }: TransactionFormProps) => 
     amount: '',
     category: 'other' as TransactionCategory,
     method: 'pix' as PaymentMethod,
-    date: new Date().toISOString().split('T')[0],
+    date: getCurrentDateForInput(),
     account_id: '',
     account_type: null as 'bank_account' | 'credit_card' | null,
     tags: '',
@@ -142,7 +142,7 @@ export const TransactionForm = ({ onClose, onSubmit }: TransactionFormProps) => 
         amount: '',
         category: 'other',
         method: 'pix',
-        date: new Date().toISOString().split('T')[0],
+        date: getCurrentDateForInput(),
         account_id: '',
         account_type: null,
         tags: '',

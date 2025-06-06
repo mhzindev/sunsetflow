@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -12,6 +11,7 @@ import { useToastFeedback } from '@/hooks/useToastFeedback';
 import { useAuth } from '@/contexts/AuthContext';
 import { canCreatePayments } from '@/utils/authUtils';
 import { PaymentStatus, PaymentType, PAYMENT_STATUS_VALUES, PAYMENT_TYPE_VALUES } from '@/types/payment';
+import { getCurrentDateForInput } from '@/utils/dateUtils';
 import { ShieldX } from 'lucide-react';
 
 export const PaymentForm = () => {
@@ -39,7 +39,7 @@ export const PaymentForm = () => {
     provider_id: '',
     provider_name: '',
     amount: '',
-    due_date: new Date().toISOString().split('T')[0],
+    due_date: getCurrentDateForInput(),
     payment_date: '',
     status: PAYMENT_STATUS_VALUES.PENDING as PaymentStatus,
     type: PAYMENT_TYPE_VALUES.FULL as PaymentType,
@@ -170,7 +170,7 @@ export const PaymentForm = () => {
         provider_id: '',
         provider_name: '',
         amount: '',
-        due_date: new Date().toISOString().split('T')[0],
+        due_date: getCurrentDateForInput(),
         payment_date: '',
         status: PAYMENT_STATUS_VALUES.PENDING,
         type: PAYMENT_TYPE_VALUES.FULL,

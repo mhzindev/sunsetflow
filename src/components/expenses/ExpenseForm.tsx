@@ -9,6 +9,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { ReceiptUpload } from "@/components/common/ReceiptUpload";
 import { useSupabaseData } from '@/hooks/useSupabaseData';
 import { useToastFeedback } from '@/hooks/useToastFeedback';
+import { getCurrentDateForInput } from '@/utils/dateUtils';
 
 interface ExpenseFormProps {
   onSave?: () => void;
@@ -22,7 +23,7 @@ export const ExpenseForm = ({ onSave, onCancel }: ExpenseFormProps) => {
     description: '',
     amount: '',
     invoice_amount: '',
-    date: new Date().toISOString().split('T')[0],
+    date: getCurrentDateForInput(),
     is_advanced: false as boolean,
     receipt: '',
     travel_km: '',
@@ -241,7 +242,7 @@ export const ExpenseForm = ({ onSave, onCancel }: ExpenseFormProps) => {
         description: '',
         amount: '',
         invoice_amount: '',
-        date: new Date().toISOString().split('T')[0],
+        date: getCurrentDateForInput(),
         is_advanced: false as boolean,
         receipt: '',
         travel_km: '',

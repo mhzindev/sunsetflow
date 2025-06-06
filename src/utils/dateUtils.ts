@@ -32,6 +32,54 @@ export const parseDatabaseDate = (dateString: string): Date => {
 };
 
 /**
+ * Retorna a data atual no formato YYYY-MM-DD para usar em inputs HTML
+ * Garante que a data seja sempre local, sem conversão para UTC
+ */
+export const getCurrentDateForInput = (): string => {
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, '0');
+  const day = String(now.getDate()).padStart(2, '0');
+  
+  const currentDate = `${year}-${month}-${day}`;
+  console.log('getCurrentDateForInput - Data atual local:', currentDate);
+  
+  return currentDate;
+};
+
+/**
+ * Converte uma data do banco para o formato de input HTML (YYYY-MM-DD)
+ * Mantém a data local sem conversão para UTC
+ */
+export const formatDateForInput = (dateString: string): string => {
+  console.log('formatDateForInput - String recebida:', dateString);
+  
+  // Se já está no formato correto YYYY-MM-DD, retorna como está
+  if (/^\d{4}-\d{2}-\d{2}$/.test(dateString)) {
+    console.log('formatDateForInput - Já está no formato correto:', dateString);
+    return dateString;
+  }
+  
+  // Se é uma data completa (com hora), pega apenas a parte da data
+  if (dateString.includes('T')) {
+    const datePart = dateString.split('T')[0];
+    console.log('formatDateForInput - Extraída parte da data:', datePart);
+    return datePart;
+  }
+  
+  // Tenta fazer parse e formatar
+  const date = new Date(dateString);
+  if (!isNaN(date.getTime())) {
+    const formatted = formatDateForDatabase(date);
+    console.log('formatDateForInput - Data formatada:', formatted);
+    return formatted;
+  }
+  
+  console.warn('formatDateForInput - Formato de data não reconhecido:', dateString);
+  return dateString;
+};
+
+/**
  * Formata uma data do banco para exibição (DD/MM/YYYY)
  */
 export const formatDateForDisplay = (dateString: string): string => {
