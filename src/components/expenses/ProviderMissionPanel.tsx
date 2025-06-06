@@ -8,12 +8,13 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Search, RefreshCw, Plus, Calendar, MapPin, Users, DollarSign, Eye, Clock } from 'lucide-react';
+import { Search, RefreshCw, Plus, Calendar, MapPin, Users, DollarSign, Eye, Clock, TrendingUp } from 'lucide-react';
 import { useSupabaseData } from '@/hooks/useSupabaseData';
 import { useToastFeedback } from '@/hooks/useToastFeedback';
 import { useAuth } from '@/contexts/AuthContext';
 import { ClientAutocomplete } from '@/components/clients/ClientAutocomplete';
 import { getCurrentDateForInput } from '@/utils/dateUtils';
+import { useProviderBalanceDetails } from '@/hooks/useProviderBalanceDetails';
 
 export const ProviderMissionPanel = () => {
   const [missions, setMissions] = useState<any[]>([]);
@@ -34,6 +35,7 @@ export const ProviderMissionPanel = () => {
   const { fetchMissions, insertMission } = useSupabaseData();
   const { showSuccess, showError } = useToastFeedback();
   const { user, profile } = useAuth();
+  const { balanceDetails, loading: balanceLoading } = useProviderBalanceDetails(profile?.provider_id || '');
 
   useEffect(() => {
     if (user && profile?.user_type === 'provider') {
@@ -147,6 +149,13 @@ export const ProviderMissionPanel = () => {
     return 0;
   };
 
+  const formatCurrency = (value: number) => {
+    return new Intl.NumberFormat('pt-BR', {
+      style: 'currency',
+      currency: 'BRL'
+    }).format(value);
+  };
+
   const filteredMissions = missions.filter(mission => {
     if (!searchTerm) return true;
     return mission.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -172,7 +181,7 @@ export const ProviderMissionPanel = () => {
     return <Badge className={config.className}>{config.label}</Badge>;
   };
 
-  if (loading) {
+  if (loading || balanceLoading) {
     return (
       <Card className="p-6">
         <div className="flex items-center justify-center py-8">
@@ -185,6 +194,43 @@ export const ProviderMissionPanel = () => {
 
   return (
     <div className="space-y-6">
+      {/* Cards de Saldo */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <Card className="p-4 bg-green-50">
+          <div className="flex items-center gap-3">
+            <div className="p-2 rounded-lg">
+              <DollarSign className="w-6 h-6 text-green-600" />
+            </div>
+            <div className="flex-1">
+              <p className="text-sm text-gray-600">Saldo Atual</p>
+              <p className="text-lg font-semibold text-gray-900">
+                {formatCurrency(balanceDetails.currentBalance)}
+              </p>
+              <p className="text-xs text-green-700">
+                Disponível para saque
+              </p>
+            </div>
+          </div>
+        </Card>
+
+        <Card className="p-4 bg-blue-50">
+          <div className="flex items-center gap-3">
+            <div className="p-2 rounded-lg">
+              <TrendingUp className="w-6 h-6 text-blue-600" />
+            </div>
+            <div className="flex-1">
+              <p className="text-sm text-gray-600">Saldo Pendente</p>
+              <p className="text-lg font-semibold text-gray-900">
+                {formatCurrency(balanceDetails.pendingBalance)}
+              </p>
+              <p className="text-xs text-blue-700">
+                Aguardando pagamento do cliente
+              </p>
+            </div>
+          </div>
+        </Card>
+      </div>
+
       <Card className="p-6">
         <div className="flex justify-between items-center mb-6">
           <div>
