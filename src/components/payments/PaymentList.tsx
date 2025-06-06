@@ -1,4 +1,3 @@
-
 import { useState } from 'react';
 import { Card } from "@/components/ui/card";
 import { Payment, PaymentStatus } from '@/types/payment';
@@ -14,6 +13,7 @@ import { PaymentTable } from './PaymentTable';
 export const PaymentList = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [filterStatus, setFilterStatus] = useState<PaymentStatus | 'all'>('all');
+  const [sortOrder, setSortOrder] = useState<'alphabetical' | 'newest' | 'oldest'>('newest');
   const [isFilterModalOpen, setIsFilterModalOpen] = useState(false);
   const [isExportModalOpen, setIsExportModalOpen] = useState(false);
   const [activeFilters, setActiveFilters] = useState<FilterConfig>({
@@ -29,6 +29,21 @@ export const PaymentList = () => {
 
   // Usar dados do contexto financeiro em vez de mock data
   const payments = data.payments || [];
+
+  const applySorting = (payments: Payment[]): Payment[] => {
+    return [...payments].sort((a, b) => {
+      switch (sortOrder) {
+        case 'alphabetical':
+          return (a.providerName || '').localeCompare(b.providerName || '');
+        case 'newest':
+          return new Date(b.dueDate).getTime() - new Date(a.dueDate).getTime();
+        case 'oldest':
+          return new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime();
+        default:
+          return 0;
+      }
+    });
+  };
 
   const applyFilters = (payments: Payment[]): Payment[] => {
     if (!payments || !Array.isArray(payments)) {
@@ -75,7 +90,7 @@ export const PaymentList = () => {
     return matchesSearch && matchesFilter;
   });
 
-  const filteredPayments = applyFilters(baseFilteredPayments);
+  const filteredPayments = applySorting(applyFilters(baseFilteredPayments));
 
   const handleExport = (options: ExportOptions) => {
     try {
@@ -158,6 +173,8 @@ export const PaymentList = () => {
           onSearchChange={setSearchTerm}
           filterStatus={filterStatus}
           onStatusChange={setFilterStatus}
+          sortOrder={sortOrder}
+          onSortOrderChange={setSortOrder}
           onFilterModalOpen={() => setIsFilterModalOpen(true)}
           onExportModalOpen={() => setIsExportModalOpen(true)}
         />
