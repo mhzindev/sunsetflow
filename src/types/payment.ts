@@ -1,4 +1,3 @@
-
 // Usando exatamente os mesmos valores que estão definidos no banco de dados
 export type PaymentStatus = 'pending' | 'partial' | 'completed' | 'overdue' | 'cancelled';
 export type PaymentType = 'full' | 'installment' | 'advance' | 'balance_payment' | 'advance_payment';
@@ -61,6 +60,8 @@ export interface Payment {
   currentInstallment?: number;
   tags?: string[];
   notes?: string;
+  account_id?: string;
+  account_type?: 'bank_account' | 'credit_card';
 }
 
 export interface ServiceProvider {
