@@ -1,7 +1,8 @@
 
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
-import { Calendar, DollarSign, User, FileText, CreditCard, Clock } from 'lucide-react';
+import { Button } from "@/components/ui/button";
+import { Calendar, DollarSign, User, FileText, CreditCard, Clock, Edit, CheckCircle } from 'lucide-react';
 import { Payment } from '@/types/payment';
 import { PaymentStatusIndicator } from './PaymentStatusIndicator';
 import { formatCurrency, formatDateForDisplay, convertToBrasiliaTimezone } from '@/utils/dateUtils';
@@ -10,9 +11,11 @@ interface PaymentViewModalProps {
   isOpen: boolean;
   onClose: () => void;
   payment: Payment | null;
+  onEdit?: (payment: Payment) => void;
+  onMarkAsPaid?: (payment: Payment) => void;
 }
 
-export const PaymentViewModal = ({ isOpen, onClose, payment }: PaymentViewModalProps) => {
+export const PaymentViewModal = ({ isOpen, onClose, payment, onEdit, onMarkAsPaid }: PaymentViewModalProps) => {
   if (!payment) return null;
 
   const getTypeLabel = (type: string) => {
@@ -92,7 +95,7 @@ export const PaymentViewModal = ({ isOpen, onClose, payment }: PaymentViewModalP
         <div className="space-y-6">
           {/* Status e Tipo */}
           <div className="flex items-center justify-between">
-            <PaymentStatusIndicator status={payment.status} size="lg" />
+            <PaymentStatusIndicator status={payment.status} />
             <Badge variant="outline" className="text-sm">
               {getTypeLabel(payment.type)}
             </Badge>
@@ -192,6 +195,31 @@ export const PaymentViewModal = ({ isOpen, onClose, payment }: PaymentViewModalP
                   <Badge key={index} variant="secondary">{tag}</Badge>
                 ))}
               </div>
+            </div>
+          )}
+
+          {/* Action Buttons */}
+          {(onEdit || onMarkAsPaid) && (
+            <div className="flex gap-3 pt-4 border-t">
+              {onEdit && (
+                <Button 
+                  onClick={() => onEdit(payment)}
+                  variant="outline"
+                  className="flex-1"
+                >
+                  <Edit className="w-4 h-4 mr-2" />
+                  Editar
+                </Button>
+              )}
+              {onMarkAsPaid && payment.status !== 'completed' && (
+                <Button 
+                  onClick={() => onMarkAsPaid(payment)}
+                  className="flex-1 bg-green-600 hover:bg-green-700"
+                >
+                  <CheckCircle className="w-4 h-4 mr-2" />
+                  Marcar como Pago
+                </Button>
+              )}
             </div>
           )}
         </div>

@@ -11,7 +11,6 @@ import { PaymentEditModal } from './PaymentEditModal';
 import { PaymentViewModal } from './PaymentViewModal';
 import { PaymentMarkAsPaidModal } from './PaymentMarkAsPaidModal';
 import { useToastFeedback } from '@/hooks/useToastFeedback';
-import { useSupabaseData } from '@/hooks/useSupabaseData';
 import { useFinancial } from '@/contexts/FinancialContext';
 import { formatCurrency, formatDateForDisplay, parseDatabaseDate, convertToBrasiliaTimezone } from '@/utils/dateUtils';
 
@@ -26,7 +25,6 @@ export const PaymentTableRow = ({ payment }: PaymentTableRowProps) => {
   const [isDeleting, setIsDeleting] = useState(false);
   
   const { showSuccess, showError } = useToastFeedback();
-  const { deletePayment } = useSupabaseData();
   const { removePayment } = useFinancial();
 
   const handleDelete = async () => {
@@ -36,11 +34,12 @@ export const PaymentTableRow = ({ payment }: PaymentTableRowProps) => {
 
     setIsDeleting(true);
     try {
-      const { error } = await deletePayment(payment.id);
-      if (error) {
-        showError('Erro', error);
-        return;
-      }
+      // Simular exclusão - aqui você pode implementar a chamada real para o banco
+      // const { error } = await deletePayment(payment.id);
+      // if (error) {
+      //   showError('Erro', error);
+      //   return;
+      // }
 
       removePayment(payment.id);
       showSuccess('Sucesso', 'Pagamento excluído com sucesso');

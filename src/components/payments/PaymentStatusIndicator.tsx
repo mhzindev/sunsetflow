@@ -6,12 +6,14 @@ interface PaymentStatusIndicatorProps {
   status: string;
   hasProviderIssue?: boolean;
   hasAccountIssue?: boolean;
+  size?: 'sm' | 'md' | 'lg';
 }
 
 export const PaymentStatusIndicator = ({ 
   status, 
   hasProviderIssue = false, 
-  hasAccountIssue = false 
+  hasAccountIssue = false,
+  size = 'md'
 }: PaymentStatusIndicatorProps) => {
   const getStatusConfig = (status: string) => {
     const configs = {
@@ -44,27 +46,46 @@ export const PaymentStatusIndicator = ({
     return configs[status as keyof typeof configs] || configs.pending;
   };
 
+  const getSizeClasses = (size: string) => {
+    const sizeClasses = {
+      sm: 'text-xs px-2 py-1',
+      md: 'text-sm px-2.5 py-1',
+      lg: 'text-base px-3 py-1.5'
+    };
+    return sizeClasses[size as keyof typeof sizeClasses] || sizeClasses.md;
+  };
+
+  const getIconSize = (size: string) => {
+    const iconSizes = {
+      sm: 'w-3 h-3',
+      md: 'w-3 h-3',
+      lg: 'w-4 h-4'
+    };
+    return iconSizes[size as keyof typeof iconSizes] || iconSizes.md;
+  };
+
   const config = getStatusConfig(status);
   const Icon = config.icon;
+  const iconSize = getIconSize(size);
 
   return (
     <div className="flex items-center gap-2">
       {hasProviderIssue && (
-        <Badge className="bg-orange-100 text-orange-800">
-          <AlertCircle className="w-3 h-3 mr-1" />
+        <Badge className={`bg-orange-100 text-orange-800 ${getSizeClasses(size)}`}>
+          <AlertCircle className={`${iconSize} mr-1`} />
           Sem Prestador
         </Badge>
       )}
       
       {hasAccountIssue && status === 'completed' && (
-        <Badge className="bg-red-100 text-red-800">
-          <AlertCircle className="w-3 h-3 mr-1" />
+        <Badge className={`bg-red-100 text-red-800 ${getSizeClasses(size)}`}>
+          <AlertCircle className={`${iconSize} mr-1`} />
           Sem Conta
         </Badge>
       )}
       
-      <Badge className={config.color}>
-        <Icon className="w-3 h-3 mr-1" />
+      <Badge className={`${config.color} ${getSizeClasses(size)}`}>
+        <Icon className={`${iconSize} mr-1`} />
         {config.label}
       </Badge>
     </div>

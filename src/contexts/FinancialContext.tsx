@@ -1,3 +1,4 @@
+
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { useSupabaseData } from '@/hooks/useSupabaseData';
 import { useAuth } from './AuthContext';
@@ -31,6 +32,7 @@ interface FinancialContextType {
   processPayment: (payment: any) => void;
   updatePayment: (id: string, updates: any) => Promise<boolean>;
   updatePaymentStatus: (id: string, status: string) => Promise<boolean>;
+  removePayment: (id: string) => void;
 }
 
 const FinancialContext = createContext<FinancialContextType | undefined>(undefined);
@@ -57,7 +59,14 @@ export const FinancialProvider = ({ children }: { children: React.ReactNode }) =
     error: null
   });
 
-  const { fetchTransactions, fetchExpenses, fetchPayments, fetchBankAccounts, fetchCreditCards, updatePayment: updatePaymentInDB } = useSupabaseData();
+  const { 
+    fetchTransactions, 
+    fetchExpenses, 
+    fetchPayments, 
+    fetchBankAccounts, 
+    fetchCreditCards, 
+    updatePayment: updatePaymentInDB 
+  } = useSupabaseData();
 
   const fetchData = async () => {
     try {
@@ -191,6 +200,14 @@ export const FinancialProvider = ({ children }: { children: React.ReactNode }) =
     }));
   };
 
+  // Função para remover pagamento do estado local
+  const removePayment = (id: string) => {
+    setData(prev => ({
+      ...prev,
+      payments: prev.payments.filter(p => p.id !== id)
+    }));
+  };
+
   // MELHORADO: Função com melhor tratamento de erro e logs detalhados
   const updatePayment = async (id: string, updates: any): Promise<boolean> => {
     try {
@@ -283,7 +300,8 @@ export const FinancialProvider = ({ children }: { children: React.ReactNode }) =
     updateExpenseStatus,
     processPayment,
     updatePayment,
-    updatePaymentStatus
+    updatePaymentStatus,
+    removePayment
   };
 
   return (
