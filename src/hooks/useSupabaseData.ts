@@ -1028,6 +1028,77 @@ export const useSupabaseData = () => {
     }
   };
 
+  // Função para excluir missão
+  const deleteMission = async (missionId: string) => {
+    try {
+      console.log('=== DELETANDO MISSÃO ===');
+      console.log('Mission ID:', missionId);
+
+      // Verificar se há dependências antes de excluir
+      // Primeiro verificar se há receitas pendentes vinculadas
+      const { data: pendingRevenues, error: pendingError } = await supabase
+        .from('pending_revenues')
+        .select('id')
+        .eq('mission_id', missionId);
+
+      if (pendingError) {
+        console.error('Erro ao verificar receitas pendentes:', pendingError);
+        return { error: 'Erro ao verificar dependências da missão' };
+      }
+
+      if (pendingRevenues && pendingRevenues.length > 0) {
+        return { error: 'Não é possível excluir missão com receitas pendentes vinculadas' };
+      }
+
+      // Verificar receitas confirmadas
+      const { data: confirmedRevenues, error: confirmedError } = await supabase
+        .from('confirmed_revenues')
+        .select('id')
+        .eq('mission_id', missionId);
+
+      if (confirmedError) {
+        console.error('Erro ao verificar receitas confirmadas:', confirmedError);
+        return { error: 'Erro ao verificar dependências da missão' };
+      }
+
+      if (confirmedRevenues && confirmedRevenues.length > 0) {
+        return { error: 'Não é possível excluir missão com receitas confirmadas vinculadas' };
+      }
+
+      // Verificar despesas vinculadas
+      const { data: expenses, error: expensesError } = await supabase
+        .from('expenses')
+        .select('id')
+        .eq('mission_id', missionId);
+
+      if (expensesError) {
+        console.error('Erro ao verificar despesas:', expensesError);
+        return { error: 'Erro ao verificar dependências da missão' };
+      }
+
+      if (expenses && expenses.length > 0) {
+        return { error: 'Não é possível excluir missão com despesas vinculadas' };
+      }
+
+      // Se não há dependências, prosseguir com a exclusão
+      const { error } = await supabase
+        .from('missions')
+        .delete()
+        .eq('id', missionId);
+
+      if (error) {
+        console.error('Erro ao excluir missão:', error);
+        return { error: error.message || 'Erro ao excluir missão' };
+      }
+
+      console.log('✅ Missão excluída com sucesso');
+      return { success: true };
+    } catch (error) {
+      console.error('Erro inesperado ao excluir missão:', error);
+      return { error: 'Erro inesperado ao excluir missão' };
+    }
+  };
+
   return {
     loading,
     error,
@@ -1056,6 +1127,7 @@ export const useSupabaseData = () => {
     fetchProviderAccess,
     deleteServiceProviderWithAccess,
     fetchConfirmedRevenues,
-    convertPendingToConfirmedRevenue
+    convertPendingToConfirmedRevenue,
+    deleteMission
   };
 };
