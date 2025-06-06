@@ -37,12 +37,12 @@ export const PaymentList = () => {
         case 'alphabetical':
           return (a.providerName || '').localeCompare(b.providerName || '');
         case 'newest':
-          // Usar created_at se disponível, senão due_date
+          // Priorizar created_at se existir, senão usar due_date
           const dateA = a.created_at ? new Date(a.created_at).getTime() : new Date(a.dueDate).getTime();
           const dateB = b.created_at ? new Date(b.created_at).getTime() : new Date(b.dueDate).getTime();
           return dateB - dateA;
         case 'oldest':
-          // Usar created_at se disponível, senão due_date
+          // Priorizar created_at se existir, senão usar due_date
           const dateAOld = a.created_at ? new Date(a.created_at).getTime() : new Date(a.dueDate).getTime();
           const dateBOld = b.created_at ? new Date(b.created_at).getTime() : new Date(b.dueDate).getTime();
           return dateAOld - dateBOld;
