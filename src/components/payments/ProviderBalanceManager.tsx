@@ -6,7 +6,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { PaymentModal } from './PaymentModal';
-import { ProviderBalanceDetails } from '@/components/providers/ProviderBalanceDetails';
+import { ProviderBalanceDetailsEnhanced } from '@/components/providers/ProviderBalanceDetailsEnhanced';
 import { useSupabaseData } from '@/hooks/useSupabaseData';
 import { useToastFeedback } from '@/hooks/useToastFeedback';
 import { supabase } from '@/integrations/supabase/client';
@@ -208,11 +208,12 @@ export const ProviderBalanceManager = () => {
             <DialogTitle>Detalhes do Saldo</DialogTitle>
           </DialogHeader>
           {selectedProvider && (
-            <ProviderBalanceDetails
+            <ProviderBalanceDetailsEnhanced
               providerId={selectedProvider.id}
               providerName={selectedProvider.name}
               currentBalance={selectedProvider.currentBalance || 0}
               onRecalculate={loadProviders}
+              isProvider={false}
             />
           )}
         </DialogContent>

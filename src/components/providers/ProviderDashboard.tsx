@@ -1,12 +1,14 @@
-
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Button } from "@/components/ui/button";
+import { BalanceCard } from './BalanceCard';
+import { useProviderBalanceDetails } from '@/hooks/useProviderBalanceDetails';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
-import { DollarSign, TrendingUp, Calendar, MapPin, RefreshCw, Bell } from 'lucide-react';
+import { DollarSign, TrendingUp, Calendar, MapPin, RefreshCw, Bell, Eye, AlertCircle } from 'lucide-react';
 
 interface ProviderStats {
   currentBalance: number;
@@ -38,15 +40,11 @@ interface Payment {
 
 export const ProviderDashboard = () => {
   const { profile } = useAuth();
-  const [stats, setStats] = useState<ProviderStats>({
-    currentBalance: 0,
-    totalEarned: 0,
-    missionsCount: 0,
-    pendingPayments: 0
-  });
   const [missions, setMissions] = useState<Mission[]>([]);
   const [payments, setPayments] = useState<Payment[]>([]);
   const [loading, setLoading] = useState(true);
+
+  const { balanceDetails, loading: balanceLoading, recalculate } = useProviderBalanceDetails(profile?.provider_id || '');
 
   const loadProviderData = async () => {
     if (!profile?.provider_id) return;
@@ -146,6 +144,17 @@ export const ProviderDashboard = () => {
     }).format(value);
   };
 
+  const getTooltipText = (type: string) => {
+    const tooltips = {
+      currentBalance: "Valor disponível para saque (ganhos - pagamentos recebidos)",
+      totalEarned: "Total que você ganhou com missões aprovadas até agora",
+      missions: "Número de missões aprovadas que você participou",
+      pendingPayments: "Valor de pagamentos que ainda não foram processados",
+      pendingBalance: "Valor estimado de missões ainda não aprovadas"
+    };
+    return tooltips[type as keyof typeof tooltips] || "";
+  };
+
   const getStatusBadge = (status: string, isApproved?: boolean) => {
     if (isApproved) {
       return <Badge className="bg-green-100 text-green-800">✓ Aprovada</Badge>;
@@ -161,7 +170,7 @@ export const ProviderDashboard = () => {
     return <Badge className={config.className}>{config.label}</Badge>;
   };
 
-  if (loading) {
+  if (loading || balanceLoading) {
     return (
       <Card className="p-6">
         <div className="flex items-center justify-center py-8">
@@ -182,80 +191,84 @@ export const ProviderDashboard = () => {
         </div>
       </div>
 
-      {/* Cards de Estatísticas */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-        <Card>
-          <CardContent className="p-6">
-            <div className="flex items-center gap-4">
-              <div className="p-3 bg-blue-100 rounded-lg">
-                <DollarSign className="w-6 h-6 text-blue-600" />
-              </div>
-              <div>
-                <p className="text-sm text-gray-600">Saldo Atual</p>
-                <p className="text-2xl font-bold text-blue-600">
-                  {formatCurrency(stats.currentBalance)}
-                </p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+      {/* Cards de Estatísticas Melhorados */}
+      <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
+        <BalanceCard
+          title="Saldo Atual"
+          value={formatCurrency(balanceDetails.currentBalance)}
+          icon={<DollarSign className="w-6 h-6 text-blue-600" />}
+          className="bg-blue-50"
+          tooltip={getTooltipText('currentBalance')}
+          isProvider={true}
+        />
 
-        <Card>
-          <CardContent className="p-6">
-            <div className="flex items-center gap-4">
-              <div className="p-3 bg-green-100 rounded-lg">
-                <TrendingUp className="w-6 h-6 text-green-600" />
-              </div>
-              <div>
-                <p className="text-sm text-gray-600">Total Ganho</p>
-                <p className="text-2xl font-bold text-green-600">
-                  {formatCurrency(stats.totalEarned)}
-                </p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+        <BalanceCard
+          title="Total Ganho"
+          value={formatCurrency(balanceDetails.totalEarned)}
+          icon={<TrendingUp className="w-6 h-6 text-green-600" />}
+          className="bg-green-50"
+          tooltip={getTooltipText('totalEarned')}
+          isProvider={true}
+        />
 
-        <Card>
-          <CardContent className="p-6">
-            <div className="flex items-center gap-4">
-              <div className="p-3 bg-purple-100 rounded-lg">
-                <Calendar className="w-6 h-6 text-purple-600" />
-              </div>
-              <div>
-                <p className="text-sm text-gray-600">Missões</p>
-                <p className="text-2xl font-bold text-purple-600">
-                  {stats.missionsCount}
-                </p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+        <BalanceCard
+          title="Saldo Previsto"
+          value={formatCurrency(balanceDetails.pendingBalance)}
+          icon={<Eye className="w-6 h-6 text-purple-600" />}
+          className="bg-purple-50"
+          tooltip={getTooltipText('pendingBalance')}
+          isProvider={true}
+        />
 
-        <Card>
-          <CardContent className="p-6">
-            <div className="flex items-center gap-4">
-              <div className="p-3 bg-orange-100 rounded-lg">
-                <Bell className="w-6 h-6 text-orange-600" />
-              </div>
-              <div>
-                <p className="text-sm text-gray-600">Pag. Pendentes</p>
-                <p className="text-2xl font-bold text-orange-600">
-                  {formatCurrency(stats.pendingPayments)}
-                </p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+        <BalanceCard
+          title="Missões"
+          value={`${balanceDetails.missionsCount} aprovadas`}
+          icon={<Calendar className="w-6 h-6 text-purple-600" />}
+          className="bg-purple-50"
+          tooltip={getTooltipText('missions')}
+          isProvider={true}
+        />
+
+        <BalanceCard
+          title="Pag. Pendentes"
+          value={formatCurrency(balanceDetails.totalPaid)}
+          icon={<Bell className="w-6 h-6 text-orange-600" />}
+          className="bg-orange-50"
+          tooltip="Total já recebido em pagamentos"
+          isProvider={true}
+        />
       </div>
+
+      {/* Alertas sobre Saldo Previsto */}
+      {balanceDetails.pendingBalance > 0 && (
+        <Card className="p-4 bg-yellow-50 border-yellow-200">
+          <div className="flex items-center gap-2">
+            <AlertCircle className="w-5 h-5 text-yellow-600" />
+            <div>
+              <h4 className="font-semibold text-yellow-800">
+                Você tem {formatCurrency(balanceDetails.pendingBalance)} em missões pendentes
+              </h4>
+              <p className="text-yellow-700 text-sm">
+                Este valor será adicionado ao seu saldo quando as missões forem aprovadas pela empresa.
+              </p>
+            </div>
+          </div>
+        </Card>
+      )}
 
       {/* Informações sobre Saldo */}
       <Card>
         <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <DollarSign className="w-5 h-5" />
-            Sobre Seu Saldo
-          </CardTitle>
+          <div className="flex justify-between items-center">
+            <CardTitle className="flex items-center gap-2">
+              <DollarSign className="w-5 h-5" />
+              Sobre Seu Saldo
+            </CardTitle>
+            <Button onClick={recalculate} variant="outline" size="sm">
+              <RefreshCw className="w-4 h-4 mr-2" />
+              Atualizar
+            </Button>
+          </div>
         </CardHeader>
         <CardContent>
           <div className="space-y-4">
@@ -268,11 +281,11 @@ export const ProviderDashboard = () => {
               </p>
             </div>
             
-            {stats.currentBalance > 0 && (
+            {balanceDetails.currentBalance > 0 && (
               <div className="p-4 bg-green-50 rounded-lg">
                 <h4 className="font-semibold text-green-800 mb-2">💰 Você tem saldo para receber!</h4>
                 <p className="text-green-700 text-sm">
-                  Seu saldo atual é de <strong>{formatCurrency(stats.currentBalance)}</strong>. 
+                  Seu saldo atual é de <strong>{formatCurrency(balanceDetails.currentBalance)}</strong>. 
                   Entre em contato com a empresa para solicitar o pagamento.
                 </p>
               </div>
