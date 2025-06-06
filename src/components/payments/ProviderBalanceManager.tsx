@@ -9,6 +9,7 @@ import { PaymentModal } from './PaymentModal';
 import { ProviderBalanceDetails } from '@/components/providers/ProviderBalanceDetails';
 import { useSupabaseData } from '@/hooks/useSupabaseData';
 import { useToastFeedback } from '@/hooks/useToastFeedback';
+import { supabase } from '@/integrations/supabase/client';
 import { ServiceProvider } from '@/types/payment';
 import { Eye, RefreshCw } from 'lucide-react';
 
