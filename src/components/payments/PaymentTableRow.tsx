@@ -77,7 +77,7 @@ export const PaymentTableRow = ({ payment }: PaymentTableRowProps) => {
     return null;
   };
 
-  // NOVO: Verificar se pagamento tem problemas de vinculação
+  // Verificar se pagamento tem problemas de vinculação
   const hasProviderIssue = !payment.providerId && payment.providerName;
 
   const handleSavePayment = (updatedPayment: Payment) => {
@@ -90,7 +90,7 @@ export const PaymentTableRow = ({ payment }: PaymentTableRowProps) => {
     
     console.log('PaymentTableRow: Processando pagamento:', payment.id);
     
-    // NOVO: Verificar se há problemas antes de processar
+    // Verificar se há problemas antes de processar
     if (!payment.providerId && payment.providerName) {
       showError(
         'Erro de Vinculação', 
@@ -138,7 +138,9 @@ export const PaymentTableRow = ({ payment }: PaymentTableRowProps) => {
           <div className="flex items-center gap-2">
             {payment.providerName}
             {hasProviderIssue && (
-              <AlertCircle className="w-4 h-4 text-orange-500" title="Prestador não vinculado corretamente" />
+              <div title="Prestador não vinculado corretamente">
+                <AlertCircle className="w-4 h-4 text-orange-500" />
+              </div>
             )}
           </div>
         </TableCell>
