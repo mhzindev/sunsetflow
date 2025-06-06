@@ -895,6 +895,10 @@ export type Database = {
           monthly_expenses: number
         }[]
       }
+      get_payment_by_id: {
+        Args: { payment_id: string }
+        Returns: Json
+      }
       get_user_transactions_simple: {
         Args: Record<PropertyKey, never>
         Returns: {
@@ -1084,6 +1088,10 @@ export type Database = {
       recalculate_provider_balance: {
         Args: { provider_uuid: string }
         Returns: number
+      }
+      update_payment_safe: {
+        Args: { payment_id: string; payment_updates: Json }
+        Returns: Json
       }
       use_access_code: {
         Args: { access_code: string }

@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
@@ -447,44 +448,72 @@ export const useSupabaseData = () => {
   // CORRIGIDO: Função updatePayment melhorada com logs detalhados e validação
   const updatePayment = async (paymentId: string, updates: any) => {
     try {
-      console.log('=== updatePayment: Iniciando atualização ===');
-      console.log('Payment ID:', paymentId);
+      console.log('=== updatePayment: Iniciando atualização SEGURA ===');
+      console.log('Payment ID recebido:', paymentId);
       console.log('Updates:', updates);
       
-      // Validação dos dados
+      // Validação crítica do ID
       if (!paymentId || paymentId.trim().length === 0) {
         console.error('updatePayment: ID do pagamento é obrigatório');
         return { data: null, error: 'ID do pagamento é obrigatório' };
       }
 
-      // Converter snake_case para o formato correto do banco se necessário
-      const dbUpdates = {
-        ...updates,
-        // Garantir que campos de data estejam no formato correto
-        ...(updates.payment_date && { payment_date: updates.payment_date }),
-        ...(updates.due_date && { due_date: updates.due_date }),
-        // Atualizar timestamp
-        updated_at: new Date().toISOString()
-      };
-
-      console.log('updatePayment: Dados formatados para o banco:', dbUpdates);
-
-      const { data, error } = await supabase
-        .from('payments')
-        .update(dbUpdates)
-        .eq('id', paymentId)
-        .select()
-        .single();
-
-      if (error) {
-        console.error('updatePayment: Erro SQL ao atualizar pagamento:', error);
-        console.error('updatePayment: Detalhes do erro:', error.message, error.details, error.hint);
-        return { data: null, error: error.message };
+      // Verificar se o ID tem formato UUID válido
+      const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+      if (!uuidRegex.test(paymentId)) {
+        console.error('updatePayment: ID do pagamento não é um UUID válido:', paymentId);
+        return { data: null, error: 'ID do pagamento inválido' };
       }
 
-      console.log('updatePayment: Pagamento atualizado com sucesso no banco:', data);
+      // Primeiro, verificar se o pagamento existe usando nossa função segura
+      console.log('updatePayment: Verificando se o pagamento existe...');
+      const { data: checkResult, error: checkError } = await supabase.rpc('get_payment_by_id', {
+        payment_id: paymentId
+      });
+
+      if (checkError) {
+        console.error('updatePayment: Erro ao verificar pagamento:', checkError);
+        return { data: null, error: checkError.message };
+      }
+
+      if (!checkResult.success) {
+        console.error('updatePayment: Pagamento não encontrado:', checkResult.message);
+        return { data: null, error: checkResult.message };
+      }
+
+      // Preparar dados para atualização usando a função segura
+      const updateData = {
+        status: updates.status,
+        payment_date: updates.payment_date,
+        account_id: updates.account_id,
+        account_type: updates.account_type,
+        notes: updates.notes,
+        amount: updates.amount,
+        due_date: updates.due_date || updates.dueDate, // Suporte para ambos os formatos
+        description: updates.description
+      };
+
+      console.log('updatePayment: Chamando função segura com dados:', updateData);
+
+      // Usar a nova função segura
+      const { data: updateResult, error: updateError } = await supabase.rpc('update_payment_safe', {
+        payment_id: paymentId,
+        payment_updates: updateData
+      });
+
+      if (updateError) {
+        console.error('updatePayment: Erro na função segura:', updateError);
+        return { data: null, error: updateError.message };
+      }
+
+      if (!updateResult.success) {
+        console.error('updatePayment: Falha na atualização:', updateResult.message);
+        return { data: null, error: updateResult.error || updateResult.message };
+      }
+
+      console.log('updatePayment: Pagamento atualizado com sucesso:', updateResult.payment);
       console.log('=== updatePayment: Finalizado com sucesso ===');
-      return { data, error: null };
+      return { data: updateResult.payment, error: null };
     } catch (err) {
       console.error('updatePayment: Erro inesperado:', err);
       return { data: null, error: err instanceof Error ? err.message : 'Erro desconhecido' };

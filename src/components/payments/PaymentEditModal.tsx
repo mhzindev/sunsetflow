@@ -23,8 +23,8 @@ interface PaymentEditModalProps {
 
 export const PaymentEditModal = ({ isOpen, onClose, payment, onSave }: PaymentEditModalProps) => {
   const { showSuccess, showError } = useToastFeedback();
-  const { updatePayment, updatePaymentStatus } = useFinancial();
-  const { fetchBankAccounts, fetchCreditCards } = useSupabaseData();
+  const { updatePayment: updatePaymentContext, updatePaymentStatus } = useFinancial();
+  const { fetchBankAccounts, fetchCreditCards, updatePayment } = useSupabaseData();
   const [isLoading, setIsLoading] = useState(false);
   const [accounts, setAccounts] = useState<any[]>([]);
   const [cards, setCards] = useState<any[]>([]);
@@ -122,10 +122,17 @@ export const PaymentEditModal = ({ isOpen, onClose, payment, onSave }: PaymentEd
       return;
     }
 
+    // Validação crítica do ID do pagamento
+    if (!payment?.id || payment.id.trim().length === 0) {
+      showError('Erro', 'ID do pagamento é inválido');
+      return;
+    }
+
     setIsLoading(true);
 
     try {
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      console.log('PaymentEditModal: Iniciando atualização do pagamento');
+      console.log('Payment ID:', payment.id);
 
       const updates: Partial<Payment> = {
         amount,
@@ -146,8 +153,27 @@ export const PaymentEditModal = ({ isOpen, onClose, payment, onSave }: PaymentEd
         updates.paymentDate = paymentDate;
       }
 
-      // Atualizar outros campos
-      updatePayment(payment!.id, updates);
+      console.log('PaymentEditModal: Enviando updates:', updates);
+
+      // Usar a função segura de atualização
+      const { data, error } = await updatePayment(payment.id, updates);
+
+      if (error) {
+        console.error('PaymentEditModal: Erro na atualização:', error);
+        showError('Erro', error);
+        return;
+      }
+
+      if (!data) {
+        console.error('PaymentEditModal: Nenhum dado retornado');
+        showError('Erro', 'Erro ao atualizar pagamento');
+        return;
+      }
+
+      console.log('PaymentEditModal: Pagamento atualizado com sucesso:', data);
+
+      // Atualizar outros campos via contexto
+      updatePaymentContext(payment!.id, updates);
 
       const updatedPayment: Payment = {
         ...payment!,
@@ -159,7 +185,8 @@ export const PaymentEditModal = ({ isOpen, onClose, payment, onSave }: PaymentEd
       showSuccess('Sucesso', 'Pagamento atualizado com sucesso!');
       onClose();
     } catch (error) {
-      showError('Erro', 'Erro ao atualizar pagamento. Tente novamente.');
+      console.error('PaymentEditModal: Erro inesperado:', error);
+      showError('Erro', 'Erro inesperado ao atualizar pagamento. Tente novamente.');
     } finally {
       setIsLoading(false);
     }

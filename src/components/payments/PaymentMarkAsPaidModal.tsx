@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -84,6 +83,16 @@ export const PaymentMarkAsPaidModal = ({
 
     setLoading(true);
     try {
+      console.log('PaymentMarkAsPaidModal: Iniciando marcação como pago');
+      console.log('Payment ID:', payment.id);
+      console.log('Account:', selectedAccount);
+
+      // Validação crítica do ID do pagamento
+      if (!payment.id || payment.id.trim().length === 0) {
+        showError('Erro', 'ID do pagamento é inválido');
+        return;
+      }
+
       // Atualizar o pagamento com status completed, data atual e conta selecionada
       const updates = {
         status: 'completed' as const,
@@ -92,12 +101,23 @@ export const PaymentMarkAsPaidModal = ({
         account_type: selectedAccount.type
       };
 
+      console.log('PaymentMarkAsPaidModal: Enviando updates:', updates);
+
       const { data, error } = await updatePayment(payment.id, updates);
       
       if (error) {
+        console.error('PaymentMarkAsPaidModal: Erro na atualização:', error);
         showError('Erro', error);
         return;
       }
+
+      if (!data) {
+        console.error('PaymentMarkAsPaidModal: Nenhum dado retornado');
+        showError('Erro', 'Erro ao processar pagamento');
+        return;
+      }
+
+      console.log('PaymentMarkAsPaidModal: Pagamento atualizado com sucesso:', data);
 
       // Atualizar também via contexto para garantir sincronização
       updatePaymentStatus(payment.id, 'completed');
@@ -110,10 +130,11 @@ export const PaymentMarkAsPaidModal = ({
         account_type: selectedAccount.type
       };
 
+      showSuccess('Sucesso', 'Pagamento registrado com sucesso!');
       onSuccess(updatedPayment);
       onClose();
     } catch (error) {
-      console.error('Erro ao marcar como pago:', error);
+      console.error('PaymentMarkAsPaidModal: Erro inesperado:', error);
       showError('Erro', 'Erro inesperado ao processar pagamento');
     } finally {
       setLoading(false);
