@@ -1105,6 +1105,10 @@ export type Database = {
         Args: { transaction_user_id: string }
         Returns: boolean
       }
+      recalculate_provider_balance: {
+        Args: { provider_uuid: string }
+        Returns: number
+      }
       use_access_code: {
         Args: { access_code: string }
         Returns: Json
