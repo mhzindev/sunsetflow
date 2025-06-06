@@ -58,8 +58,6 @@ export const useSupabaseData = () => {
       console.log('Despesas encontradas:', data?.length || 0);
       console.log('Tipo de usuário:', profile?.user_type);
       
-      // As políticas RLS já filtram automaticamente os dados
-      // Mas podemos adicionar um log para debug
       if (profile?.user_type === 'provider') {
         console.log('Usuário é prestador - dados filtrados pelas políticas RLS');
       }
@@ -90,7 +88,6 @@ export const useSupabaseData = () => {
       
       console.log('Dados brutos dos pagamentos:', data);
       
-      // Mapear os dados para o formato correto (snake_case → camelCase)
       const mappedPayments = data?.map(payment => ({
         id: payment.id,
         providerId: payment.provider_id,
@@ -105,7 +102,6 @@ export const useSupabaseData = () => {
         currentInstallment: payment.current_installment,
         tags: payment.tags,
         notes: payment.notes,
-        // Dados do prestador se disponível
         serviceProvider: payment.service_providers ? {
           name: payment.service_providers.name,
           email: payment.service_providers.email,
@@ -141,7 +137,6 @@ export const useSupabaseData = () => {
       console.log('Missões encontradas:', data?.length || 0);
       console.log('Tipo de usuário:', profile?.user_type);
       
-      // As políticas RLS já filtram automaticamente os dados
       if (profile?.user_type === 'provider') {
         console.log('Usuário é prestador - missões filtradas pelas políticas RLS');
       }
@@ -277,7 +272,6 @@ export const useSupabaseData = () => {
 
       console.log('insertTransaction: Iniciando inserção:', transaction);
 
-      // Validação dos dados antes de enviar
       if (!transaction.description || transaction.description.trim().length === 0) {
         return { data: null, error: 'Descrição é obrigatória' };
       }
@@ -286,7 +280,6 @@ export const useSupabaseData = () => {
         return { data: null, error: 'Valor deve ser maior que zero' };
       }
 
-      // Usar RPC para inserir transação com casting correto
       const { data, error } = await supabase.rpc('insert_transaction_with_casting', {
         p_type: transaction.type,
         p_category: transaction.category,
@@ -339,7 +332,6 @@ export const useSupabaseData = () => {
       console.log('Inserindo despesa:', expense);
       console.log('Perfil do usuário:', profile);
 
-      // Para prestadores, usar dados do perfil linkado
       const employeeName = profile?.user_type === 'provider' 
         ? profile.name 
         : user.user_metadata?.name || user.email?.split('@')[0] || 'Usuário';
@@ -399,7 +391,6 @@ export const useSupabaseData = () => {
     try {
       console.log('insertPayment: Iniciando inserção de pagamento:', paymentData);
       
-      // Validação dos dados antes de enviar
       if (!paymentData.provider_name || paymentData.provider_name.trim().length === 0) {
         return { data: null, error: 'Nome do prestador é obrigatório' };
       }
@@ -412,7 +403,6 @@ export const useSupabaseData = () => {
         return { data: null, error: 'Descrição é obrigatória' };
       }
 
-      // Usar a função wrapper que aceita parâmetros como texto
       const { data, error } = await supabase.rpc('insert_payment_with_casting_wrapper', {
         p_provider_id: paymentData.provider_id,
         p_provider_name: paymentData.provider_name.trim(),
@@ -443,27 +433,49 @@ export const useSupabaseData = () => {
     }
   };
 
-  // Função para atualizar pagamento
+  // CORRIGIDO: Função updatePayment melhorada com logs detalhados e validação
   const updatePayment = async (paymentId: string, updates: any) => {
     try {
-      console.log('Atualizando pagamento:', paymentId, updates);
+      console.log('=== updatePayment: Iniciando atualização ===');
+      console.log('Payment ID:', paymentId);
+      console.log('Updates:', updates);
+      
+      // Validação dos dados
+      if (!paymentId || paymentId.trim().length === 0) {
+        console.error('updatePayment: ID do pagamento é obrigatório');
+        return { data: null, error: 'ID do pagamento é obrigatório' };
+      }
+
+      // Converter snake_case para o formato correto do banco se necessário
+      const dbUpdates = {
+        ...updates,
+        // Garantir que campos de data estejam no formato correto
+        ...(updates.payment_date && { payment_date: updates.payment_date }),
+        ...(updates.due_date && { due_date: updates.due_date }),
+        // Atualizar timestamp
+        updated_at: new Date().toISOString()
+      };
+
+      console.log('updatePayment: Dados formatados para o banco:', dbUpdates);
 
       const { data, error } = await supabase
         .from('payments')
-        .update(updates)
+        .update(dbUpdates)
         .eq('id', paymentId)
         .select()
         .single();
 
       if (error) {
-        console.error('Erro SQL ao atualizar pagamento:', error);
-        throw error;
+        console.error('updatePayment: Erro SQL ao atualizar pagamento:', error);
+        console.error('updatePayment: Detalhes do erro:', error.message, error.details, error.hint);
+        return { data: null, error: error.message };
       }
 
-      console.log('Pagamento atualizado com sucesso:', data);
+      console.log('updatePayment: Pagamento atualizado com sucesso no banco:', data);
+      console.log('=== updatePayment: Finalizado com sucesso ===');
       return { data, error: null };
     } catch (err) {
-      console.error('Erro ao atualizar pagamento:', err);
+      console.error('updatePayment: Erro inesperado:', err);
       return { data: null, error: err instanceof Error ? err.message : 'Erro desconhecido' };
     }
   };
@@ -494,7 +506,6 @@ export const useSupabaseData = () => {
       console.log('Inserindo missão:', mission);
       console.log('Perfil do usuário:', profile);
 
-      // Para prestadores, usar o provider_id do perfil
       const finalMission = {
         ...mission,
         created_by: user.id,
@@ -502,7 +513,6 @@ export const useSupabaseData = () => {
         is_approved: false
       };
 
-      // Se é prestador, vincular a missão ao prestador automaticamente
       if (profile?.user_type === 'provider' && profile.provider_id) {
         finalMission.provider_id = profile.provider_id;
       }
@@ -531,10 +541,8 @@ export const useSupabaseData = () => {
     try {
       console.log('Atualizando missão:', missionId, updates);
 
-      // Garantir que apenas campos válidos sejam enviados
       const validUpdates = {
         ...updates,
-        // Remover campos que podem causar conflito
         updated_at: new Date().toISOString()
       };
 
@@ -651,7 +659,6 @@ export const useSupabaseData = () => {
 
       console.log('Inserindo prestador com acesso:', { provider, accessData });
 
-      // Verificar se já existe prestador com o mesmo email
       const { data: existingProvider, error: checkError } = await supabase
         .from('service_providers')
         .select('*')
@@ -666,7 +673,6 @@ export const useSupabaseData = () => {
         return { data: null, error: 'Já existe um prestador com este email' };
       }
 
-      // Inserir o prestador
       const { data: providerData, error: providerError } = await supabase
         .from('service_providers')
         .insert({
@@ -689,9 +695,7 @@ export const useSupabaseData = () => {
         return { data: null, error: providerError.message };
       }
 
-      // Se há dados de acesso, verificar se já existe acesso e criar/substituir
       if (accessData && providerData) {
-        // Excluir acessos existentes para este prestador (garantir único acesso)
         await supabase
           .from('service_provider_access')
           .delete()
@@ -714,7 +718,6 @@ export const useSupabaseData = () => {
 
         if (accessError) {
           console.error('Erro ao criar acesso:', accessError);
-          // Em caso de erro, remover o prestador criado
           await supabase.from('service_providers').delete().eq('id', providerData.id);
           return { data: null, error: accessError.message };
         }
@@ -770,7 +773,6 @@ export const useSupabaseData = () => {
           return [];
         }
         
-        // Aguardar um pouco antes da próxima tentativa
         await new Promise(resolve => setTimeout(resolve, 1000 * (attempt + 1)));
       }
     }
@@ -781,7 +783,6 @@ export const useSupabaseData = () => {
     try {
       console.log('Excluindo prestador e acessos:', providerId);
 
-      // Primeiro excluir todos os acessos do prestador
       const { error: accessError } = await supabase
         .from('service_provider_access')
         .delete()
@@ -792,7 +793,6 @@ export const useSupabaseData = () => {
         throw accessError;
       }
 
-      // Depois excluir o prestador
       const { error: providerError } = await supabase
         .from('service_providers')
         .delete()
@@ -842,7 +842,6 @@ export const useSupabaseData = () => {
     try {
       console.log('Convertendo receita pendente:', { pendingRevenueId, accountId, accountType });
 
-      // A função SQL agora registra o valor total da missão como receita
       const { data, error } = await supabase.rpc('convert_pending_to_received_revenue', {
         pending_revenue_id: pendingRevenueId,
         account_id: accountId,

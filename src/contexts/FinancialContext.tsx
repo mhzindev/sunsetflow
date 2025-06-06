@@ -1,4 +1,3 @@
-
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { useSupabaseData } from '@/hooks/useSupabaseData';
 import { useAuth } from './AuthContext';
@@ -30,8 +29,8 @@ interface FinancialContextType {
   getRecentTransactions: (limit?: number) => any[];
   updateExpenseStatus: (id: string, status: string) => void;
   processPayment: (payment: any) => void;
-  updatePayment: (id: string, updates: any) => void;
-  updatePaymentStatus: (id: string, status: string) => void;
+  updatePayment: (id: string, updates: any) => Promise<boolean>;
+  updatePaymentStatus: (id: string, status: string) => Promise<boolean>;
 }
 
 const FinancialContext = createContext<FinancialContextType | undefined>(undefined);
@@ -58,7 +57,7 @@ export const FinancialProvider = ({ children }: { children: React.ReactNode }) =
     error: null
   });
 
-  const { fetchTransactions, fetchExpenses, fetchPayments, fetchBankAccounts, fetchCreditCards } = useSupabaseData();
+  const { fetchTransactions, fetchExpenses, fetchPayments, fetchBankAccounts, fetchCreditCards, updatePayment: updatePaymentInDB } = useSupabaseData();
 
   const fetchData = async () => {
     try {
@@ -182,24 +181,74 @@ export const FinancialProvider = ({ children }: { children: React.ReactNode }) =
     }));
   };
 
-  // Função para atualizar pagamento
-  const updatePayment = (id: string, updates: any) => {
-    setData(prev => ({
-      ...prev,
-      payments: prev.payments.map(payment => 
-        payment.id === id ? { ...payment, ...updates } : payment
-      )
-    }));
+  // CORRIGIDO: Função para atualizar pagamento - agora persiste no banco PRIMEIRO
+  const updatePayment = async (id: string, updates: any): Promise<boolean> => {
+    try {
+      console.log('FinancialContext: Atualizando pagamento no banco:', id, updates);
+      
+      // 1. Primeiro, atualizar no banco de dados
+      const { data: result, error } = await updatePaymentInDB(id, updates);
+      
+      if (error) {
+        console.error('FinancialContext: Erro ao atualizar pagamento no banco:', error);
+        return false;
+      }
+      
+      // 2. Só atualizar estado local APÓS sucesso no banco
+      setData(prev => ({
+        ...prev,
+        payments: prev.payments.map(payment => 
+          payment.id === id ? { ...payment, ...updates } : payment
+        )
+      }));
+      
+      console.log('FinancialContext: Pagamento atualizado com sucesso:', result);
+      return true;
+      
+    } catch (error) {
+      console.error('FinancialContext: Erro inesperado ao atualizar pagamento:', error);
+      return false;
+    }
   };
 
-  // Função para atualizar status de pagamento
-  const updatePaymentStatus = (id: string, status: string) => {
-    setData(prev => ({
-      ...prev,
-      payments: prev.payments.map(payment => 
-        payment.id === id ? { ...payment, status } : payment
-      )
-    }));
+  // CORRIGIDO: Função para atualizar status de pagamento - agora persiste no banco PRIMEIRO
+  const updatePaymentStatus = async (id: string, status: string): Promise<boolean> => {
+    try {
+      console.log('FinancialContext: Atualizando status do pagamento no banco:', id, status);
+      
+      // 1. Preparar dados para atualização
+      const updates: any = { 
+        status: status
+      };
+      
+      // Se for marcado como completed, adicionar data de pagamento
+      if (status === 'completed') {
+        updates.payment_date = new Date().toISOString().split('T')[0];
+      }
+      
+      // 2. Primeiro, atualizar no banco de dados
+      const { data: result, error } = await updatePaymentInDB(id, updates);
+      
+      if (error) {
+        console.error('FinancialContext: Erro ao atualizar status no banco:', error);
+        return false;
+      }
+      
+      // 3. Só atualizar estado local APÓS sucesso no banco
+      setData(prev => ({
+        ...prev,
+        payments: prev.payments.map(payment => 
+          payment.id === id ? { ...payment, ...updates } : payment
+        )
+      }));
+      
+      console.log('FinancialContext: Status do pagamento atualizado com sucesso:', result);
+      return true;
+      
+    } catch (error) {
+      console.error('FinancialContext: Erro inesperado ao atualizar status:', error);
+      return false;
+    }
   };
 
   useEffect(() => {

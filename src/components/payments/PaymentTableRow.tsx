@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { TableCell, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { AlertTriangle, Clock, Eye, Edit, DollarSign } from 'lucide-react';
+import { AlertTriangle, Clock, Eye, Edit, DollarSign, Loader2 } from 'lucide-react';
 import { Payment } from '@/types/payment';
 import { PaymentViewModal } from './PaymentViewModal';
 import { PaymentEditModal } from './PaymentEditModal';
@@ -16,7 +16,8 @@ interface PaymentTableRowProps {
 export const PaymentTableRow = ({ payment }: PaymentTableRowProps) => {
   const [isViewModalOpen, setIsViewModalOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
-  const { showSuccess } = useToastFeedback();
+  const [isProcessing, setIsProcessing] = useState(false);
+  const { showSuccess, showError } = useToastFeedback();
   const { updatePaymentStatus } = useFinancial();
 
   const getStatusColor = (status: string) => {
@@ -82,18 +83,30 @@ export const PaymentTableRow = ({ payment }: PaymentTableRowProps) => {
   };
 
   const handleMarkAsPaid = async (payment: Payment) => {
-    console.log('Processing payment via button:', payment.id);
+    if (isProcessing) return; // Prevenir cliques múltiplos
+    
+    console.log('PaymentTableRow: Processando pagamento:', payment.id);
     
     try {
-      await updatePaymentStatus(payment.id, 'completed');
+      setIsProcessing(true);
       
-      showSuccess(
-        'Pagamento Confirmado', 
-        `Pagamento de R$ ${payment.amount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} para ${payment.providerName} foi processado! Status atualizado para concluído.`
-      );
+      // Chamar função do contexto que agora persiste no banco PRIMEIRO
+      const success = await updatePaymentStatus(payment.id, 'completed');
+      
+      if (success) {
+        showSuccess(
+          'Pagamento Confirmado', 
+          `Pagamento de R$ ${payment.amount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} para ${payment.providerName} foi processado e salvo no banco de dados!`
+        );
+      } else {
+        showError('Erro', 'Falha ao salvar o pagamento no banco de dados. Tente novamente.');
+      }
+      
     } catch (error) {
-      console.error('Erro ao processar pagamento:', error);
-      showSuccess('Erro', 'Erro ao processar pagamento');
+      console.error('PaymentTableRow: Erro ao processar pagamento:', error);
+      showError('Erro', 'Erro inesperado ao processar pagamento. Verifique sua conexão e tente novamente.');
+    } finally {
+      setIsProcessing(false);
     }
   };
 
@@ -141,8 +154,13 @@ export const PaymentTableRow = ({ payment }: PaymentTableRowProps) => {
                 size="sm" 
                 className="bg-green-600 hover:bg-green-700"
                 onClick={() => handleMarkAsPaid(payment)}
+                disabled={isProcessing}
               >
-                <DollarSign className="w-4 h-4" />
+                {isProcessing ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  <DollarSign className="w-4 h-4" />
+                )}
               </Button>
             )}
           </div>
