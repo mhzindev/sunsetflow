@@ -443,27 +443,57 @@ export const useSupabaseData = () => {
     }
   };
 
-  // Função para atualizar pagamento
+  // Função para atualizar pagamento - CORRIGIDA PARA FUNCIONAR COM PROVIDER_ID NULL
   const updatePayment = async (paymentId: string, updates: any) => {
     try {
-      console.log('Atualizando pagamento:', paymentId, updates);
+      console.log('=== ATUALIZANDO PAGAMENTO ===');
+      console.log('Payment ID:', paymentId);
+      console.log('Updates:', updates);
 
+      // Verificar se o pagamento existe antes de atualizar
+      const { data: existingPayment, error: checkError } = await supabase
+        .from('payments')
+        .select('*')
+        .eq('id', paymentId)
+        .maybeSingle();
+
+      if (checkError) {
+        console.error('Erro ao verificar existência do pagamento:', checkError);
+        return { data: null, error: checkError.message };
+      }
+
+      if (!existingPayment) {
+        console.error('Pagamento não encontrado:', paymentId);
+        return { data: null, error: 'Pagamento não encontrado' };
+      }
+
+      console.log('Pagamento encontrado, procedendo com atualização...');
+
+      // CORRIGIDO: Usar apenas o ID como filtro, sem restrições adicionais
       const { data, error } = await supabase
         .from('payments')
         .update(updates)
-        .eq('id', paymentId)
-        .select()
-        .single();
+        .eq('id', paymentId)  // APENAS o ID como filtro
+        .select('*');
 
       if (error) {
         console.error('Erro SQL ao atualizar pagamento:', error);
-        throw error;
+        return { data: null, error: error.message };
       }
 
-      console.log('Pagamento atualizado com sucesso:', data);
-      return { data, error: null };
+      // Verificar se algum registro foi atualizado
+      if (!data || data.length === 0) {
+        console.error('Nenhum registro foi atualizado - possíveis causas:');
+        console.error('- Pagamento não existe');
+        console.error('- Filtros muito restritivos');
+        console.error('- Problemas de permissão (RLS)');
+        return { data: null, error: 'Nenhum registro foi atualizado' };
+      }
+
+      console.log('✅ Pagamento atualizado com sucesso:', data[0]);
+      return { data: data[0], error: null };
     } catch (err) {
-      console.error('Erro ao atualizar pagamento:', err);
+      console.error('Erro inesperado ao atualizar pagamento:', err);
       return { data: null, error: err instanceof Error ? err.message : 'Erro desconhecido' };
     }
   };

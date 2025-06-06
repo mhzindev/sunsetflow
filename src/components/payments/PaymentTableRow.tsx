@@ -94,8 +94,10 @@ export const PaymentTableRow = ({ payment, onPaymentUpdate }: PaymentTableRowPro
       console.log('Provider ID:', payment.providerId);
       console.log('Provider Name:', payment.providerName);
       console.log('Amount:', payment.amount);
+      console.log('Status atual:', payment.status);
       
       // Verificar se o pagamento existe no banco de dados
+      console.log('Verificando existência do pagamento...');
       const { data: existingPayment, error: checkError } = await supabase
         .from('payments')
         .select('*')
@@ -114,6 +116,8 @@ export const PaymentTableRow = ({ payment, onPaymentUpdate }: PaymentTableRowPro
         return;
       }
 
+      console.log('✅ Pagamento encontrado no banco:', existingPayment);
+
       if (existingPayment.status === 'completed') {
         console.log('✅ Pagamento já estava marcado como concluído');
         showSuccess('Informação', 'Pagamento já estava marcado como concluído!');
@@ -121,21 +125,20 @@ export const PaymentTableRow = ({ payment, onPaymentUpdate }: PaymentTableRowPro
         return;
       }
 
-      console.log('Status atual do pagamento:', existingPayment.status);
-      
-      // Preparar dados de atualização
+      // Preparar dados de atualização - SIMPLIFICADO
       const updateData = { 
         status: 'completed',
         payment_date: new Date().toISOString().split('T')[0]
       };
 
       console.log('Dados para atualização:', updateData);
+      console.log('Atualizando pagamento no banco...');
       
-      // Atualizar o pagamento no banco de dados
+      // CORRIGIDO: Usar apenas o ID como filtro, sem filtros adicionais
       const { data: updatedData, error: updateError } = await supabase
         .from('payments')
         .update(updateData)
-        .eq('id', payment.id)
+        .eq('id', payment.id)  // APENAS o ID como filtro
         .select('*');
 
       if (updateError) {
@@ -144,9 +147,13 @@ export const PaymentTableRow = ({ payment, onPaymentUpdate }: PaymentTableRowPro
         return;
       }
 
+      // Verificar se a atualização foi bem-sucedida
       if (!updatedData || updatedData.length === 0) {
-        console.error('Nenhum pagamento foi atualizado');
-        showError('Erro', 'Falha ao atualizar o pagamento');
+        console.error('❌ Nenhum pagamento foi atualizado - possíveis causas:');
+        console.error('- Filtros muito restritivos no WHERE');
+        console.error('- Pagamento não existe');
+        console.error('- Problemas de permissão (RLS)');
+        showError('Erro', 'Falha ao atualizar o pagamento - registro não foi modificado');
         return;
       }
 
@@ -155,14 +162,15 @@ export const PaymentTableRow = ({ payment, onPaymentUpdate }: PaymentTableRowPro
       // Aguardar um momento para triggers serem executados
       await new Promise(resolve => setTimeout(resolve, 500));
 
-      // Se tem provider_id, tentar recalcular saldo
-      if (payment.providerId && payment.providerId !== 'undefined' && payment.providerId.trim() !== '') {
-        console.log('Recalculando saldo do prestador:', payment.providerId);
+      // CORRIGIDO: Verificar se tem provider_id válido antes de recalcular saldo
+      const providerId = payment.providerId;
+      if (providerId && providerId !== 'undefined' && providerId.trim() !== '' && providerId !== 'null') {
+        console.log('Recalculando saldo do prestador:', providerId);
         
         try {
           const { data: recalculateData, error: recalculateError } = await supabase.rpc(
             'recalculate_provider_balance', 
-            { provider_uuid: payment.providerId }
+            { provider_uuid: providerId }
           );
 
           if (recalculateError) {
@@ -177,6 +185,7 @@ export const PaymentTableRow = ({ payment, onPaymentUpdate }: PaymentTableRowPro
         }
       } else {
         console.log('⚠️ Pagamento sem provider_id válido - saldo não será recalculado');
+        console.log('Provider ID recebido:', providerId);
       }
       
       showSuccess(
@@ -192,7 +201,7 @@ export const PaymentTableRow = ({ payment, onPaymentUpdate }: PaymentTableRowPro
       
     } catch (error) {
       console.error('Erro inesperado ao processar pagamento:', error);
-      showError('Erro', 'Erro inesperado ao processar pagamento');
+      showError('Erro', 'Erro inesperado ao processar pagamento: ' + (error instanceof Error ? error.message : 'Erro desconhecido'));
     } finally {
       setIsProcessing(false);
     }
