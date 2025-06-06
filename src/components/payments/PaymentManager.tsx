@@ -92,6 +92,11 @@ export const PaymentManager = () => {
     }
   };
 
+  const handleNewPayment = () => {
+    console.log('Abrindo modal para novo pagamento...');
+    setShowModal(true);
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
@@ -109,7 +114,7 @@ export const PaymentManager = () => {
             <RefreshCw className={`w-4 h-4 mr-2 ${isRefreshing ? 'animate-spin' : ''}`} />
             {isRefreshing ? 'Atualizando...' : 'Atualizar'}
           </Button>
-          <Button onClick={() => setShowModal(true)}>
+          <Button onClick={handleNewPayment}>
             <Plus className="w-4 h-4 mr-2" />
             Novo Pagamento
           </Button>
@@ -157,7 +162,7 @@ export const PaymentManager = () => {
         isOpen={showModal}
         onOpenChange={setShowModal}
         provider={null}
-        paymentType="balance_payment"
+        paymentType="advance_payment"
         onSuccess={handlePaymentCreated}
       />
     </div>
