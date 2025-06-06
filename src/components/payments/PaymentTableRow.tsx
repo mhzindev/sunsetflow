@@ -77,8 +77,8 @@ export const PaymentTableRow = ({ payment }: PaymentTableRowProps) => {
     return null;
   };
 
-  // Verificar se pagamento tem problemas de vinculação
-  const hasProviderIssue = !payment.providerId && payment.providerName;
+  // Verificar se pagamento tem problemas de vinculação - garantir que retorna boolean
+  const hasProviderIssue = Boolean(!payment.providerId && payment.providerName);
 
   const handleSavePayment = (updatedPayment: Payment) => {
     console.log('Payment updated via modal:', updatedPayment);
