@@ -26,7 +26,7 @@ export const PendingRevenuesManager = () => {
     setIsModalOpen(true);
   };
 
-  const handleConfirmRevenue = async (revenueId: string, accountId: string, accountType: string) => {
+  const handleConfirmRevenue = async (revenueId: string, accountId: string, accountType: 'bank_account' | 'credit_card') => {
     const result = await convertToConfirmed(revenueId, accountId, accountType, 'transfer');
     if (result.success) {
       setIsModalOpen(false);
@@ -65,6 +65,10 @@ export const PendingRevenuesManager = () => {
     }
     return null;
   };
+
+  // Separar contas bancárias e cartões de crédito dos accounts
+  const bankAccounts = data.accounts?.filter(account => !('limit' in account)) || [];
+  const creditCards = data.accounts?.filter(account => 'limit' in account) || [];
 
   if (loading) {
     return (
@@ -171,8 +175,8 @@ export const PendingRevenuesManager = () => {
         revenue={selectedRevenue}
         onConfirm={handleConfirmRevenue}
         onCancel={handleCancelRevenue}
-        accounts={data.bankAccounts}
-        creditCards={data.creditCards}
+        accounts={bankAccounts}
+        creditCards={creditCards}
       />
     </div>
   );
