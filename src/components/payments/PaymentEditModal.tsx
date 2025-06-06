@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -5,9 +6,12 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { AlertCircle } from 'lucide-react';
 import { Payment, PaymentStatus, PaymentType } from '@/types/payment';
 import { useToastFeedback } from '@/hooks/useToastFeedback';
 import { useFinancial } from '@/contexts/FinancialContext';
+import { useSupabaseData } from '@/hooks/useSupabaseData';
 import { formatDateForDatabase } from '@/utils/dateUtils';
 
 interface PaymentEditModalProps {
@@ -20,7 +24,10 @@ interface PaymentEditModalProps {
 export const PaymentEditModal = ({ isOpen, onClose, payment, onSave }: PaymentEditModalProps) => {
   const { showSuccess, showError } = useToastFeedback();
   const { updatePayment, updatePaymentStatus } = useFinancial();
+  const { fetchBankAccounts, fetchCreditCards } = useSupabaseData();
   const [isLoading, setIsLoading] = useState(false);
+  const [accounts, setAccounts] = useState<any[]>([]);
+  const [cards, setCards] = useState<any[]>([]);
   const [formData, setFormData] = useState({
     amount: '',
     dueDate: '',
@@ -29,8 +36,16 @@ export const PaymentEditModal = ({ isOpen, onClose, payment, onSave }: PaymentEd
     description: '',
     notes: '',
     installments: '',
-    currentInstallment: ''
+    currentInstallment: '',
+    account_id: '',
+    account_type: null as 'bank_account' | 'credit_card' | null
   });
+
+  useEffect(() => {
+    if (isOpen) {
+      loadAccountsAndCards();
+    }
+  }, [isOpen]);
 
   useEffect(() => {
     if (payment) {
@@ -42,10 +57,50 @@ export const PaymentEditModal = ({ isOpen, onClose, payment, onSave }: PaymentEd
         description: payment.description || '',
         notes: payment.notes || '',
         installments: payment.installments?.toString() || '',
-        currentInstallment: payment.currentInstallment?.toString() || ''
+        currentInstallment: payment.currentInstallment?.toString() || '',
+        account_id: payment.account_id || '',
+        account_type: payment.account_type || null
       });
     }
   }, [payment]);
+
+  const loadAccountsAndCards = async () => {
+    try {
+      const [accountsData, cardsData] = await Promise.all([
+        fetchBankAccounts(),
+        fetchCreditCards()
+      ]);
+      setAccounts(accountsData);
+      setCards(cardsData);
+    } catch (error) {
+      console.error('Erro ao carregar contas:', error);
+    }
+  };
+
+  const handleAccountChange = (value: string) => {
+    if (value === 'none') {
+      setFormData(prev => ({
+        ...prev,
+        account_id: '',
+        account_type: null
+      }));
+      return;
+    }
+
+    const [type, id] = value.split(':');
+    setFormData(prev => ({
+      ...prev,
+      account_id: id,
+      account_type: type as 'bank_account' | 'credit_card'
+    }));
+  };
+
+  const getAccountValue = () => {
+    if (!formData.account_id || !formData.account_type) {
+      return 'none';
+    }
+    return `${formData.account_type}:${formData.account_id}`;
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -58,6 +113,12 @@ export const PaymentEditModal = ({ isOpen, onClose, payment, onSave }: PaymentEd
     const amount = parseFloat(formData.amount);
     if (isNaN(amount) || amount <= 0) {
       showError('Valor Inválido', 'Por favor, insira um valor válido maior que zero');
+      return;
+    }
+
+    // Validar conta obrigatória para status completed
+    if (formData.status === 'completed' && (!formData.account_id || !formData.account_type)) {
+      showError('Conta Obrigatória', 'Para marcar como pago, selecione uma conta ou cartão de onde o valor será debitado');
       return;
     }
 
@@ -74,6 +135,8 @@ export const PaymentEditModal = ({ isOpen, onClose, payment, onSave }: PaymentEd
         notes: formData.notes,
         installments: formData.installments ? parseInt(formData.installments) : undefined,
         currentInstallment: formData.currentInstallment ? parseInt(formData.currentInstallment) : undefined,
+        account_id: formData.account_id || undefined,
+        account_type: formData.account_type || undefined,
       };
 
       // Se o status mudou, usar updatePaymentStatus para garantir integração
@@ -112,6 +175,15 @@ export const PaymentEditModal = ({ isOpen, onClose, payment, onSave }: PaymentEd
         </DialogHeader>
 
         <form onSubmit={handleSubmit} className="space-y-4">
+          {formData.status === 'completed' && (!formData.account_id || !formData.account_type) && (
+            <Alert variant="destructive">
+              <AlertCircle className="h-4 w-4" />
+              <AlertDescription>
+                Para manter um pagamento como "concluído", é obrigatório selecionar uma conta ou cartão.
+              </AlertDescription>
+            </Alert>
+          )}
+
           <div>
             <Label htmlFor="amount">Valor (R$) *</Label>
             <Input
@@ -151,6 +223,33 @@ export const PaymentEditModal = ({ isOpen, onClose, payment, onSave }: PaymentEd
                 <SelectItem value="cancelled">Cancelado</SelectItem>
               </SelectContent>
             </Select>
+          </div>
+
+          <div>
+            <Label htmlFor="account">Conta/Cartão</Label>
+            <Select value={getAccountValue()} onValueChange={handleAccountChange}>
+              <SelectTrigger>
+                <SelectValue placeholder="Selecionar conta ou cartão (obrigatório para pagamentos concluídos)" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="none">Nenhuma conta selecionada</SelectItem>
+                {accounts.map((account) => (
+                  <SelectItem key={account.id} value={`bank_account:${account.id}`}>
+                    💳 {account.name} - {account.bank}
+                  </SelectItem>
+                ))}
+                {cards.map((card) => (
+                  <SelectItem key={card.id} value={`credit_card:${card.id}`}>
+                    🏦 {card.name} - {card.brand}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            {formData.status === 'completed' && (
+              <p className="text-xs text-red-600 mt-1">
+                * Obrigatório para pagamentos concluídos
+              </p>
+            )}
           </div>
 
           <div>

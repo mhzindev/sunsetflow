@@ -8,6 +8,7 @@ import { Payment } from '@/types/payment';
 import { PaymentViewModal } from './PaymentViewModal';
 import { PaymentEditModal } from './PaymentEditModal';
 import { PaymentStatusIndicator } from './PaymentStatusIndicator';
+import { PaymentMarkAsPaidModal } from './PaymentMarkAsPaidModal';
 import { useToastFeedback } from '@/hooks/useToastFeedback';
 import { useFinancial } from '@/contexts/FinancialContext';
 
@@ -18,6 +19,7 @@ interface PaymentTableRowProps {
 export const PaymentTableRow = ({ payment }: PaymentTableRowProps) => {
   const [isViewModalOpen, setIsViewModalOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [isMarkAsPaidModalOpen, setIsMarkAsPaidModalOpen] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const { showSuccess, showError } = useToastFeedback();
   const { updatePaymentStatus } = useFinancial();
@@ -82,12 +84,8 @@ export const PaymentTableRow = ({ payment }: PaymentTableRowProps) => {
       return;
     }
     
-    // Para marcar como pago, precisamos de conta obrigatoriamente
-    showError(
-      'Conta Obrigatória', 
-      'Para marcar um pagamento como pago, é necessário editar o pagamento e selecionar uma conta ou cartão de onde o valor será debitado.'
-    );
-    return;
+    // Abrir modal para seleção de conta
+    setIsMarkAsPaidModalOpen(true);
   };
 
   const handleEditFromView = (payment: Payment) => {
@@ -95,6 +93,12 @@ export const PaymentTableRow = ({ payment }: PaymentTableRowProps) => {
     setTimeout(() => {
       setIsEditModalOpen(true);
     }, 100);
+  };
+
+  const handlePaymentCompleted = (updatedPayment: Payment) => {
+    console.log('Pagamento marcado como pago:', updatedPayment);
+    showSuccess('Sucesso', 'Pagamento registrado com sucesso!');
+    // Aqui você pode adicionar lógica para atualizar a lista de pagamentos se necessário
   };
 
   return (
@@ -152,11 +156,10 @@ export const PaymentTableRow = ({ payment }: PaymentTableRowProps) => {
                 size="sm" 
                 className="bg-green-600 hover:bg-green-700"
                 onClick={() => handleMarkAsPaid(payment)}
-                disabled={isProcessing || hasAnyIssue}
+                disabled={isProcessing || hasProviderIssue}
                 title={
                   hasProviderIssue ? "Prestador não vinculado corretamente" :
-                  hasAccountIssue ? "Pagamento sem conta vinculada" :
-                  "Para marcar como pago, edite e selecione uma conta"
+                  "Marcar como pago e selecionar conta"
                 }
               >
                 {isProcessing ? (
@@ -183,6 +186,13 @@ export const PaymentTableRow = ({ payment }: PaymentTableRowProps) => {
         onClose={() => setIsEditModalOpen(false)}
         payment={payment}
         onSave={handleSavePayment}
+      />
+
+      <PaymentMarkAsPaidModal
+        isOpen={isMarkAsPaidModalOpen}
+        onClose={() => setIsMarkAsPaidModalOpen(false)}
+        payment={payment}
+        onSuccess={handlePaymentCompleted}
       />
     </>
   );
