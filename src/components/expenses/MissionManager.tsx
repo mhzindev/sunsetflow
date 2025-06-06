@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -82,6 +81,7 @@ export const MissionManager = ({ onMissionCreated }: MissionManagerProps) => {
     }
 
     try {
+      // CORRIGIDO: Definir o primeiro prestador selecionado como provider_id principal
       const missionData = {
         title: formData.title,
         description: formData.description,
@@ -93,10 +93,11 @@ export const MissionManager = ({ onMissionCreated }: MissionManagerProps) => {
         provider_percentage: formData.provider_percentage,
         client_name: formData.client_name,
         assigned_providers: formData.assigned_providers,
+        provider_id: formData.assigned_providers[0], // NOVO: Primeiro prestador como principal
         status: formData.status
       };
 
-      console.log('Criando missão:', missionData);
+      console.log('Criando missão com provider_id:', missionData);
 
       const result = await insertMission(missionData);
       
