@@ -8,36 +8,59 @@ import { PaymentSummaryCards } from './PaymentSummaryCards';
 import { PaymentFilters } from './PaymentFilters';
 import { PaymentTable } from './PaymentTable';
 import { useFinancial } from '@/contexts/FinancialContext';
-import { Payment } from '@/types/payment';
+import { Payment, PaymentStatus } from '@/types/payment';
 
 export const PaymentManager = () => {
   const [showModal, setShowModal] = useState(false);
   const [filteredPayments, setFilteredPayments] = useState<Payment[]>([]);
-  const { payments, loadPayments, loading } = useFinancial();
+  const [searchTerm, setSearchTerm] = useState('');
+  const [filterStatus, setFilterStatus] = useState<PaymentStatus | 'all'>('all');
+  const [sortOrder, setSortOrder] = useState<'alphabetical' | 'newest' | 'oldest'>('newest');
+  const [showFilterModal, setShowFilterModal] = useState(false);
+  const [showExportModal, setShowExportModal] = useState(false);
+  
+  const { data, refreshData, loading } = useFinancial();
+  const payments = data.payments;
 
   useEffect(() => {
-    setFilteredPayments(payments);
-  }, [payments]);
+    let filtered = [...payments];
 
-  useEffect(() => {
-    loadPayments();
-  }, []);
+    // Filtrar por termo de busca
+    if (searchTerm) {
+      filtered = filtered.filter(payment => 
+        payment.providerName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        payment.description.toLowerCase().includes(searchTerm.toLowerCase())
+      );
+    }
 
-  const handleFilter = (filtered: Payment[]) => {
+    // Filtrar por status
+    if (filterStatus !== 'all') {
+      filtered = filtered.filter(payment => payment.status === filterStatus);
+    }
+
+    // Ordenar
+    if (sortOrder === 'alphabetical') {
+      filtered.sort((a, b) => a.providerName.localeCompare(b.providerName));
+    } else if (sortOrder === 'newest') {
+      filtered.sort((a, b) => new Date(b.dueDate).getTime() - new Date(a.dueDate).getTime());
+    } else if (sortOrder === 'oldest') {
+      filtered.sort((a, b) => new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime());
+    }
+
     setFilteredPayments(filtered);
-  };
+  }, [payments, searchTerm, filterStatus, sortOrder]);
 
   const handlePaymentCreated = () => {
     setShowModal(false);
-    loadPayments(); // Recarregar dados após criar pagamento
+    refreshData(); // Recarregar dados após criar pagamento
   };
 
   const handlePaymentUpdate = () => {
-    loadPayments(); // Recarregar dados após atualizar pagamento
+    refreshData(); // Recarregar dados após atualizar pagamento
   };
 
   const handleRefresh = () => {
-    loadPayments();
+    refreshData();
   };
 
   return (
@@ -66,7 +89,16 @@ export const PaymentManager = () => {
           <CardTitle>Lista de Pagamentos</CardTitle>
         </CardHeader>
         <CardContent>
-          <PaymentFilters payments={payments} onFilter={handleFilter} />
+          <PaymentFilters 
+            searchTerm={searchTerm}
+            onSearchChange={setSearchTerm}
+            filterStatus={filterStatus}
+            onStatusChange={setFilterStatus}
+            sortOrder={sortOrder}
+            onSortOrderChange={setSortOrder}
+            onFilterModalOpen={() => setShowFilterModal(true)}
+            onExportModalOpen={() => setShowExportModal(true)}
+          />
           
           {loading ? (
             <div className="flex items-center justify-center py-8">
@@ -84,8 +116,10 @@ export const PaymentManager = () => {
 
       <PaymentModal
         isOpen={showModal}
-        onClose={() => setShowModal(false)}
-        onPaymentCreated={handlePaymentCreated}
+        onOpenChange={setShowModal}
+        provider={null}
+        paymentType="balance_payment"
+        onSuccess={handlePaymentCreated}
       />
     </div>
   );
