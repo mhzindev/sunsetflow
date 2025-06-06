@@ -94,12 +94,12 @@ export const PaymentTableRow = ({ payment, onPaymentUpdate }: PaymentTableRowPro
       console.log('Provider Name:', payment.providerName);
       console.log('Amount:', payment.amount);
       
-      // Verificar se o pagamento ainda existe e está pendente
-      const { data: currentPayment, error: checkError } = await supabase
+      // Primeiro, verificar se o pagamento ainda existe e está pendente
+      const { data: existingPayment, error: checkError } = await supabase
         .from('payments')
         .select('*')
         .eq('id', payment.id)
-        .single();
+        .maybeSingle(); // Mudança: usar maybeSingle() em vez de single()
 
       if (checkError) {
         console.error('Erro ao verificar pagamento:', checkError);
@@ -107,16 +107,22 @@ export const PaymentTableRow = ({ payment, onPaymentUpdate }: PaymentTableRowPro
         return;
       }
 
-      if (currentPayment.status === 'completed') {
+      if (!existingPayment) {
+        console.log('❌ Pagamento não encontrado no banco de dados');
+        showError('Erro', 'Pagamento não encontrado no banco de dados');
+        return;
+      }
+
+      if (existingPayment.status === 'completed') {
         console.log('✅ Pagamento já estava marcado como concluído');
         showSuccess('Informação', 'Pagamento já estava marcado como concluído!');
         onPaymentUpdate?.();
         return;
       }
 
-      console.log('Status atual do pagamento:', currentPayment.status);
+      console.log('Status atual do pagamento:', existingPayment.status);
       
-      // Atualizar o pagamento no banco de dados com logs detalhados
+      // Atualizar o pagamento no banco de dados
       const { data: updatedData, error: updateError } = await supabase
         .from('payments')
         .update({ 
@@ -124,8 +130,7 @@ export const PaymentTableRow = ({ payment, onPaymentUpdate }: PaymentTableRowPro
           payment_date: new Date().toISOString().split('T')[0]
         })
         .eq('id', payment.id)
-        .select('*')
-        .single();
+        .select('*'); // Mudança: não usar .single(), apenas .select()
 
       if (updateError) {
         console.error('Erro ao atualizar pagamento:', updateError);
@@ -133,7 +138,13 @@ export const PaymentTableRow = ({ payment, onPaymentUpdate }: PaymentTableRowPro
         return;
       }
 
-      console.log('✅ Pagamento atualizado no banco:', updatedData);
+      if (!updatedData || updatedData.length === 0) {
+        console.error('Nenhum pagamento foi atualizado');
+        showError('Erro', 'Falha ao atualizar o pagamento');
+        return;
+      }
+
+      console.log('✅ Pagamento atualizado no banco:', updatedData[0]);
 
       // Aguardar um momento para o trigger ser executado
       await new Promise(resolve => setTimeout(resolve, 500));
