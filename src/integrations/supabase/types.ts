@@ -1105,6 +1105,14 @@ export type Database = {
         Args: { transaction_user_id: string }
         Returns: boolean
       }
+      manually_settle_pending_payments: {
+        Args: {
+          p_provider_id: string
+          p_settlement_amount: number
+          p_payment_date?: string
+        }
+        Returns: Json
+      }
       recalculate_provider_balance: {
         Args: { provider_uuid: string }
         Returns: number

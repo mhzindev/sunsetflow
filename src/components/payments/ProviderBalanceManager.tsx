@@ -4,6 +4,7 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import { PaymentModal } from './PaymentModal';
 import { ProviderBalanceDetailsEnhanced } from '@/components/providers/ProviderBalanceDetailsEnhanced';
 import { ProviderBalanceManagerRow } from './ProviderBalanceManagerRow';
@@ -11,7 +12,7 @@ import { useSupabaseData } from '@/hooks/useSupabaseData';
 import { useToastFeedback } from '@/hooks/useToastFeedback';
 import { supabase } from '@/integrations/supabase/client';
 import { ServiceProvider } from '@/types/payment';
-import { RefreshCw } from 'lucide-react';
+import { RefreshCw, Info } from 'lucide-react';
 
 export const ProviderBalanceManager = () => {
   const [providers, setProviders] = useState<ServiceProvider[]>([]);
@@ -63,7 +64,7 @@ export const ProviderBalanceManager = () => {
     setShowPaymentModal(false);
     setSelectedProvider(null);
     loadProviders(); // Recarregar para atualizar os saldos
-    showSuccess('Sucesso', 'Pagamento registrado com sucesso!');
+    showSuccess('Sucesso', 'Pagamento registrado com sucesso! Os pagamentos pendentes foram automaticamente liquidados.');
   };
 
   const handleRecalculateAll = async () => {
@@ -120,6 +121,15 @@ export const ProviderBalanceManager = () => {
           </Button>
         </div>
 
+        <Alert className="mb-6 border-blue-200 bg-blue-50">
+          <Info className="h-4 w-4 text-blue-600" />
+          <AlertDescription className="text-blue-700">
+            <strong>Liquidação Automática:</strong> Quando você realizar um pagamento de saldo, 
+            todos os pagamentos pendentes relacionados serão automaticamente marcados como concluídos. 
+            Use o botão "Liquidar" para processar manualmente se necessário.
+          </AlertDescription>
+        </Alert>
+
         <div className="overflow-x-auto">
           <Table>
             <TableHeader>
@@ -138,6 +148,7 @@ export const ProviderBalanceManager = () => {
                   onViewDetails={handleViewDetails}
                   onPayBalance={handlePayBalance}
                   onAdvancePayment={handleAdvancePayment}
+                  onRefresh={loadProviders}
                 />
               ))}
             </TableBody>
