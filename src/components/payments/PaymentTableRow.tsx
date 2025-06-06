@@ -88,7 +88,11 @@ export const PaymentTableRow = ({ payment, onPaymentUpdate }: PaymentTableRowPro
     
     try {
       setIsProcessing(true);
-      console.log('Marcando pagamento como pago:', payment.id);
+      console.log('=== INICIANDO PROCESSO DE PAGAMENTO ===');
+      console.log('Payment ID:', payment.id);
+      console.log('Provider ID:', payment.providerId);
+      console.log('Provider Name:', payment.providerName);
+      console.log('Amount:', payment.amount);
       
       // Atualizar o pagamento no banco de dados
       const { error: updateError } = await supabase
@@ -101,11 +105,13 @@ export const PaymentTableRow = ({ payment, onPaymentUpdate }: PaymentTableRowPro
 
       if (updateError) {
         console.error('Erro ao atualizar pagamento:', updateError);
-        showError('Erro', 'Erro ao processar pagamento');
+        showError('Erro', 'Erro ao processar pagamento: ' + updateError.message);
         return;
       }
 
-      // Recalcular saldo do prestador se houver provider_id
+      console.log('✅ Pagamento atualizado com sucesso no banco');
+
+      // Recalcular saldo do prestador se houver provider_id (usar o campo correto)
       if (payment.providerId) {
         console.log('Recalculando saldo do prestador:', payment.providerId);
         
@@ -116,10 +122,12 @@ export const PaymentTableRow = ({ payment, onPaymentUpdate }: PaymentTableRowPro
 
         if (recalculateError) {
           console.error('Erro ao recalcular saldo:', recalculateError);
-          // Não bloqueia o sucesso do pagamento, apenas loga o erro
+          showError('Aviso', 'Pagamento processado mas erro ao recalcular saldo: ' + recalculateError.message);
         } else {
-          console.log('Saldo recalculado:', recalculateData);
+          console.log('✅ Saldo recalculado com sucesso:', recalculateData);
         }
+      } else {
+        console.log('⚠️ Pagamento sem provider_id - saldo não será recalculado');
       }
       
       showSuccess(
@@ -128,10 +136,11 @@ export const PaymentTableRow = ({ payment, onPaymentUpdate }: PaymentTableRowPro
       );
 
       // Notificar componente pai para atualizar a lista
+      console.log('Chamando onPaymentUpdate para refresh dos dados');
       onPaymentUpdate?.();
       
     } catch (error) {
-      console.error('Erro ao processar pagamento:', error);
+      console.error('Erro inesperado ao processar pagamento:', error);
       showError('Erro', 'Erro inesperado ao processar pagamento');
     } finally {
       setIsProcessing(false);

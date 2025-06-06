@@ -62,6 +62,7 @@ export const FinancialProvider = ({ children }: { children: React.ReactNode }) =
 
   const fetchData = async () => {
     try {
+      console.log('=== INICIANDO FETCH DOS DADOS FINANCEIROS ===');
       setData(prev => ({ ...prev, loading: true, error: null }));
 
       // Buscar dados usando a nova função RPC que implementa lógica hierárquica
@@ -79,6 +80,20 @@ export const FinancialProvider = ({ children }: { children: React.ReactNode }) =
       console.log('Transações carregadas:', transactions?.length || 0);
       console.log('Despesas carregadas:', expenses?.length || 0);
       console.log('Pagamentos carregados:', payments?.length || 0);
+
+      // Mapear pagamentos para o formato correto do frontend
+      const mappedPayments = payments?.map(payment => ({
+        ...payment,
+        providerId: payment.provider_id, // Mapear provider_id para providerId
+        providerName: payment.provider_name || 'Prestador não especificado',
+        dueDate: payment.due_date,
+        paymentDate: payment.payment_date,
+        currentInstallment: payment.current_installment,
+        accountId: payment.account_id,
+        accountType: payment.account_type
+      })) || [];
+
+      console.log('Pagamentos mapeados:', mappedPayments.length);
 
       // Filtrar dados dos últimos 30 dias
       const thirtyDaysAgo = new Date();
@@ -111,13 +126,13 @@ export const FinancialProvider = ({ children }: { children: React.ReactNode }) =
       const totalBalance = bankBalance - creditUsed;
 
       // Calcular pendências (apenas para donos)
-      const pendingPayments = payments?.filter(p => p.status === 'pending')
+      const pendingPayments = mappedPayments?.filter(p => p.status === 'pending')
         .reduce((sum, p) => sum + (p.amount || 0), 0) || 0;
 
       const approvedExpenses = expenses?.filter(e => e.status === 'approved')
         .reduce((sum, e) => sum + (e.amount || 0), 0) || 0;
 
-      setData({
+      const newData = {
         totalBalance,
         bankBalance,
         creditUsed,
@@ -129,11 +144,18 @@ export const FinancialProvider = ({ children }: { children: React.ReactNode }) =
         approvedExpenses,
         transactions: transactions || [],
         expenses: expenses || [],
-        payments: payments || [],
+        payments: mappedPayments, // Usar pagamentos mapeados
         accounts: [...(bankAccounts || []), ...(creditCards || [])],
         loading: false,
         error: null
-      });
+      };
+
+      console.log('=== DADOS FINANCEIROS ATUALIZADOS ===');
+      console.log('Total de pagamentos:', newData.payments.length);
+      console.log('Pagamentos pendentes:', newData.payments.filter(p => p.status === 'pending').length);
+      console.log('Valor pendente:', pendingPayments);
+
+      setData(newData);
 
     } catch (error: any) {
       console.error('Erro ao carregar dados financeiros:', error);
@@ -172,18 +194,24 @@ export const FinancialProvider = ({ children }: { children: React.ReactNode }) =
     }));
   };
 
-  // Função para processar pagamento
+  // Função para processar pagamento - ATUALIZADA
   const processPayment = (payment: any) => {
+    console.log('Processando pagamento no contexto:', payment.id);
     setData(prev => ({
       ...prev,
       payments: prev.payments.map(p => 
-        p.id === payment.id ? { ...p, status: 'completed', payment_date: new Date().toISOString().split('T')[0] } : p
+        p.id === payment.id ? { 
+          ...p, 
+          status: 'completed', 
+          paymentDate: new Date().toISOString().split('T')[0] 
+        } : p
       )
     }));
   };
 
-  // Função para atualizar pagamento
+  // Função para atualizar pagamento - MELHORADA
   const updatePayment = (id: string, updates: any) => {
+    console.log('Atualizando pagamento no contexto:', id, updates);
     setData(prev => ({
       ...prev,
       payments: prev.payments.map(payment => 
@@ -192,8 +220,9 @@ export const FinancialProvider = ({ children }: { children: React.ReactNode }) =
     }));
   };
 
-  // Função para atualizar status de pagamento
+  // Função para atualizar status de pagamento - MELHORADA
   const updatePaymentStatus = (id: string, status: string) => {
+    console.log('Atualizando status do pagamento:', id, status);
     setData(prev => ({
       ...prev,
       payments: prev.payments.map(payment => 
