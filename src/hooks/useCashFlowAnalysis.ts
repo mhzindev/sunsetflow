@@ -1,6 +1,6 @@
 
 import { useState, useEffect } from 'react';
-import { useSupabaseData } from './useSupabaseData';
+import { supabase } from '@/integrations/supabase/client';
 import { useFinancial } from '@/contexts/FinancialContext';
 
 interface HealthIndicator {
@@ -36,14 +36,13 @@ export const useCashFlowAnalysis = () => {
   const [loading, setLoading] = useState(true);
 
   const { data } = useFinancial();
-  const { supabase } = useSupabaseData();
 
   useEffect(() => {
     calculateAnalysis();
   }, [data]);
 
   const calculateAnalysis = async () => {
-    if (!data || !supabase) return;
+    if (!data) return;
 
     try {
       setLoading(true);
@@ -207,7 +206,9 @@ export const useCashFlowAnalysis = () => {
       }
 
       const clientTotals = revenues.reduce((acc, revenue) => {
-        acc[revenue.client_name] = (acc[revenue.client_name] || 0) + revenue.total_amount;
+        const clientName = revenue.client_name || 'Cliente não especificado';
+        const amount = Number(revenue.total_amount) || 0;
+        acc[clientName] = (acc[clientName] || 0) + amount;
         return acc;
       }, {} as Record<string, number>);
 
@@ -215,8 +216,12 @@ export const useCashFlowAnalysis = () => {
       const sortedClients = Object.entries(clientTotals)
         .sort(([,a], [,b]) => b - a);
 
+      if (sortedClients.length === 0 || totalRevenue === 0) {
+        return { percentage: 0, topClientsCount: 0 };
+      }
+
       const topClient = sortedClients[0];
-      const topClientPercentage = totalRevenue > 0 ? (topClient[1] / totalRevenue) * 100 : 0;
+      const topClientPercentage = (topClient[1] / totalRevenue) * 100;
 
       return {
         percentage: topClientPercentage,
@@ -235,7 +240,10 @@ export const useCashFlowAnalysis = () => {
         .select('total_amount')
         .eq('status', 'pending');
 
-      return pending?.reduce((sum, revenue) => sum + revenue.total_amount, 0) || 0;
+      return pending?.reduce((sum, revenue) => {
+        const amount = Number(revenue.total_amount) || 0;
+        return sum + amount;
+      }, 0) || 0;
     } catch (error) {
       console.error('Erro ao calcular receitas pendentes:', error);
       return 0;

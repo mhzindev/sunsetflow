@@ -6,7 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { DollarSign, Calendar, TrendingUp, Clock, CheckCircle } from 'lucide-react';
-import { useSupabaseData } from '@/hooks/useSupabaseData';
+import { supabase } from '@/integrations/supabase/client';
 import { formatCurrency } from '@/utils/dateUtils';
 
 interface Client {
@@ -42,8 +42,6 @@ export const ClientDetailsModal = ({ client, isOpen, onClose }: ClientDetailsMod
   const [revenues, setRevenues] = useState<Revenue[]>([]);
   const [loading, setLoading] = useState(false);
 
-  const { supabase } = useSupabaseData();
-
   useEffect(() => {
     if (client && isOpen) {
       loadClientRevenues();
@@ -51,7 +49,7 @@ export const ClientDetailsModal = ({ client, isOpen, onClose }: ClientDetailsMod
   }, [client, isOpen]);
 
   const loadClientRevenues = async () => {
-    if (!client || !supabase) return;
+    if (!client) return;
 
     try {
       setLoading(true);
@@ -92,18 +90,18 @@ export const ClientDetailsModal = ({ client, isOpen, onClose }: ClientDetailsMod
         ...(confirmedData?.map(r => ({
           id: r.id,
           type: 'confirmed' as const,
-          total_amount: r.total_amount,
+          total_amount: Number(r.total_amount) || 0,
           received_date: r.received_date,
           description: r.description,
-          mission_title: r.missions?.title
+          mission_title: (r.missions as any)?.title
         })) || []),
         ...(pendingData?.map(r => ({
           id: r.id,
           type: 'pending' as const,
-          total_amount: r.total_amount,
+          total_amount: Number(r.total_amount) || 0,
           due_date: r.due_date,
           description: r.description,
-          mission_title: r.missions?.title
+          mission_title: (r.missions as any)?.title
         })) || [])
       ];
 

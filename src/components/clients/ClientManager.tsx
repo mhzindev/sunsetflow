@@ -6,7 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Input } from "@/components/ui/input";
 import { Users, Search, Plus, TrendingUp, DollarSign, Eye } from 'lucide-react';
-import { useSupabaseData } from '@/hooks/useSupabaseData';
+import { supabase } from '@/integrations/supabase/client';
 import { useToastFeedback } from '@/hooks/useToastFeedback';
 import { formatCurrency } from '@/utils/dateUtils';
 import { ClientDetailsModal } from './ClientDetailsModal';
@@ -32,7 +32,6 @@ export const ClientManager = () => {
   const [selectedClient, setSelectedClient] = useState<Client | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
 
-  const { supabase } = useSupabaseData();
   const { showSuccess, showError } = useToastFeedback();
 
   React.useEffect(() => {
@@ -53,8 +52,6 @@ export const ClientManager = () => {
   }, [searchTerm, clients]);
 
   const loadClients = async () => {
-    if (!supabase) return;
-
     try {
       setLoading(true);
 
@@ -86,8 +83,8 @@ export const ClientManager = () => {
         const confirmedForClient = confirmedRevenues?.filter(r => r.client_name === client.name) || [];
         const pendingForClient = pendingRevenues?.filter(r => r.client_name === client.name) || [];
 
-        const confirmed_revenue = confirmedForClient.reduce((sum, r) => sum + r.total_amount, 0);
-        const pending_revenue = pendingForClient.reduce((sum, r) => sum + r.total_amount, 0);
+        const confirmed_revenue = confirmedForClient.reduce((sum, r) => sum + (Number(r.total_amount) || 0), 0);
+        const pending_revenue = pendingForClient.reduce((sum, r) => sum + (Number(r.total_amount) || 0), 0);
         const total_revenue = confirmed_revenue + pending_revenue;
 
         const lastTransaction = confirmedForClient
@@ -118,8 +115,8 @@ export const ClientManager = () => {
 
   const getRevenueStatus = (client: Client) => {
     if (client.total_revenue === 0) return 'secondary';
-    if (client.pending_revenue > client.confirmed_revenue) return 'warning';
-    return 'success';
+    if (client.pending_revenue > client.confirmed_revenue) return 'outline';
+    return 'default';
   };
 
   const totalClients = clients.length;
