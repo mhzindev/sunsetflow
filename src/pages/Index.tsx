@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useNavigate } from "react-router-dom";
@@ -14,11 +13,12 @@ import { ExpenseManager } from "@/components/expenses/ExpenseManager";
 import { CashFlow } from "@/components/cashflow/CashFlow";
 import { Reports } from "@/components/reports/Reports";
 import { Settings } from "@/components/settings/Settings";
+import { AccountsManager } from "@/components/accounts/AccountsManager";
 
-export type PageSection = 'dashboard' | 'transactions' | 'payments' | 'expenses' | 'cashflow' | 'reports' | 'settings';
+export type PageSection = 'dashboard' | 'transactions' | 'payments' | 'expenses' | 'cashflow' | 'reports' | 'settings' | 'accounts';
 
 const IndexContent = () => {
-  const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [sidebarOpen, setSidebarOpen] = useState(false); // Começa fechado
   const [activeSection, setActiveSection] = useState<PageSection>('dashboard');
   const navigate = useNavigate();
 
@@ -34,6 +34,10 @@ const IndexContent = () => {
 
   const handleNavigate = (section: string) => {
     setActiveSection(section as PageSection);
+    // Fechar sidebar automaticamente após navegação em mobile
+    if (window.innerWidth < 1024) {
+      setSidebarOpen(false);
+    }
   };
 
   const renderContent = () => {
@@ -48,6 +52,8 @@ const IndexContent = () => {
         return <ExpenseManager />;
       case 'cashflow':
         return <CashFlow />;
+      case 'accounts':
+        return <AccountsManager />;
       case 'reports':
         return <Reports />;
       case 'settings':
@@ -58,15 +64,30 @@ const IndexContent = () => {
   };
 
   return (
-    <div className="flex h-screen bg-slate-50">
-      <Sidebar 
-        activeSection={activeSection}
-        setActiveSection={setActiveSection}
-        isOpen={sidebarOpen}
-        setIsOpen={setSidebarOpen}
-      />
+    <div className="flex h-screen bg-slate-50 relative">
+      {/* Sidebar overlay para mobile */}
+      {sidebarOpen && (
+        <div 
+          className="fixed inset-0 bg-black bg-opacity-50 z-40 lg:hidden"
+          onClick={() => setSidebarOpen(false)}
+        />
+      )}
       
-      <div className="flex-1 flex flex-col overflow-hidden">
+      {/* Sidebar retrátil */}
+      <div className={`
+        fixed top-0 left-0 h-full z-50 transition-transform duration-300 ease-in-out
+        ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}
+      `}>
+        <Sidebar 
+          activeSection={activeSection}
+          setActiveSection={setActiveSection}
+          isOpen={sidebarOpen}
+          setIsOpen={setSidebarOpen}
+        />
+      </div>
+      
+      {/* Conteúdo principal - ocupa toda a tela */}
+      <div className="flex-1 flex flex-col w-full">
         <TopBar 
           activeSection={activeSection}
           sidebarOpen={sidebarOpen}
