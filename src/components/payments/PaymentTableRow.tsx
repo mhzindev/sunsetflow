@@ -48,7 +48,8 @@ export const PaymentTableRow = ({ payment, onPaymentUpdate }: PaymentTableRowPro
       full: 'Integral',
       installment: 'Parcelado',
       advance: 'Adiantamento',
-      partial: 'Parcial'
+      partial: 'Parcial',
+      balance_payment: 'Pagamento de Saldo'
     };
     return labels[type as keyof typeof labels] || type;
   };
@@ -94,12 +95,12 @@ export const PaymentTableRow = ({ payment, onPaymentUpdate }: PaymentTableRowPro
       console.log('Provider Name:', payment.providerName);
       console.log('Amount:', payment.amount);
       
-      // Primeiro, verificar se o pagamento ainda existe e está pendente
+      // Verificar se o pagamento existe no banco de dados
       const { data: existingPayment, error: checkError } = await supabase
         .from('payments')
         .select('*')
         .eq('id', payment.id)
-        .maybeSingle(); // Mudança: usar maybeSingle() em vez de single()
+        .maybeSingle();
 
       if (checkError) {
         console.error('Erro ao verificar pagamento:', checkError);
@@ -122,15 +123,20 @@ export const PaymentTableRow = ({ payment, onPaymentUpdate }: PaymentTableRowPro
 
       console.log('Status atual do pagamento:', existingPayment.status);
       
+      // Preparar dados de atualização
+      const updateData = { 
+        status: 'completed',
+        payment_date: new Date().toISOString().split('T')[0]
+      };
+
+      console.log('Dados para atualização:', updateData);
+      
       // Atualizar o pagamento no banco de dados
       const { data: updatedData, error: updateError } = await supabase
         .from('payments')
-        .update({ 
-          status: 'completed',
-          payment_date: new Date().toISOString().split('T')[0]
-        })
+        .update(updateData)
         .eq('id', payment.id)
-        .select('*'); // Mudança: não usar .single(), apenas .select()
+        .select('*');
 
       if (updateError) {
         console.error('Erro ao atualizar pagamento:', updateError);
@@ -146,26 +152,31 @@ export const PaymentTableRow = ({ payment, onPaymentUpdate }: PaymentTableRowPro
 
       console.log('✅ Pagamento atualizado no banco:', updatedData[0]);
 
-      // Aguardar um momento para o trigger ser executado
+      // Aguardar um momento para triggers serem executados
       await new Promise(resolve => setTimeout(resolve, 500));
 
-      // Verificar se o trigger funcionou recalculando o saldo manualmente se necessário
-      if (payment.providerId) {
-        console.log('Verificando e recalculando saldo do prestador:', payment.providerId);
+      // Se tem provider_id, tentar recalcular saldo
+      if (payment.providerId && payment.providerId !== 'undefined' && payment.providerId.trim() !== '') {
+        console.log('Recalculando saldo do prestador:', payment.providerId);
         
-        const { data: recalculateData, error: recalculateError } = await supabase.rpc(
-          'recalculate_provider_balance', 
-          { provider_uuid: payment.providerId }
-        );
+        try {
+          const { data: recalculateData, error: recalculateError } = await supabase.rpc(
+            'recalculate_provider_balance', 
+            { provider_uuid: payment.providerId }
+          );
 
-        if (recalculateError) {
-          console.error('Erro ao recalcular saldo:', recalculateError);
-          showError('Aviso', 'Pagamento processado mas erro ao recalcular saldo: ' + recalculateError.message);
-        } else {
-          console.log('✅ Saldo recalculado com sucesso. Novo saldo:', recalculateData);
+          if (recalculateError) {
+            console.error('Erro ao recalcular saldo:', recalculateError);
+            showError('Aviso', 'Pagamento processado mas erro ao recalcular saldo: ' + recalculateError.message);
+          } else {
+            console.log('✅ Saldo recalculado com sucesso. Novo saldo:', recalculateData);
+          }
+        } catch (recalcError) {
+          console.error('Erro inesperado no recálculo:', recalcError);
+          // Não bloquear o processo por erro no recálculo
         }
       } else {
-        console.log('⚠️ Pagamento sem provider_id - saldo não será recalculado');
+        console.log('⚠️ Pagamento sem provider_id válido - saldo não será recalculado');
       }
       
       showSuccess(
@@ -173,7 +184,7 @@ export const PaymentTableRow = ({ payment, onPaymentUpdate }: PaymentTableRowPro
         `Pagamento de R$ ${payment.amount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} para ${payment.providerName} foi processado! Status atualizado para concluído.`
       );
 
-      // Forçar refresh dos dados com delay para garantir que o banco atualizou
+      // Forçar refresh dos dados
       console.log('Executando refresh dos dados...');
       setTimeout(() => {
         onPaymentUpdate?.();
@@ -197,13 +208,13 @@ export const PaymentTableRow = ({ payment, onPaymentUpdate }: PaymentTableRowPro
   return (
     <>
       <TableRow>
-        <TableCell className="font-medium">{payment.providerName}</TableCell>
-        <TableCell>{payment.description}</TableCell>
+        <TableCell className="font-medium">{payment.providerName || 'Prestador não especificado'}</TableCell>
+        <TableCell>{payment.description || 'Sem descrição'}</TableCell>
         <TableCell>{getTypeLabel(payment.type)}</TableCell>
         <TableCell className="font-semibold">
-          R$ {payment.amount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+          R$ {payment.amount?.toLocaleString('pt-BR', { minimumFractionDigits: 2 }) || '0,00'}
         </TableCell>
-        <TableCell>{new Date(payment.dueDate).toLocaleDateString('pt-BR')}</TableCell>
+        <TableCell>{payment.dueDate ? new Date(payment.dueDate).toLocaleDateString('pt-BR') : 'Data inválida'}</TableCell>
         <TableCell>
           <Badge className={getStatusColor(payment.status)}>
             {getStatusLabel(payment.status)}

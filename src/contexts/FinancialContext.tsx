@@ -1,4 +1,3 @@
-
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { useSupabaseData } from '@/hooks/useSupabaseData';
 import { useAuth } from './AuthContext';
@@ -60,6 +59,37 @@ export const FinancialProvider = ({ children }: { children: React.ReactNode }) =
 
   const { fetchTransactions, fetchExpenses, fetchPayments, fetchBankAccounts, fetchCreditCards } = useSupabaseData();
 
+  // Função para sanitizar strings com encoding incorreto
+  const sanitizeString = (str: string): string => {
+    if (!str) return '';
+    
+    // Corrigir encoding comum de caracteres portugueses
+    const fixes = {
+      'MissÃ£o': 'Missão',
+      'PrestÃ§Ã£o': 'Prestação',
+      'ServiÃ§o': 'Serviço',
+      'OperaÃ§Ã£o': 'Operação',
+      'RelaÃ§Ã£o': 'Relação',
+      'Ã¡': 'á',
+      'Ã ': 'à',
+      'Ã£': 'ã',
+      'Ã©': 'é',
+      'Ãª': 'ê',
+      'Ã­': 'í',
+      'Ã³': 'ó',
+      'Ãµ': 'õ',
+      'Ãº': 'ú',
+      'Ã§': 'ç'
+    };
+
+    let sanitized = str;
+    Object.entries(fixes).forEach(([wrong, correct]) => {
+      sanitized = sanitized.replace(new RegExp(wrong, 'g'), correct);
+    });
+
+    return sanitized;
+  };
+
   const fetchData = async () => {
     try {
       console.log('=== INICIANDO FETCH DOS DADOS FINANCEIROS ===');
@@ -81,7 +111,7 @@ export const FinancialProvider = ({ children }: { children: React.ReactNode }) =
       console.log('Despesas carregadas:', expenses?.length || 0);
       console.log('Pagamentos carregados (RAW):', payments?.length || 0);
 
-      // Mapear pagamentos para o formato correto do frontend com logs detalhados
+      // Mapear pagamentos com tratamento robusto de dados inconsistentes
       const mappedPayments = payments?.map(payment => {
         console.log('Mapeando pagamento:', {
           id: payment.id,
@@ -91,15 +121,38 @@ export const FinancialProvider = ({ children }: { children: React.ReactNode }) =
           amount: payment.amount
         });
 
+        // Sanitizar provider_name se existir
+        const sanitizedProviderName = payment.provider_name ? 
+          sanitizeString(payment.provider_name) : 
+          'Prestador não especificado';
+
+        // Sanitizar description se existir
+        const sanitizedDescription = payment.description ? 
+          sanitizeString(payment.description) : 
+          'Sem descrição';
+
+        // Garantir que provider_id seja uma string válida ou null
+        let providerId = payment.provider_id;
+        if (providerId === 'undefined' || providerId === '' || !providerId) {
+          providerId = null;
+        }
+
         return {
           ...payment,
-          providerId: payment.provider_id, // GARANTIR mapeamento correto
-          providerName: payment.provider_name || 'Prestador não especificado',
+          providerId: providerId, // Pode ser null para pagamentos genéricos
+          providerName: sanitizedProviderName,
+          description: sanitizedDescription,
           dueDate: payment.due_date,
           paymentDate: payment.payment_date,
           currentInstallment: payment.current_installment,
           accountId: payment.account_id,
-          accountType: payment.account_type
+          accountType: payment.account_type,
+          // Garantir que amount seja um número válido
+          amount: parseFloat(payment.amount) || 0,
+          // Garantir que status seja válido
+          status: payment.status || 'pending',
+          // Garantir que type seja válido
+          type: payment.type || 'full'
         };
       }) || [];
 
@@ -121,31 +174,31 @@ export const FinancialProvider = ({ children }: { children: React.ReactNode }) =
       // Calcular receitas e despesas dos últimos 30 dias
       const monthlyIncome = recentTransactions
         .filter(t => t.type === 'income' && t.status === 'completed')
-        .reduce((sum, t) => sum + (t.amount || 0), 0);
+        .reduce((sum, t) => sum + (parseFloat(t.amount) || 0), 0);
 
       const monthlyExpenses = recentTransactions
         .filter(t => t.type === 'expense' && t.status === 'completed')
-        .reduce((sum, t) => sum + (t.amount || 0), 0);
+        .reduce((sum, t) => sum + (parseFloat(t.amount) || 0), 0);
 
       // Calcular saldos das contas (apenas para donos)
       const bankBalance = bankAccounts?.reduce((sum, account) => 
-        sum + (account.balance || 0), 0) || 0;
+        sum + (parseFloat(account.balance) || 0), 0) || 0;
 
       const creditUsed = creditCards?.reduce((sum, card) => 
-        sum + (card.used_limit || 0), 0) || 0;
+        sum + (parseFloat(card.used_limit) || 0), 0) || 0;
 
       const creditAvailable = creditCards?.reduce((sum, card) => 
-        sum + (card.available_limit || 0), 0) || 0;
+        sum + (parseFloat(card.available_limit) || 0), 0) || 0;
 
       const totalResources = bankBalance + creditAvailable;
       const totalBalance = bankBalance - creditUsed;
 
       // Calcular pendências (apenas para donos)
       const pendingPayments = mappedPayments?.filter(p => p.status === 'pending')
-        .reduce((sum, p) => sum + (p.amount || 0), 0) || 0;
+        .reduce((sum, p) => sum + (parseFloat(p.amount) || 0), 0) || 0;
 
       const approvedExpenses = expenses?.filter(e => e.status === 'approved')
-        .reduce((sum, e) => sum + (e.amount || 0), 0) || 0;
+        .reduce((sum, e) => sum + (parseFloat(e.amount) || 0), 0) || 0;
 
       const newData = {
         totalBalance,
@@ -159,7 +212,7 @@ export const FinancialProvider = ({ children }: { children: React.ReactNode }) =
         approvedExpenses,
         transactions: transactions || [],
         expenses: expenses || [],
-        payments: mappedPayments, // Usar pagamentos mapeados
+        payments: mappedPayments, // Usar pagamentos mapeados e sanitizados
         accounts: [...(bankAccounts || []), ...(creditCards || [])],
         loading: false,
         error: null
