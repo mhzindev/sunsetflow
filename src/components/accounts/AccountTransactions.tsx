@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { ArrowUpDown, Filter, Download, Search } from "lucide-react";
 import { useSupabaseData } from '@/hooks/useSupabaseData';
 import { useAuth } from '@/contexts/AuthContext';
+import { SortSelector, SortOption } from '@/components/common/SortSelector';
 
 interface AccountTransaction {
   id: string;
@@ -18,6 +19,7 @@ interface AccountTransaction {
   category: string;
   status: string;
   account_type?: string;
+  created_at?: string;
 }
 
 export const AccountTransactions = () => {
@@ -26,6 +28,7 @@ export const AccountTransactions = () => {
   const [transactions, setTransactions] = useState<AccountTransaction[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
+  const [sortOrder, setSortOrder] = useState<SortOption>('newest');
 
   useEffect(() => {
     loadTransactions();
@@ -50,7 +53,8 @@ export const AccountTransactions = () => {
           account: `${t.account_type === 'credit_card' ? 'Cartão' : 'Conta'} - ID: ${t.account_id?.slice(-8)}`,
           category: t.category,
           status: t.status,
-          account_type: t.account_type
+          account_type: t.account_type,
+          created_at: t.created_at
         }));
       
       setTransactions(accountTransactions);
@@ -61,11 +65,34 @@ export const AccountTransactions = () => {
     }
   };
 
-  const filteredTransactions = transactions.filter(transaction =>
-    !searchTerm || 
-    transaction.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    transaction.account.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    transaction.category.toLowerCase().includes(searchTerm.toLowerCase())
+  const applySorting = (transactions: AccountTransaction[]): AccountTransaction[] => {
+    return [...transactions].sort((a, b) => {
+      switch (sortOrder) {
+        case 'alphabetical':
+          return a.description.localeCompare(b.description);
+        case 'newest':
+          // Usar created_at se disponível, senão date
+          const dateA = a.created_at ? new Date(a.created_at).getTime() : new Date(a.date).getTime();
+          const dateB = b.created_at ? new Date(b.created_at).getTime() : new Date(b.date).getTime();
+          return dateB - dateA;
+        case 'oldest':
+          // Usar created_at se disponível, senão date
+          const dateAOld = a.created_at ? new Date(a.created_at).getTime() : new Date(a.date).getTime();
+          const dateBOld = b.created_at ? new Date(b.created_at).getTime() : new Date(b.date).getTime();
+          return dateAOld - dateBOld;
+        default:
+          return 0;
+      }
+    });
+  };
+
+  const filteredTransactions = applySorting(
+    transactions.filter(transaction =>
+      !searchTerm || 
+      transaction.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      transaction.account.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      transaction.category.toLowerCase().includes(searchTerm.toLowerCase())
+    )
   );
 
   const getTypeColor = (type: string) => {
@@ -137,14 +164,15 @@ export const AccountTransactions = () => {
                   className="pl-10"
                 />
               </div>
+              <SortSelector
+                value={sortOrder}
+                onChange={setSortOrder}
+                className="md:w-48"
+              />
               <div className="flex gap-2">
                 <Button variant="outline" size="sm">
                   <Filter className="w-4 h-4 mr-2" />
                   Filtros
-                </Button>
-                <Button variant="outline" size="sm">
-                  <ArrowUpDown className="w-4 h-4 mr-2" />
-                  Ordenar
                 </Button>
                 <Button variant="outline" size="sm">
                   <Download className="w-4 h-4 mr-2" />

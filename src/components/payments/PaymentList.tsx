@@ -1,3 +1,4 @@
+
 import { useState } from 'react';
 import { Card } from "@/components/ui/card";
 import { Payment, PaymentStatus } from '@/types/payment';
@@ -36,9 +37,15 @@ export const PaymentList = () => {
         case 'alphabetical':
           return (a.providerName || '').localeCompare(b.providerName || '');
         case 'newest':
-          return new Date(b.dueDate).getTime() - new Date(a.dueDate).getTime();
+          // Usar created_at se disponível, senão due_date
+          const dateA = a.created_at ? new Date(a.created_at).getTime() : new Date(a.dueDate).getTime();
+          const dateB = b.created_at ? new Date(b.created_at).getTime() : new Date(b.dueDate).getTime();
+          return dateB - dateA;
         case 'oldest':
-          return new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime();
+          // Usar created_at se disponível, senão due_date
+          const dateAOld = a.created_at ? new Date(a.created_at).getTime() : new Date(a.dueDate).getTime();
+          const dateBOld = b.created_at ? new Date(b.created_at).getTime() : new Date(b.dueDate).getTime();
+          return dateAOld - dateBOld;
         default:
           return 0;
       }

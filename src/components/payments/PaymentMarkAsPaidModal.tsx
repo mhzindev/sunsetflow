@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -9,6 +10,7 @@ import { Payment } from '@/types/payment';
 import { useToastFeedback } from '@/hooks/useToastFeedback';
 import { useSupabaseData } from '@/hooks/useSupabaseData';
 import { useFinancial } from '@/contexts/FinancialContext';
+import { getCurrentDate } from '@/utils/dateUtils';
 
 interface PaymentMarkAsPaidModalProps {
   isOpen: boolean;
@@ -96,7 +98,7 @@ export const PaymentMarkAsPaidModal = ({
       // Atualizar o pagamento com status completed, data atual e conta selecionada
       const updates = {
         status: 'completed' as const,
-        payment_date: new Date().toISOString().split('T')[0],
+        payment_date: getCurrentDate(), // Usar função corrigida para data atual
         account_id: selectedAccount.id,
         account_type: selectedAccount.type
       };

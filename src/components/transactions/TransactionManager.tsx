@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -5,6 +6,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { TransactionList } from './TransactionList';
 import { TransactionForm } from './TransactionForm';
 import { TransactionCategories } from './TransactionCategories';
+import { SortSelector, SortOption } from '@/components/common/SortSelector';
 import { useAuth } from "@/contexts/AuthContext";
 import { useSupabaseData } from "@/hooks/useSupabaseData";
 import { Plus, RefreshCw, AlertCircle, Info, CheckCircle, Eye } from "lucide-react";
@@ -19,6 +21,7 @@ export const TransactionManager = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [debugInfo, setDebugInfo] = useState<string>('');
+  const [sortOrder, setSortOrder] = useState<SortOption>('newest');
   const { fetchTransactions } = useSupabaseData();
 
   const isOwner = profile?.role === 'admin' || profile?.user_type === 'admin';
@@ -125,8 +128,31 @@ export const TransactionManager = () => {
     // TODO: Implementar exclusão
   };
 
-  // Mapear transações para o formato esperado pelo TransactionList
-  const mappedTransactions = transactions.map(t => ({
+  // Aplicar ordenação às transações
+  const applySorting = (transactions: any[]): any[] => {
+    return [...transactions].sort((a, b) => {
+      switch (sortOrder) {
+        case 'alphabetical':
+          return (a.description || '').localeCompare(b.description || '');
+        case 'newest':
+          // Usar created_at se disponível, senão date
+          const dateA = a.created_at ? new Date(a.created_at).getTime() : new Date(a.date).getTime();
+          const dateB = b.created_at ? new Date(b.created_at).getTime() : new Date(b.date).getTime();
+          return dateB - dateA;
+        case 'oldest':
+          // Usar created_at se disponível, senão date
+          const dateAOld = a.created_at ? new Date(a.created_at).getTime() : new Date(a.date).getTime();
+          const dateBOld = b.created_at ? new Date(b.created_at).getTime() : new Date(b.date).getTime();
+          return dateAOld - dateBOld;
+        default:
+          return 0;
+      }
+    });
+  };
+
+  // Mapear transações para o formato esperado pelo TransactionList com ordenação
+  const sortedTransactions = applySorting(transactions);
+  const mappedTransactions = sortedTransactions.map(t => ({
     id: t.id,
     type: t.type,
     description: t.description,
@@ -138,7 +164,8 @@ export const TransactionManager = () => {
     employeeName: t.user_name,
     receipt: t.receipt,
     tags: t.tags,
-    method: t.method || t.payment_method
+    method: t.method || t.payment_method,
+    created_at: t.created_at
   }));
 
   // Filtrar transações por tipo para mostrar estatísticas
@@ -265,12 +292,22 @@ export const TransactionManager = () => {
                 )}
               </div>
             ) : (
-              <TransactionList 
-                transactions={mappedTransactions}
-                onView={handleViewTransaction}
-                onEdit={handleEditTransaction}
-                onDelete={handleDeleteTransaction}
-              />
+              <div className="space-y-4">
+                <div className="flex justify-between items-center">
+                  <h4 className="text-md font-medium">Lista de Transações</h4>
+                  <SortSelector
+                    value={sortOrder}
+                    onChange={setSortOrder}
+                    className="w-48"
+                  />
+                </div>
+                <TransactionList 
+                  transactions={mappedTransactions}
+                  onView={handleViewTransaction}
+                  onEdit={handleEditTransaction}
+                  onDelete={handleDeleteTransaction}
+                />
+              </div>
             )}
           </TabsContent>
 

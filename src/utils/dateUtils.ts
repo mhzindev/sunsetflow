@@ -107,3 +107,19 @@ export const formatCurrency = (value: number): string => {
     currency: 'BRL'
   }).format(value);
 };
+
+/**
+ * Retorna timestamp atual para registros do banco
+ * Garante que seja sempre a data/hora local atual
+ */
+export const getCurrentTimestamp = (): string => {
+  return new Date().toISOString();
+};
+
+/**
+ * Retorna data atual no formato do banco (YYYY-MM-DD) 
+ * Sempre usa a data local atual
+ */
+export const getCurrentDate = (): string => {
+  return getCurrentDateForInput();
+};
