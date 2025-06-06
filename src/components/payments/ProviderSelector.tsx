@@ -30,9 +30,7 @@ export const ProviderSelector = ({
   const loadProviders = async () => {
     try {
       setLoading(true);
-      console.log('Carregando prestadores para seleção...');
       const data = await fetchServiceProviders();
-      console.log('Prestadores carregados:', data?.length || 0);
       setProviders(data || []);
     } catch (error) {
       console.error('Erro ao carregar prestadores:', error);
@@ -43,15 +41,11 @@ export const ProviderSelector = ({
   };
 
   const handleValueChange = (providerId: string) => {
-    console.log('Selecionando prestador ID:', providerId);
-    
     if (onValueChange) {
       onValueChange(providerId);
     }
-    
     const selectedProvider = providers.find(p => p.id === providerId);
     if (selectedProvider && onProviderSelect) {
-      console.log('Prestador encontrado:', selectedProvider);
       onProviderSelect(selectedProvider);
     }
   };
@@ -81,11 +75,6 @@ export const ProviderSelector = ({
               <div className="flex flex-col">
                 <span className="font-medium">{provider.name}</span>
                 <span className="text-sm text-gray-500">{provider.service}</span>
-                {provider.current_balance && provider.current_balance > 0 && (
-                  <span className="text-xs text-green-600">
-                    Saldo: R$ {provider.current_balance.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                  </span>
-                )}
               </div>
             </SelectItem>
           ))

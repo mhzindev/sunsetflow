@@ -1,170 +1,77 @@
 
-import React, { useState, useEffect } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Plus, RefreshCw } from 'lucide-react';
-import { PaymentModal } from './PaymentModal';
-import { PaymentSummaryCards } from './PaymentSummaryCards';
-import { PaymentFilters } from './PaymentFilters';
-import { PaymentTable } from './PaymentTable';
-import { PaymentDataHealthCheck } from './PaymentDataHealthCheck';
-import { useFinancial } from '@/contexts/FinancialContext';
-import { Payment, PaymentStatus } from '@/types/payment';
+import { useState } from 'react';
+import { Card } from "@/components/ui/card";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { PaymentList } from './PaymentList';
+import { PaymentForm } from './PaymentForm';
+import { ServiceProviders } from './ServiceProviders';
+import { PaymentCalendar } from './PaymentCalendar';
+import { ProviderBalanceManager } from './ProviderBalanceManager';
+import { useAuth } from '@/contexts/AuthContext';
+import { canCreatePayments } from '@/utils/authUtils';
+import { ShieldX } from 'lucide-react';
 
 export const PaymentManager = () => {
-  const [showModal, setShowModal] = useState(false);
-  const [filteredPayments, setFilteredPayments] = useState<Payment[]>([]);
-  const [searchTerm, setSearchTerm] = useState('');
-  const [filterStatus, setFilterStatus] = useState<PaymentStatus | 'all'>('all');
-  const [sortOrder, setSortOrder] = useState<'alphabetical' | 'newest' | 'oldest'>('newest');
-  const [showFilterModal, setShowFilterModal] = useState(false);
-  const [showExportModal, setShowExportModal] = useState(false);
-  const [isRefreshing, setIsRefreshing] = useState(false);
-  
-  const { data, refreshData, loading } = useFinancial();
-  const payments = data.payments;
+  const { profile } = useAuth();
+  const [activeTab, setActiveTab] = useState('list');
 
-  useEffect(() => {
-    console.log('=== PAGAMENTOS RECEBIDOS NO PAYMENT MANAGER ===');
-    console.log('Total de pagamentos:', payments.length);
-    console.log('Pagamentos por status:', {
-      pending: payments.filter(p => p.status === 'pending').length,
-      completed: payments.filter(p => p.status === 'completed').length,
-      partial: payments.filter(p => p.status === 'partial').length
-    });
-
-    // Verificar pagamentos órfãos
-    const orphanPayments = payments.filter(p => !p.providerId || p.providerId === '' || p.providerId === 'undefined');
-    if (orphanPayments.length > 0) {
-      console.warn('⚠️ Pagamentos órfãos detectados:', orphanPayments.length);
-    }
-
-    let filtered = [...payments];
-
-    // Filtrar por termo de busca
-    if (searchTerm) {
-      filtered = filtered.filter(payment => 
-        payment.providerName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        payment.description.toLowerCase().includes(searchTerm.toLowerCase())
-      );
-    }
-
-    // Filtrar por status
-    if (filterStatus !== 'all') {
-      filtered = filtered.filter(payment => payment.status === filterStatus);
-    }
-
-    // Ordenar
-    if (sortOrder === 'alphabetical') {
-      filtered.sort((a, b) => a.providerName.localeCompare(b.providerName));
-    } else if (sortOrder === 'newest') {
-      filtered.sort((a, b) => new Date(b.dueDate).getTime() - new Date(a.dueDate).getTime());
-    } else if (sortOrder === 'oldest') {
-      filtered.sort((a, b) => new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime());
-    }
-
-    console.log('Pagamentos filtrados:', filtered.length);
-    setFilteredPayments(filtered);
-  }, [payments, searchTerm, filterStatus, sortOrder]);
-
-  const handlePaymentCreated = async () => {
-    console.log('Pagamento criado, executando refresh...');
-    setShowModal(false);
-    await handleRefresh();
-  };
-
-  const handlePaymentUpdate = async () => {
-    console.log('=== PAYMENT UPDATE TRIGGERED ===');
-    console.log('Executando refresh dos dados...');
-    await handleRefresh();
-  };
-
-  const handleRefresh = async () => {
-    try {
-      setIsRefreshing(true);
-      console.log('=== EXECUTANDO REFRESH MANUAL ===');
-      await refreshData();
-      console.log('✅ Refresh concluído com sucesso');
-    } catch (error) {
-      console.error('Erro durante refresh:', error);
-    } finally {
-      setIsRefreshing(false);
-    }
-  };
-
-  const handleNewPayment = () => {
-    console.log('Abrindo modal para novo pagamento...');
-    setShowModal(true);
-  };
+  // Verificar permissões de acesso para aba de novo pagamento
+  const canAccessNewPayment = canCreatePayments(profile);
 
   return (
     <div className="space-y-6">
-      <div className="flex justify-between items-center">
-        <div>
-          <h1 className="text-3xl font-bold text-slate-800">Gestão de Pagamentos</h1>
-          <p className="text-gray-600 mt-1">Gerencie pagamentos aos prestadores de serviço</p>
-        </div>
-        <div className="flex gap-2">
-          <Button 
-            onClick={handleRefresh} 
-            variant="outline" 
-            size="sm"
-            disabled={isRefreshing}
-          >
-            <RefreshCw className={`w-4 h-4 mr-2 ${isRefreshing ? 'animate-spin' : ''}`} />
-            {isRefreshing ? 'Atualizando...' : 'Atualizar'}
-          </Button>
-          <Button onClick={handleNewPayment}>
-            <Plus className="w-4 h-4 mr-2" />
-            Novo Pagamento
-          </Button>
-        </div>
-      </div>
+      <Card className="p-6">
+        <h3 className="text-lg font-semibold text-slate-800 mb-4">Gerenciador de Pagamentos</h3>
+        <p className="text-slate-600 mb-6">
+          Controle pagamentos a prestadores de serviço, incluindo pagamentos de saldo baseados em missões 
+          e adiantamentos. Visualize o status de cada pagamento.
+        </p>
 
-      {/* Verificação de Integridade dos Dados */}
-      <PaymentDataHealthCheck />
+        <Tabs value={activeTab} onValueChange={setActiveTab}>
+          <TabsList className="grid w-full grid-cols-5">
+            <TabsTrigger value="list">Pagamentos</TabsTrigger>
+            <TabsTrigger value="balances">Saldos</TabsTrigger>
+            <TabsTrigger value="new" disabled={!canAccessNewPayment}>Novo Pagamento</TabsTrigger>
+            <TabsTrigger value="providers">Prestadores</TabsTrigger>
+            <TabsTrigger value="calendar">Calendário</TabsTrigger>
+          </TabsList>
 
-      <PaymentSummaryCards payments={payments} />
+          <TabsContent value="list" className="mt-6">
+            <PaymentList />
+          </TabsContent>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Lista de Pagamentos</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <PaymentFilters 
-            searchTerm={searchTerm}
-            onSearchChange={setSearchTerm}
-            filterStatus={filterStatus}
-            onStatusChange={setFilterStatus}
-            sortOrder={sortOrder}
-            onSortOrderChange={setSortOrder}
-            onFilterModalOpen={() => setShowFilterModal(true)}
-            onExportModalOpen={() => setShowExportModal(true)}
-          />
-          
-          {loading || isRefreshing ? (
-            <div className="flex items-center justify-center py-8">
-              <RefreshCw className="w-6 h-6 animate-spin text-blue-600" />
-              <span className="ml-2">
-                {isRefreshing ? 'Atualizando pagamentos...' : 'Carregando pagamentos...'}
-              </span>
-            </div>
-          ) : (
-            <PaymentTable 
-              payments={filteredPayments} 
-              onPaymentUpdate={handlePaymentUpdate}
-            />
-          )}
-        </CardContent>
+          <TabsContent value="balances" className="mt-6">
+            <ProviderBalanceManager />
+          </TabsContent>
+
+          <TabsContent value="new" className="mt-6">
+            {canAccessNewPayment ? (
+              <PaymentForm />
+            ) : (
+              <Card className="p-6">
+                <div className="text-center space-y-4">
+                  <ShieldX className="w-16 h-16 text-red-500 mx-auto" />
+                  <div>
+                    <h3 className="text-lg font-semibold text-red-800">Acesso Restrito</h3>
+                    <p className="text-red-600 mt-2">
+                      Você não tem permissão para criar novos pagamentos.
+                      Esta funcionalidade é restrita apenas para administradores.
+                    </p>
+                  </div>
+                </div>
+              </Card>
+            )}
+          </TabsContent>
+
+          <TabsContent value="providers" className="mt-6">
+            <ServiceProviders />
+          </TabsContent>
+
+          <TabsContent value="calendar" className="mt-6">
+            <PaymentCalendar />
+          </TabsContent>
+        </Tabs>
       </Card>
-
-      <PaymentModal
-        isOpen={showModal}
-        onOpenChange={setShowModal}
-        provider={null}
-        paymentType="advance_payment"
-        onSuccess={handlePaymentCreated}
-      />
     </div>
   );
 };

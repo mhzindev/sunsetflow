@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button";
 import { PageSection } from "@/pages/Index";
 import { useFinancial } from "@/contexts/FinancialContext";
 import { useAuth } from "@/contexts/AuthContext";
-import { LogOut, Menu } from "lucide-react";
+import { LogOut } from "lucide-react";
 
 interface TopBarProps {
   activeSection: PageSection;
@@ -17,7 +17,6 @@ const sectionTitles = {
   payments: 'Pagamentos',
   expenses: 'Despesas de Viagem',
   cashflow: 'Fluxo de Caixa',
-  accounts: 'Minhas Contas',
   reports: 'Relatórios',
   settings: 'Configurações'
 };
@@ -64,17 +63,20 @@ export const TopBar = ({ activeSection, sidebarOpen, setSidebarOpen }: TopBarPro
   };
 
   return (
-    <header className="bg-white border-b border-slate-200 px-6 py-4 w-full">
+    <header className="bg-white border-b border-slate-200 px-6 py-4">
       <div className="flex items-center justify-between">
         <div className="flex items-center space-x-4">
-          {/* Botão do menu sanduíche mais destacado */}
           <Button
-            variant="outline"
+            variant="ghost"
             size="sm"
             onClick={() => setSidebarOpen(!sidebarOpen)}
-            className="flex items-center justify-center w-10 h-10 border-slate-300 hover:bg-slate-100"
+            className="p-1"
           >
-            <Menu className="w-5 h-5 text-slate-600" />
+            <div className="w-5 h-5 flex flex-col justify-center space-y-1">
+              <div className="w-full h-0.5 bg-slate-600"></div>
+              <div className="w-full h-0.5 bg-slate-600"></div>
+              <div className="w-full h-0.5 bg-slate-600"></div>
+            </div>
           </Button>
           
           <h2 className="text-2xl font-bold text-slate-800">

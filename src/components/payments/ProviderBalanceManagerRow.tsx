@@ -62,8 +62,8 @@ export const ProviderBalanceManagerRow = ({
               <span className="text-sm text-gray-500">Calculando...</span>
             </div>
           ) : (
-            <Badge className={getBalanceColor(balanceDetails.availableBalance)}>
-              {formatCurrency(balanceDetails.availableBalance)}
+            <Badge className={getBalanceColor(balanceDetails.currentBalance)}>
+              {formatCurrency(balanceDetails.currentBalance)}
             </Badge>
           )}
         </TableCell>
@@ -78,7 +78,7 @@ export const ProviderBalanceManagerRow = ({
               Detalhes
             </Button>
             
-            {balanceDetails.availableBalance > 0 && (
+            {balanceDetails.currentBalance > 0 && (
               <>
                 <Button
                   size="sm"

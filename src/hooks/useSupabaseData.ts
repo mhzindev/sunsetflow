@@ -71,10 +71,10 @@ export const useSupabaseData = () => {
     }
   };
 
-  // Função para buscar pagamentos - MELHORADA COM FALLBACK PARA DADOS ÓRFÃOS
+  // Função para buscar pagamentos - CORRIGIDA COM MAPEAMENTO CORRETO
   const fetchPayments = async () => {
     try {
-      console.log('Buscando pagamentos com fallback melhorado...');
+      console.log('Buscando pagamentos com RLS corrigido...');
       const { data, error } = await supabase
         .from('payments')
         .select(`
@@ -90,66 +90,32 @@ export const useSupabaseData = () => {
       
       console.log('Dados brutos dos pagamentos:', data);
       
-      // Mapear os dados para o formato correto com fallback inteligente
-      const mappedPayments = data?.map(payment => {
-        // Fallback inteligente para pagamentos órfãos
-        let providerName = payment.provider_name;
-        let providerId = payment.provider_id;
-        
-        // Se há dados do prestador vinculado, usar os dados mais atualizados
-        if (payment.service_providers) {
-          providerName = payment.service_providers.name;
-          providerId = payment.provider_id; // Manter o ID original
-        }
-        
-        // Se não tem provider_id mas tem provider_name, marcar como órfão
-        if (!providerId && providerName) {
-          console.warn('⚠️ Pagamento órfão detectado:', {
-            id: payment.id,
-            providerName,
-            amount: payment.amount
-          });
-        }
-        
-        return {
-          id: payment.id,
-          providerId: providerId || null,
-          providerName: providerName || 'Prestador não especificado',
-          amount: payment.amount,
-          dueDate: payment.due_date,
-          paymentDate: payment.payment_date,
-          status: payment.status,
-          type: payment.type,
-          description: payment.description || 'Sem descrição',
-          installments: payment.installments,
-          currentInstallment: payment.current_installment,
-          tags: payment.tags,
-          notes: payment.notes,
-          // Marcar se é um pagamento órfão para exibição
-          isOrphan: !providerId && !!providerName,
-          // Dados do prestador se disponível
-          serviceProvider: payment.service_providers ? {
-            name: payment.service_providers.name,
-            email: payment.service_providers.email,
-            phone: payment.service_providers.phone,
-            service: payment.service_providers.service
-          } : null
-        };
-      }) || [];
+      // Mapear os dados para o formato correto (snake_case → camelCase)
+      const mappedPayments = data?.map(payment => ({
+        id: payment.id,
+        providerId: payment.provider_id,
+        providerName: payment.provider_name,
+        amount: payment.amount,
+        dueDate: payment.due_date,
+        paymentDate: payment.payment_date,
+        status: payment.status,
+        type: payment.type,
+        description: payment.description,
+        installments: payment.installments,
+        currentInstallment: payment.current_installment,
+        tags: payment.tags,
+        notes: payment.notes,
+        // Dados do prestador se disponível
+        serviceProvider: payment.service_providers ? {
+          name: payment.service_providers.name,
+          email: payment.service_providers.email,
+          phone: payment.service_providers.phone,
+          service: payment.service_providers.service
+        } : null
+      })) || [];
       
-      // Estatísticas para debugging
-      const orphanCount = mappedPayments.filter(p => p.isOrphan).length;
-      const validCount = mappedPayments.filter(p => !p.isOrphan).length;
-      
-      console.log('Pagamentos mapeados:', {
-        total: mappedPayments.length,
-        valid: validCount,
-        orphan: orphanCount
-      });
-      
-      if (orphanCount > 0) {
-        console.warn(`⚠️ ${orphanCount} pagamento(s) órfão(s) detectado(s). Execute a correção automática.`);
-      }
+      console.log('Pagamentos mapeados:', mappedPayments.length);
+      console.log('Primeiro pagamento mapeado:', mappedPayments[0]);
       
       return mappedPayments;
     } catch (err) {
@@ -477,57 +443,27 @@ export const useSupabaseData = () => {
     }
   };
 
-  // Função para atualizar pagamento - CORRIGIDA PARA FUNCIONAR COM PROVIDER_ID NULL
+  // Função para atualizar pagamento
   const updatePayment = async (paymentId: string, updates: any) => {
     try {
-      console.log('=== ATUALIZANDO PAGAMENTO ===');
-      console.log('Payment ID:', paymentId);
-      console.log('Updates:', updates);
+      console.log('Atualizando pagamento:', paymentId, updates);
 
-      // Verificar se o pagamento existe antes de atualizar
-      const { data: existingPayment, error: checkError } = await supabase
-        .from('payments')
-        .select('*')
-        .eq('id', paymentId)
-        .maybeSingle();
-
-      if (checkError) {
-        console.error('Erro ao verificar existência do pagamento:', checkError);
-        return { data: null, error: checkError.message };
-      }
-
-      if (!existingPayment) {
-        console.error('Pagamento não encontrado:', paymentId);
-        return { data: null, error: 'Pagamento não encontrado' };
-      }
-
-      console.log('Pagamento encontrado, procedendo com atualização...');
-
-      // CORRIGIDO: Usar apenas o ID como filtro, sem restrições adicionais
       const { data, error } = await supabase
         .from('payments')
         .update(updates)
-        .eq('id', paymentId)  // APENAS o ID como filtro
-        .select('*');
+        .eq('id', paymentId)
+        .select()
+        .single();
 
       if (error) {
         console.error('Erro SQL ao atualizar pagamento:', error);
-        return { data: null, error: error.message };
+        throw error;
       }
 
-      // Verificar se algum registro foi atualizado
-      if (!data || data.length === 0) {
-        console.error('Nenhum registro foi atualizado - possíveis causas:');
-        console.error('- Pagamento não existe');
-        console.error('- Filtros muito restritivos');
-        console.error('- Problemas de permissão (RLS)');
-        return { data: null, error: 'Nenhum registro foi atualizado' };
-      }
-
-      console.log('✅ Pagamento atualizado com sucesso:', data[0]);
-      return { data: data[0], error: null };
+      console.log('Pagamento atualizado com sucesso:', data);
+      return { data, error: null };
     } catch (err) {
-      console.error('Erro inesperado ao atualizar pagamento:', err);
+      console.error('Erro ao atualizar pagamento:', err);
       return { data: null, error: err instanceof Error ? err.message : 'Erro desconhecido' };
     }
   };
@@ -1028,77 +964,6 @@ export const useSupabaseData = () => {
     }
   };
 
-  // Função para excluir missão
-  const deleteMission = async (missionId: string) => {
-    try {
-      console.log('=== DELETANDO MISSÃO ===');
-      console.log('Mission ID:', missionId);
-
-      // Verificar se há dependências antes de excluir
-      // Primeiro verificar se há receitas pendentes vinculadas
-      const { data: pendingRevenues, error: pendingError } = await supabase
-        .from('pending_revenues')
-        .select('id')
-        .eq('mission_id', missionId);
-
-      if (pendingError) {
-        console.error('Erro ao verificar receitas pendentes:', pendingError);
-        return { error: 'Erro ao verificar dependências da missão' };
-      }
-
-      if (pendingRevenues && pendingRevenues.length > 0) {
-        return { error: 'Não é possível excluir missão com receitas pendentes vinculadas' };
-      }
-
-      // Verificar receitas confirmadas
-      const { data: confirmedRevenues, error: confirmedError } = await supabase
-        .from('confirmed_revenues')
-        .select('id')
-        .eq('mission_id', missionId);
-
-      if (confirmedError) {
-        console.error('Erro ao verificar receitas confirmadas:', confirmedError);
-        return { error: 'Erro ao verificar dependências da missão' };
-      }
-
-      if (confirmedRevenues && confirmedRevenues.length > 0) {
-        return { error: 'Não é possível excluir missão com receitas confirmadas vinculadas' };
-      }
-
-      // Verificar despesas vinculadas
-      const { data: expenses, error: expensesError } = await supabase
-        .from('expenses')
-        .select('id')
-        .eq('mission_id', missionId);
-
-      if (expensesError) {
-        console.error('Erro ao verificar despesas:', expensesError);
-        return { error: 'Erro ao verificar dependências da missão' };
-      }
-
-      if (expenses && expenses.length > 0) {
-        return { error: 'Não é possível excluir missão com despesas vinculadas' };
-      }
-
-      // Se não há dependências, prosseguir com a exclusão
-      const { error } = await supabase
-        .from('missions')
-        .delete()
-        .eq('id', missionId);
-
-      if (error) {
-        console.error('Erro ao excluir missão:', error);
-        return { error: error.message || 'Erro ao excluir missão' };
-      }
-
-      console.log('✅ Missão excluída com sucesso');
-      return { success: true };
-    } catch (error) {
-      console.error('Erro inesperado ao excluir missão:', error);
-      return { error: 'Erro inesperado ao excluir missão' };
-    }
-  };
-
   return {
     loading,
     error,
@@ -1127,7 +992,6 @@ export const useSupabaseData = () => {
     fetchProviderAccess,
     deleteServiceProviderWithAccess,
     fetchConfirmedRevenues,
-    convertPendingToConfirmedRevenue,
-    deleteMission
+    convertPendingToConfirmedRevenue
   };
 };

@@ -6,7 +6,6 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import { ProviderSelector } from './ProviderSelector';
 import { useSupabaseData } from '@/hooks/useSupabaseData';
 import { useToastFeedback } from '@/hooks/useToastFeedback';
 import { ServiceProvider, PaymentType } from '@/types/payment';
@@ -34,7 +33,6 @@ export const PaymentModal = ({
     account_id: '',
     account_type: null as 'bank_account' | 'credit_card' | null
   });
-  const [selectedProvider, setSelectedProvider] = useState<ServiceProvider | null>(provider);
   const [accounts, setAccounts] = useState<any[]>([]);
   const [cards, setCards] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
@@ -42,33 +40,26 @@ export const PaymentModal = ({
   const { insertPayment, fetchBankAccounts, fetchCreditCards } = useSupabaseData();
   const { showSuccess, showError } = useToastFeedback();
 
+  // Early return if provider is null
+  if (!provider) {
+    return null;
+  }
+
   useEffect(() => {
-    if (isOpen) {
+    if (isOpen && provider) {
       loadAccountsAndCards();
-      
-      // Se há um prestador pré-selecionado
-      if (provider) {
-        setSelectedProvider(provider);
-        if (paymentType === 'balance_payment' && provider.currentBalance) {
-          setFormData(prev => ({
-            ...prev,
-            amount: provider.currentBalance.toString(),
-            description: `Pagamento do saldo completo - ${provider.name}`
-          }));
-        } else {
-          setFormData(prev => ({
-            ...prev,
-            amount: '',
-            description: `Adiantamento para ${provider.name}`
-          }));
-        }
+      // Definir valor padrão baseado no tipo de pagamento
+      if (paymentType === 'balance_payment' && provider.currentBalance) {
+        setFormData(prev => ({
+          ...prev,
+          amount: provider.currentBalance.toString(),
+          description: `Pagamento do saldo completo - ${provider.name}`
+        }));
       } else {
-        // Resetar para novo pagamento
-        setSelectedProvider(null);
         setFormData(prev => ({
           ...prev,
           amount: '',
-          description: ''
+          description: `Adiantamento para ${provider.name}`
         }));
       }
     }
@@ -90,8 +81,8 @@ export const PaymentModal = ({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!selectedProvider) {
-      showError('Erro', 'Selecione um prestador de serviço');
+    if (!provider) {
+      showError('Erro', 'Prestador não selecionado');
       return;
     }
     
@@ -107,7 +98,7 @@ export const PaymentModal = ({
     }
 
     // Validação para pagamento de saldo
-    if (paymentType === 'balance_payment' && selectedProvider.currentBalance && amount > selectedProvider.currentBalance) {
+    if (paymentType === 'balance_payment' && provider.currentBalance && amount > provider.currentBalance) {
       showError('Erro', 'O valor não pode ser maior que o saldo atual');
       return;
     }
@@ -115,8 +106,8 @@ export const PaymentModal = ({
     setLoading(true);
     try {
       const paymentData = {
-        provider_id: selectedProvider.id,
-        provider_name: selectedProvider.name,
+        provider_id: provider.id,
+        provider_name: provider.name,
         amount: amount,
         due_date: formData.payment_date,
         payment_date: formData.payment_date,
@@ -128,7 +119,7 @@ export const PaymentModal = ({
         account_type: formData.account_type
       };
 
-      console.log('Criando pagamento manual:', paymentData);
+      console.log('Criando pagamento de prestador:', paymentData);
       
       const { data, error } = await insertPayment(paymentData);
       
@@ -139,7 +130,6 @@ export const PaymentModal = ({
       }
 
       console.log('Pagamento registrado com sucesso:', data);
-      showSuccess('Sucesso', 'Pagamento registrado com sucesso!');
       onSuccess();
     } catch (error) {
       console.error('Erro inesperado:', error);
@@ -174,26 +164,10 @@ export const PaymentModal = ({
     return `${formData.account_type}:${formData.account_id}`;
   };
 
-  const handleProviderSelect = (provider: ServiceProvider) => {
-    console.log('Prestador selecionado:', provider);
-    setSelectedProvider(provider);
-    
-    // Atualizar descrição baseada no prestador selecionado
-    setFormData(prev => ({
-      ...prev,
-      description: paymentType === 'balance_payment' 
-        ? `Pagamento do saldo - ${provider.name}`
-        : `Adiantamento para ${provider.name}`
-    }));
-  };
-
   const getModalTitle = () => {
-    if (provider) {
-      return paymentType === 'balance_payment' 
-        ? `Pagar Saldo - ${provider.name}`
-        : `Adiantamento - ${provider.name}`;
-    }
-    return 'Novo Pagamento';
+    return paymentType === 'balance_payment' 
+      ? `Pagar Saldo - ${provider.name}`
+      : `Adiantamento - ${provider.name}`;
   };
 
   const formatCurrency = (value: number) => {
@@ -211,20 +185,10 @@ export const PaymentModal = ({
         </DialogHeader>
 
         <form onSubmit={handleSubmit} className="space-y-4">
-          {!provider && (
-            <div>
-              <Label htmlFor="provider">Prestador de Serviço *</Label>
-              <ProviderSelector
-                onProviderSelect={handleProviderSelect}
-                placeholder="Selecione o prestador"
-              />
-            </div>
-          )}
-
-          {paymentType === 'balance_payment' && selectedProvider?.currentBalance && (
+          {paymentType === 'balance_payment' && provider.currentBalance && (
             <div className="bg-blue-50 p-3 rounded-lg">
               <p className="text-sm text-blue-800">
-                <strong>Saldo atual:</strong> {formatCurrency(selectedProvider.currentBalance)}
+                <strong>Saldo atual:</strong> {formatCurrency(provider.currentBalance)}
               </p>
             </div>
           )}
@@ -298,7 +262,7 @@ export const PaymentModal = ({
           </div>
 
           <div className="flex gap-3 pt-4">
-            <Button type="submit" disabled={loading || !selectedProvider} className="flex-1">
+            <Button type="submit" disabled={loading} className="flex-1">
               {loading ? 'Processando...' : 'Registrar Pagamento'}
             </Button>
             <Button 

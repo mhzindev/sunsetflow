@@ -13,7 +13,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { ClientAutocomplete } from '@/components/clients/ClientAutocomplete';
 import { ServiceValueDistribution } from '@/components/missions/ServiceValueDistribution';
 import { ServiceProviderSelector } from '@/components/missions/ServiceProviderSelector';
-import { Plus, Calendar, MapPin, Users, DollarSign, RefreshCw, CheckCircle, Clock, Trash2 } from 'lucide-react';
+import { Plus, Calendar, MapPin, Users, DollarSign, RefreshCw, CheckCircle, Clock } from 'lucide-react';
 import { isAdmin } from '@/utils/authUtils';
 
 interface MissionManagerProps {
@@ -24,7 +24,6 @@ export const MissionManager = ({ onMissionCreated }: MissionManagerProps) => {
   const [missions, setMissions] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
-  const [deletingMission, setDeletingMission] = useState<string | null>(null);
   const [formData, setFormData] = useState({
     title: '',
     description: '',
@@ -39,7 +38,7 @@ export const MissionManager = ({ onMissionCreated }: MissionManagerProps) => {
     status: 'planning'
   });
 
-  const { fetchMissions, insertMission, updateMission, deleteMission } = useSupabaseData();
+  const { fetchMissions, insertMission, updateMission } = useSupabaseData();
   const { showSuccess, showError } = useToastFeedback();
   const { user, profile } = useAuth();
 
@@ -83,14 +82,6 @@ export const MissionManager = ({ onMissionCreated }: MissionManagerProps) => {
     }
 
     try {
-      // CORRIGIDO: Validar se temos prestadores selecionados antes de definir provider_id
-      const validProviders = formData.assigned_providers.filter(id => id && id.trim() !== '');
-      
-      if (validProviders.length === 0) {
-        showError('Erro de Validação', 'Por favor, selecione prestadores válidos');
-        return;
-      }
-
       const missionData = {
         title: formData.title,
         description: formData.description,
@@ -101,12 +92,11 @@ export const MissionManager = ({ onMissionCreated }: MissionManagerProps) => {
         company_percentage: formData.company_percentage,
         provider_percentage: formData.provider_percentage,
         client_name: formData.client_name,
-        assigned_providers: validProviders,
-        provider_id: validProviders[0], // CORRIGIDO: Usar o primeiro prestador válido
+        assigned_providers: formData.assigned_providers,
         status: formData.status
       };
 
-      console.log('Criando missão com provider_id válido:', missionData);
+      console.log('Criando missão:', missionData);
 
       const result = await insertMission(missionData);
       
@@ -163,38 +153,6 @@ export const MissionManager = ({ onMissionCreated }: MissionManagerProps) => {
     } catch (error) {
       console.error('Erro ao aprovar missão:', error);
       showError('Erro', 'Erro ao aprovar missão. Tente novamente.');
-    }
-  };
-
-  const handleDeleteMission = async (missionId: string) => {
-    if (!userIsAdmin) {
-      showError('Erro', 'Apenas administradores podem excluir missões');
-      return;
-    }
-
-    if (!confirm('Tem certeza que deseja excluir esta missão? Esta ação não pode ser desfeita.')) {
-      return;
-    }
-
-    try {
-      setDeletingMission(missionId);
-      console.log('Excluindo missão:', missionId);
-
-      const result = await deleteMission(missionId);
-
-      if (result.error) {
-        console.error('Erro ao excluir missão:', result.error);
-        showError('Erro', result.error);
-        return;
-      }
-
-      showSuccess('Sucesso', 'Missão excluída com sucesso!');
-      loadData();
-    } catch (error) {
-      console.error('Erro ao excluir missão:', error);
-      showError('Erro', 'Erro ao excluir missão. Tente novamente.');
-    } finally {
-      setDeletingMission(null);
     }
   };
 
@@ -442,10 +400,9 @@ export const MissionManager = ({ onMissionCreated }: MissionManagerProps) => {
                           <p className="mt-2 text-gray-700">{mission.description}</p>
                         )}
 
-                        {/* Botões de ação */}
-                        <div className="flex gap-2 pt-3 mt-3 border-t">
-                          {/* Botão de aprovação APENAS para admins */}
-                          {userIsAdmin && !mission.is_approved && mission.service_value > 0 && (
+                        {/* Botão de aprovação APENAS para admins */}
+                        {userIsAdmin && !mission.is_approved && mission.service_value > 0 && (
+                          <div className="pt-3 mt-3 border-t">
                             <Button 
                               onClick={() => handleApproveMission(mission.id)}
                               className="bg-green-600 hover:bg-green-700"
@@ -454,25 +411,8 @@ export const MissionManager = ({ onMissionCreated }: MissionManagerProps) => {
                               <CheckCircle className="w-4 h-4 mr-2" />
                               Aprovar e Registrar Receita
                             </Button>
-                          )}
-
-                          {/* Botão de exclusão APENAS para admins */}
-                          {userIsAdmin && (
-                            <Button 
-                              onClick={() => handleDeleteMission(mission.id)}
-                              variant="destructive"
-                              size="sm"
-                              disabled={deletingMission === mission.id}
-                            >
-                              {deletingMission === mission.id ? (
-                                <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
-                              ) : (
-                                <Trash2 className="w-4 h-4 mr-2" />
-                              )}
-                              Excluir
-                            </Button>
-                          )}
-                        </div>
+                          </div>
+                        )}
 
                         {mission.is_approved && mission.approved_at && (
                           <div className="pt-2 mt-2 border-t text-xs text-green-600">
