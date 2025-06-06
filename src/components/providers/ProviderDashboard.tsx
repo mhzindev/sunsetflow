@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -118,11 +117,10 @@ export const ProviderDashboard = () => {
 
   const getTooltipText = (type: string) => {
     const tooltips = {
-      currentBalance: "Valor disponível para saque (ganhos - pagamentos recebidos)",
-      totalEarned: "Total que você ganhou com missões aprovadas até agora",
+      availableBalance: "Valor disponível para recebimento (acumulado - pagamentos - recebimentos marcados)",
+      accumulatedBalance: "Total acumulado que você gerou com missões aprovadas",
       missions: "Número de missões aprovadas que você participou",
-      pendingPayments: "Valor de pagamentos que ainda não foram processados",
-      pendingBalance: "Valor estimado de missões ainda não aprovadas"
+      pendingPayments: "Valor de pagamentos que ainda não foram processados pela empresa"
     };
     return tooltips[type as keyof typeof tooltips] || "";
   };
@@ -163,44 +161,61 @@ export const ProviderDashboard = () => {
         </div>
       </div>
 
-      {/* Cards de Estatísticas */}
+      {/* Cards de Estatísticas com Nova Lógica */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <BalanceCard
-          title="Saldo Atual"
-          value={formatCurrency(balanceDetails.currentBalance)}
-          icon={<DollarSign className="w-6 h-6 text-blue-600" />}
-          className="bg-blue-50"
-          tooltip={getTooltipText('currentBalance')}
-          isProvider={true}
-        />
-
-        <BalanceCard
-          title="Total Ganho"
-          value={formatCurrency(balanceDetails.totalEarned)}
-          icon={<TrendingUp className="w-6 h-6 text-green-600" />}
+          title="Saldo Disponível"
+          value={formatCurrency(balanceDetails.availableBalance)}
+          icon={<DollarSign className="w-6 h-6 text-green-600" />}
           className="bg-green-50"
-          tooltip={getTooltipText('totalEarned')}
+          tooltip={getTooltipText('availableBalance')}
           isProvider={true}
         />
 
         <BalanceCard
-          title="Saldo Previsto"
-          value={formatCurrency(balanceDetails.pendingBalance)}
+          title="Saldo Acumulado"
+          value={formatCurrency(balanceDetails.accumulatedBalance)}
+          icon={<TrendingUp className="w-6 h-6 text-orange-600" />}
+          className="bg-orange-50"
+          tooltip={getTooltipText('accumulatedBalance')}
+          isProvider={true}
+        />
+
+        <BalanceCard
+          title="Missões Pendentes"
+          value={`${balanceDetails.pendingMissionsCount}`}
           icon={<Eye className="w-6 h-6 text-purple-600" />}
           className="bg-purple-50"
-          tooltip={getTooltipText('pendingBalance')}
+          tooltip="Missões criadas por você aguardando aprovação"
           isProvider={true}
         />
 
         <BalanceCard
           title="Missões Aprovadas"
           value={`${balanceDetails.missionsCount}`}
-          icon={<Calendar className="w-6 h-6 text-orange-600" />}
-          className="bg-orange-50"
+          icon={<Calendar className="w-6 h-6 text-blue-600" />}
+          className="bg-blue-50"
           tooltip={getTooltipText('missions')}
           isProvider={true}
         />
       </div>
+
+      {/* Alertas sobre Missões Pendentes */}
+      {balanceDetails.pendingMissionsCount > 0 && (
+        <Card className="p-4 bg-yellow-50 border-yellow-200">
+          <div className="flex items-center gap-2">
+            <AlertCircle className="w-5 h-5 text-yellow-600" />
+            <div>
+              <h4 className="font-semibold text-yellow-800">
+                Você tem {balanceDetails.pendingMissionsCount} {balanceDetails.pendingMissionsCount === 1 ? 'missão pendente' : 'missões pendentes'}
+              </h4>
+              <p className="text-yellow-700 text-sm">
+                Essas missões estão aguardando aprovação da empresa para serem incluídas no seu saldo.
+              </p>
+            </div>
+          </div>
+        </Card>
+      )}
 
       {/* Botão para ver detalhes do saldo */}
       <Card>
@@ -240,23 +255,6 @@ export const ProviderDashboard = () => {
           </CardContent>
         )}
       </Card>
-
-      {/* Alertas sobre Saldo Previsto */}
-      {balanceDetails.pendingBalance > 0 && (
-        <Card className="p-4 bg-yellow-50 border-yellow-200">
-          <div className="flex items-center gap-2">
-            <AlertCircle className="w-5 h-5 text-yellow-600" />
-            <div>
-              <h4 className="font-semibold text-yellow-800">
-                Você tem {formatCurrency(balanceDetails.pendingBalance)} em missões pendentes
-              </h4>
-              <p className="text-yellow-700 text-sm">
-                Este valor será adicionado ao seu saldo quando as missões forem aprovadas pela empresa.
-              </p>
-            </div>
-          </div>
-        </Card>
-      )}
 
       {/* Tabs para Missões e Pagamentos */}
       <Tabs defaultValue="missions" className="w-full">

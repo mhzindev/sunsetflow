@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -8,7 +7,8 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Search, RefreshCw, Plus, Calendar, MapPin, Users, DollarSign, Eye, Clock, TrendingUp } from 'lucide-react';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
+import { Search, RefreshCw, Plus, Calendar, MapPin, Users, DollarSign, Eye, Clock, TrendingUp, CheckCircle } from 'lucide-react';
 import { useSupabaseData } from '@/hooks/useSupabaseData';
 import { useToastFeedback } from '@/hooks/useToastFeedback';
 import { useAuth } from '@/contexts/AuthContext';
@@ -21,6 +21,8 @@ export const ProviderMissionPanel = () => {
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
+  const [showReceiptModal, setShowReceiptModal] = useState(false);
+  const [receiptAmount, setReceiptAmount] = useState('');
   const [formData, setFormData] = useState({
     title: '',
     description: '',
@@ -35,7 +37,7 @@ export const ProviderMissionPanel = () => {
   const { fetchMissions, insertMission } = useSupabaseData();
   const { showSuccess, showError } = useToastFeedback();
   const { user, profile } = useAuth();
-  const { balanceDetails, loading: balanceLoading } = useProviderBalanceDetails(profile?.provider_id || '');
+  const { balanceDetails, loading: balanceLoading, markAsReceived } = useProviderBalanceDetails(profile?.provider_id || '');
 
   useEffect(() => {
     if (user && profile?.user_type === 'provider') {
@@ -156,6 +158,27 @@ export const ProviderMissionPanel = () => {
     }).format(value);
   };
 
+  const handleMarkAsReceived = async () => {
+    const amount = parseFloat(receiptAmount);
+    
+    if (!amount || amount <= 0) {
+      showError('Erro', 'Digite um valor válido');
+      return;
+    }
+
+    if (amount > balanceDetails.availableBalance) {
+      showError('Erro', 'O valor não pode ser maior que o saldo disponível');
+      return;
+    }
+
+    const result = await markAsReceived(amount);
+    
+    if (result.success) {
+      setShowReceiptModal(false);
+      setReceiptAmount('');
+    }
+  };
+
   const filteredMissions = missions.filter(mission => {
     if (!searchTerm) return true;
     return mission.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -194,39 +217,79 @@ export const ProviderMissionPanel = () => {
 
   return (
     <div className="space-y-6">
-      {/* Cards de Saldo */}
+      {/* Cards de Saldo com Nova Lógica */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <Card className="p-4 bg-orange-50">
+          <div className="flex items-center gap-3">
+            <div className="p-2 rounded-lg">
+              <TrendingUp className="w-6 h-6 text-orange-600" />
+            </div>
+            <div className="flex-1">
+              <p className="text-sm text-gray-600">Saldo Pendente (Acumulado)</p>
+              <p className="text-lg font-semibold text-gray-900">
+                {formatCurrency(balanceDetails.accumulatedBalance)}
+              </p>
+              <p className="text-xs text-orange-700">
+                Total gerado com missões aprovadas
+              </p>
+            </div>
+          </div>
+        </Card>
+
         <Card className="p-4 bg-green-50">
           <div className="flex items-center gap-3">
             <div className="p-2 rounded-lg">
               <DollarSign className="w-6 h-6 text-green-600" />
             </div>
             <div className="flex-1">
-              <p className="text-sm text-gray-600">Saldo Atual</p>
+              <p className="text-sm text-gray-600">Saldo Disponível</p>
               <p className="text-lg font-semibold text-gray-900">
-                {formatCurrency(balanceDetails.currentBalance)}
+                {formatCurrency(balanceDetails.availableBalance)}
               </p>
               <p className="text-xs text-green-700">
-                Disponível para saque
+                Valor a receber
               </p>
             </div>
-          </div>
-        </Card>
-
-        <Card className="p-4 bg-blue-50">
-          <div className="flex items-center gap-3">
-            <div className="p-2 rounded-lg">
-              <TrendingUp className="w-6 h-6 text-blue-600" />
-            </div>
-            <div className="flex-1">
-              <p className="text-sm text-gray-600">Saldo Pendente</p>
-              <p className="text-lg font-semibold text-gray-900">
-                {formatCurrency(balanceDetails.pendingBalance)}
-              </p>
-              <p className="text-xs text-blue-700">
-                Aguardando pagamento do cliente
-              </p>
-            </div>
+            {balanceDetails.availableBalance > 0 && (
+              <Dialog open={showReceiptModal} onOpenChange={setShowReceiptModal}>
+                <DialogTrigger asChild>
+                  <Button size="sm" className="ml-2">
+                    <CheckCircle className="w-4 h-4 mr-1" />
+                    Marcar Recebimento
+                  </Button>
+                </DialogTrigger>
+                <DialogContent>
+                  <DialogHeader>
+                    <DialogTitle>Marcar Recebimento</DialogTitle>
+                  </DialogHeader>
+                  <div className="space-y-4">
+                    <div>
+                      <Label htmlFor="amount">Valor Recebido (R$)</Label>
+                      <Input
+                        id="amount"
+                        type="number"
+                        step="0.01"
+                        value={receiptAmount}
+                        onChange={(e) => setReceiptAmount(e.target.value)}
+                        placeholder="0,00"
+                        max={balanceDetails.availableBalance}
+                      />
+                      <p className="text-sm text-gray-500 mt-1">
+                        Saldo disponível: {formatCurrency(balanceDetails.availableBalance)}
+                      </p>
+                    </div>
+                  </div>
+                  <DialogFooter>
+                    <Button variant="outline" onClick={() => setShowReceiptModal(false)}>
+                      Cancelar
+                    </Button>
+                    <Button onClick={handleMarkAsReceived}>
+                      Confirmar Recebimento
+                    </Button>
+                  </DialogFooter>
+                </DialogContent>
+              </Dialog>
+            )}
           </div>
         </Card>
       </div>
