@@ -32,6 +32,7 @@ export const PaymentMarkAsPaidModal = ({
     type: 'bank_account' | 'credit_card';
   } | null>(null);
   const [loading, setLoading] = useState(false);
+  const [isProcessing, setIsProcessing] = useState(false); // Evitar cliques duplos
   
   const { fetchBankAccounts, fetchCreditCards, updatePayment } = useSupabaseData();
   const { updatePaymentStatus } = useFinancial();
@@ -41,19 +42,22 @@ export const PaymentMarkAsPaidModal = ({
     if (isOpen) {
       loadAccountsAndCards();
       setSelectedAccount(null);
+      setIsProcessing(false); // Reset ao abrir modal
     }
   }, [isOpen]);
 
   const loadAccountsAndCards = async () => {
     try {
+      console.log('PaymentMarkAsPaidModal: Carregando contas e cartões...');
       const [accountsData, cardsData] = await Promise.all([
         fetchBankAccounts(),
         fetchCreditCards()
       ]);
       setAccounts(accountsData);
       setCards(cardsData);
+      console.log('PaymentMarkAsPaidModal: Contas carregadas:', accountsData.length, 'Cartões carregados:', cardsData.length);
     } catch (error) {
-      console.error('Erro ao carregar contas:', error);
+      console.error('PaymentMarkAsPaidModal: Erro ao carregar contas e cartões:', error);
     }
   };
 
@@ -78,14 +82,19 @@ export const PaymentMarkAsPaidModal = ({
   };
 
   const handleMarkAsPaid = async () => {
-    if (!payment || !selectedAccount) {
-      showError('Erro', 'Selecione uma conta ou cartão');
+    // Evitar processamento duplo
+    if (isProcessing || !payment || !selectedAccount) {
+      if (!selectedAccount) {
+        showError('Erro', 'Selecione uma conta ou cartão');
+      }
       return;
     }
 
     setLoading(true);
+    setIsProcessing(true);
+    
     try {
-      console.log('PaymentMarkAsPaidModal: Iniciando marcação como pago');
+      console.log('PaymentMarkAsPaidModal: Iniciando marcação como pago (ÚNICA)');
       console.log('Payment ID:', payment.id);
       console.log('Account:', selectedAccount);
 
@@ -95,15 +104,19 @@ export const PaymentMarkAsPaidModal = ({
         return;
       }
 
-      // Atualizar o pagamento com status completed, data atual e conta selecionada
+      // Usar data atual do timezone de Brasília
+      const currentBrasiliaDate = getCurrentDate();
+      console.log('PaymentMarkAsPaidModal: Data atual Brasília:', currentBrasiliaDate);
+
+      // Atualizar o pagamento com status completed, data de Brasília e conta selecionada
       const updates = {
         status: 'completed' as const,
-        payment_date: getCurrentDate(), // Usar função corrigida para data atual
+        payment_date: currentBrasiliaDate,
         account_id: selectedAccount.id,
         account_type: selectedAccount.type
       };
 
-      console.log('PaymentMarkAsPaidModal: Enviando updates:', updates);
+      console.log('PaymentMarkAsPaidModal: Enviando updates únicos:', updates);
 
       const { data, error } = await updatePayment(payment.id, updates);
       
@@ -119,7 +132,7 @@ export const PaymentMarkAsPaidModal = ({
         return;
       }
 
-      console.log('PaymentMarkAsPaidModal: Pagamento atualizado com sucesso:', data);
+      console.log('PaymentMarkAsPaidModal: Pagamento atualizado com sucesso (ÚNICO):', data);
 
       // Atualizar também via contexto para garantir sincronização
       updatePaymentStatus(payment.id, 'completed');
@@ -127,7 +140,7 @@ export const PaymentMarkAsPaidModal = ({
       const updatedPayment: Payment = {
         ...payment,
         status: 'completed',
-        paymentDate: updates.payment_date,
+        paymentDate: currentBrasiliaDate,
         account_id: selectedAccount.id,
         account_type: selectedAccount.type
       };
@@ -140,6 +153,7 @@ export const PaymentMarkAsPaidModal = ({
       showError('Erro', 'Erro inesperado ao processar pagamento');
     } finally {
       setLoading(false);
+      setIsProcessing(false);
     }
   };
 
@@ -201,14 +215,14 @@ export const PaymentMarkAsPaidModal = ({
               </SelectContent>
             </Select>
             <p className="text-xs text-gray-600 mt-1">
-              O valor será debitado da conta/cartão selecionado
+              O valor será debitado da conta/cartão selecionado na data atual de Brasília
             </p>
           </div>
 
           <div className="flex gap-3 pt-4">
             <Button 
               onClick={handleMarkAsPaid}
-              disabled={loading || !selectedAccount}
+              disabled={loading || !selectedAccount || isProcessing}
               className="flex-1 bg-green-600 hover:bg-green-700"
             >
               {loading ? 'Processando...' : 'Confirmar Pagamento'}
@@ -217,7 +231,7 @@ export const PaymentMarkAsPaidModal = ({
               type="button" 
               variant="outline" 
               onClick={onClose}
-              disabled={loading}
+              disabled={loading || isProcessing}
             >
               Cancelar
             </Button>
