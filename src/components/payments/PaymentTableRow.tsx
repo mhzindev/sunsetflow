@@ -94,14 +94,38 @@ export const PaymentTableRow = ({ payment, onPaymentUpdate }: PaymentTableRowPro
       console.log('Provider Name:', payment.providerName);
       console.log('Amount:', payment.amount);
       
-      // Atualizar o pagamento no banco de dados
-      const { error: updateError } = await supabase
+      // Verificar se o pagamento ainda existe e está pendente
+      const { data: currentPayment, error: checkError } = await supabase
+        .from('payments')
+        .select('*')
+        .eq('id', payment.id)
+        .single();
+
+      if (checkError) {
+        console.error('Erro ao verificar pagamento:', checkError);
+        showError('Erro', 'Erro ao verificar status do pagamento: ' + checkError.message);
+        return;
+      }
+
+      if (currentPayment.status === 'completed') {
+        console.log('✅ Pagamento já estava marcado como concluído');
+        showSuccess('Informação', 'Pagamento já estava marcado como concluído!');
+        onPaymentUpdate?.();
+        return;
+      }
+
+      console.log('Status atual do pagamento:', currentPayment.status);
+      
+      // Atualizar o pagamento no banco de dados com logs detalhados
+      const { data: updatedData, error: updateError } = await supabase
         .from('payments')
         .update({ 
           status: 'completed',
           payment_date: new Date().toISOString().split('T')[0]
         })
-        .eq('id', payment.id);
+        .eq('id', payment.id)
+        .select('*')
+        .single();
 
       if (updateError) {
         console.error('Erro ao atualizar pagamento:', updateError);
@@ -109,11 +133,14 @@ export const PaymentTableRow = ({ payment, onPaymentUpdate }: PaymentTableRowPro
         return;
       }
 
-      console.log('✅ Pagamento atualizado com sucesso no banco');
+      console.log('✅ Pagamento atualizado no banco:', updatedData);
 
-      // Recalcular saldo do prestador se houver provider_id (usar o campo correto)
+      // Aguardar um momento para o trigger ser executado
+      await new Promise(resolve => setTimeout(resolve, 500));
+
+      // Verificar se o trigger funcionou recalculando o saldo manualmente se necessário
       if (payment.providerId) {
-        console.log('Recalculando saldo do prestador:', payment.providerId);
+        console.log('Verificando e recalculando saldo do prestador:', payment.providerId);
         
         const { data: recalculateData, error: recalculateError } = await supabase.rpc(
           'recalculate_provider_balance', 
@@ -124,7 +151,7 @@ export const PaymentTableRow = ({ payment, onPaymentUpdate }: PaymentTableRowPro
           console.error('Erro ao recalcular saldo:', recalculateError);
           showError('Aviso', 'Pagamento processado mas erro ao recalcular saldo: ' + recalculateError.message);
         } else {
-          console.log('✅ Saldo recalculado com sucesso:', recalculateData);
+          console.log('✅ Saldo recalculado com sucesso. Novo saldo:', recalculateData);
         }
       } else {
         console.log('⚠️ Pagamento sem provider_id - saldo não será recalculado');
@@ -135,9 +162,11 @@ export const PaymentTableRow = ({ payment, onPaymentUpdate }: PaymentTableRowPro
         `Pagamento de R$ ${payment.amount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} para ${payment.providerName} foi processado! Status atualizado para concluído.`
       );
 
-      // Notificar componente pai para atualizar a lista
-      console.log('Chamando onPaymentUpdate para refresh dos dados');
-      onPaymentUpdate?.();
+      // Forçar refresh dos dados com delay para garantir que o banco atualizou
+      console.log('Executando refresh dos dados...');
+      setTimeout(() => {
+        onPaymentUpdate?.();
+      }, 1000);
       
     } catch (error) {
       console.error('Erro inesperado ao processar pagamento:', error);

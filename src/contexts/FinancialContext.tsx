@@ -68,10 +68,10 @@ export const FinancialProvider = ({ children }: { children: React.ReactNode }) =
       // Buscar dados usando a nova função RPC que implementa lógica hierárquica
       const [transactions, expenses, payments, bankAccounts, creditCards] = await Promise.all([
         fetchTransactions(),
-        isOwner ? fetchExpenses() : [], // Só buscar despesas se for dono
-        isOwner ? fetchPayments() : [], // Só buscar pagamentos se for dono
-        isOwner ? fetchBankAccounts() : [], // Só buscar contas se for dono
-        isOwner ? fetchCreditCards() : [] // Só buscar cartões se for dono
+        isOwner ? fetchExpenses() : [],
+        isOwner ? fetchPayments() : [],
+        isOwner ? fetchBankAccounts() : [],
+        isOwner ? fetchCreditCards() : []
       ]);
 
       console.log('=== DEBUG: Dados carregados no FinancialContext ===');
@@ -79,21 +79,36 @@ export const FinancialProvider = ({ children }: { children: React.ReactNode }) =
       console.log('É dono?', isOwner);
       console.log('Transações carregadas:', transactions?.length || 0);
       console.log('Despesas carregadas:', expenses?.length || 0);
-      console.log('Pagamentos carregados:', payments?.length || 0);
+      console.log('Pagamentos carregados (RAW):', payments?.length || 0);
 
-      // Mapear pagamentos para o formato correto do frontend
-      const mappedPayments = payments?.map(payment => ({
-        ...payment,
-        providerId: payment.provider_id, // Mapear provider_id para providerId
-        providerName: payment.provider_name || 'Prestador não especificado',
-        dueDate: payment.due_date,
-        paymentDate: payment.payment_date,
-        currentInstallment: payment.current_installment,
-        accountId: payment.account_id,
-        accountType: payment.account_type
-      })) || [];
+      // Mapear pagamentos para o formato correto do frontend com logs detalhados
+      const mappedPayments = payments?.map(payment => {
+        console.log('Mapeando pagamento:', {
+          id: payment.id,
+          provider_id: payment.provider_id,
+          provider_name: payment.provider_name,
+          status: payment.status,
+          amount: payment.amount
+        });
+
+        return {
+          ...payment,
+          providerId: payment.provider_id, // GARANTIR mapeamento correto
+          providerName: payment.provider_name || 'Prestador não especificado',
+          dueDate: payment.due_date,
+          paymentDate: payment.payment_date,
+          currentInstallment: payment.current_installment,
+          accountId: payment.account_id,
+          accountType: payment.account_type
+        };
+      }) || [];
 
       console.log('Pagamentos mapeados:', mappedPayments.length);
+      console.log('Pagamentos por status:', {
+        pending: mappedPayments.filter(p => p.status === 'pending').length,
+        completed: mappedPayments.filter(p => p.status === 'completed').length,
+        partial: mappedPayments.filter(p => p.status === 'partial').length
+      });
 
       // Filtrar dados dos últimos 30 dias
       const thirtyDaysAgo = new Date();
@@ -150,10 +165,10 @@ export const FinancialProvider = ({ children }: { children: React.ReactNode }) =
         error: null
       };
 
-      console.log('=== DADOS FINANCEIROS ATUALIZADOS ===');
-      console.log('Total de pagamentos:', newData.payments.length);
-      console.log('Pagamentos pendentes:', newData.payments.filter(p => p.status === 'pending').length);
-      console.log('Valor pendente:', pendingPayments);
+      console.log('=== DADOS FINANCEIROS FINALIZADOS ===');
+      console.log('Total de pagamentos no contexto:', newData.payments.length);
+      console.log('Pagamentos pendentes no contexto:', newData.payments.filter(p => p.status === 'pending').length);
+      console.log('Valor pendente calculado:', pendingPayments);
 
       setData(newData);
 
@@ -186,6 +201,7 @@ export const FinancialProvider = ({ children }: { children: React.ReactNode }) =
 
   // Função para atualizar status de despesa
   const updateExpenseStatus = (id: string, status: string) => {
+    console.log('Atualizando status de despesa no contexto:', id, status);
     setData(prev => ({
       ...prev,
       expenses: prev.expenses.map(expense => 
@@ -194,45 +210,85 @@ export const FinancialProvider = ({ children }: { children: React.ReactNode }) =
     }));
   };
 
-  // Função para processar pagamento - ATUALIZADA
+  // Função para processar pagamento - MELHORADA com logs
   const processPayment = (payment: any) => {
-    console.log('Processando pagamento no contexto:', payment.id);
-    setData(prev => ({
-      ...prev,
-      payments: prev.payments.map(p => 
-        p.id === payment.id ? { 
-          ...p, 
-          status: 'completed', 
-          paymentDate: new Date().toISOString().split('T')[0] 
-        } : p
-      )
-    }));
+    console.log('=== PROCESSANDO PAGAMENTO NO CONTEXTO ===');
+    console.log('Payment ID:', payment.id);
+    console.log('Provider ID:', payment.providerId);
+    console.log('Status atual:', payment.status);
+    
+    setData(prev => {
+      const updatedPayments = prev.payments.map(p => {
+        if (p.id === payment.id) {
+          console.log('Encontrou pagamento para atualizar:', p.id);
+          return { 
+            ...p, 
+            status: 'completed', 
+            paymentDate: new Date().toISOString().split('T')[0] 
+          };
+        }
+        return p;
+      });
+      
+      console.log('Pagamentos atualizados no contexto:', updatedPayments.length);
+      console.log('Pagamentos concluídos:', updatedPayments.filter(p => p.status === 'completed').length);
+      
+      return {
+        ...prev,
+        payments: updatedPayments
+      };
+    });
   };
 
-  // Função para atualizar pagamento - MELHORADA
+  // Função para atualizar pagamento - MELHORADA com logs
   const updatePayment = (id: string, updates: any) => {
-    console.log('Atualizando pagamento no contexto:', id, updates);
-    setData(prev => ({
-      ...prev,
-      payments: prev.payments.map(payment => 
-        payment.id === id ? { ...payment, ...updates } : payment
-      )
-    }));
+    console.log('=== ATUALIZANDO PAGAMENTO NO CONTEXTO ===');
+    console.log('Payment ID:', id);
+    console.log('Updates:', updates);
+    
+    setData(prev => {
+      const updatedPayments = prev.payments.map(payment => {
+        if (payment.id === id) {
+          console.log('Pagamento encontrado e atualizado:', payment.id);
+          return { ...payment, ...updates };
+        }
+        return payment;
+      });
+      
+      console.log('Total de pagamentos após update:', updatedPayments.length);
+      
+      return {
+        ...prev,
+        payments: updatedPayments
+      };
+    });
   };
 
-  // Função para atualizar status de pagamento - MELHORADA
+  // Função para atualizar status de pagamento - MELHORADA com logs
   const updatePaymentStatus = (id: string, status: string) => {
-    console.log('Atualizando status do pagamento:', id, status);
-    setData(prev => ({
-      ...prev,
-      payments: prev.payments.map(payment => 
-        payment.id === id ? { ...payment, status } : payment
-      )
-    }));
+    console.log('=== ATUALIZANDO STATUS DO PAGAMENTO NO CONTEXTO ===');
+    console.log('Payment ID:', id);
+    console.log('Novo status:', status);
+    
+    setData(prev => {
+      const updatedPayments = prev.payments.map(payment => {
+        if (payment.id === id) {
+          console.log('Status atualizado para pagamento:', payment.id, 'de', payment.status, 'para', status);
+          return { ...payment, status };
+        }
+        return payment;
+      });
+      
+      return {
+        ...prev,
+        payments: updatedPayments
+      };
+    });
   };
 
   useEffect(() => {
     if (profile) {
+      console.log('Profile carregado, iniciando fetch de dados:', profile.role, profile.user_type);
       fetchData();
     }
   }, [profile]);

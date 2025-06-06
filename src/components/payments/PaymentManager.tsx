@@ -18,11 +18,20 @@ export const PaymentManager = () => {
   const [sortOrder, setSortOrder] = useState<'alphabetical' | 'newest' | 'oldest'>('newest');
   const [showFilterModal, setShowFilterModal] = useState(false);
   const [showExportModal, setShowExportModal] = useState(false);
+  const [isRefreshing, setIsRefreshing] = useState(false);
   
   const { data, refreshData, loading } = useFinancial();
   const payments = data.payments;
 
   useEffect(() => {
+    console.log('=== PAGAMENTOS RECEBIDOS NO PAYMENT MANAGER ===');
+    console.log('Total de pagamentos:', payments.length);
+    console.log('Pagamentos por status:', {
+      pending: payments.filter(p => p.status === 'pending').length,
+      completed: payments.filter(p => p.status === 'completed').length,
+      partial: payments.filter(p => p.status === 'partial').length
+    });
+
     let filtered = [...payments];
 
     // Filtrar por termo de busca
@@ -47,20 +56,33 @@ export const PaymentManager = () => {
       filtered.sort((a, b) => new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime());
     }
 
+    console.log('Pagamentos filtrados:', filtered.length);
     setFilteredPayments(filtered);
   }, [payments, searchTerm, filterStatus, sortOrder]);
 
-  const handlePaymentCreated = () => {
+  const handlePaymentCreated = async () => {
+    console.log('Pagamento criado, executando refresh...');
     setShowModal(false);
-    refreshData(); // Recarregar dados após criar pagamento
+    await handleRefresh();
   };
 
-  const handlePaymentUpdate = () => {
-    refreshData(); // Recarregar dados após atualizar pagamento
+  const handlePaymentUpdate = async () => {
+    console.log('=== PAYMENT UPDATE TRIGGERED ===');
+    console.log('Executando refresh dos dados...');
+    await handleRefresh();
   };
 
-  const handleRefresh = () => {
-    refreshData();
+  const handleRefresh = async () => {
+    try {
+      setIsRefreshing(true);
+      console.log('=== EXECUTANDO REFRESH MANUAL ===');
+      await refreshData();
+      console.log('✅ Refresh concluído com sucesso');
+    } catch (error) {
+      console.error('Erro durante refresh:', error);
+    } finally {
+      setIsRefreshing(false);
+    }
   };
 
   return (
@@ -71,9 +93,14 @@ export const PaymentManager = () => {
           <p className="text-gray-600 mt-1">Gerencie pagamentos aos prestadores de serviço</p>
         </div>
         <div className="flex gap-2">
-          <Button onClick={handleRefresh} variant="outline" size="sm">
-            <RefreshCw className="w-4 h-4 mr-2" />
-            Atualizar
+          <Button 
+            onClick={handleRefresh} 
+            variant="outline" 
+            size="sm"
+            disabled={isRefreshing}
+          >
+            <RefreshCw className={`w-4 h-4 mr-2 ${isRefreshing ? 'animate-spin' : ''}`} />
+            {isRefreshing ? 'Atualizando...' : 'Atualizar'}
           </Button>
           <Button onClick={() => setShowModal(true)}>
             <Plus className="w-4 h-4 mr-2" />
@@ -100,10 +127,12 @@ export const PaymentManager = () => {
             onExportModalOpen={() => setShowExportModal(true)}
           />
           
-          {loading ? (
+          {loading || isRefreshing ? (
             <div className="flex items-center justify-center py-8">
               <RefreshCw className="w-6 h-6 animate-spin text-blue-600" />
-              <span className="ml-2">Carregando pagamentos...</span>
+              <span className="ml-2">
+                {isRefreshing ? 'Atualizando pagamentos...' : 'Carregando pagamentos...'}
+              </span>
             </div>
           ) : (
             <PaymentTable 
