@@ -46,6 +46,20 @@ export const PaymentMarkAsPaidModal = ({
     }
   }, [isOpen]);
 
+  // Verificar se o pagamento já tem conta vinculada
+  useEffect(() => {
+    if (payment && payment.account_id && payment.account_type) {
+      console.log('PaymentMarkAsPaidModal: Pagamento já tem conta vinculada:', {
+        account_id: payment.account_id,
+        account_type: payment.account_type
+      });
+      setSelectedAccount({
+        id: payment.account_id,
+        type: payment.account_type
+      });
+    }
+  }, [payment]);
+
   const loadAccountsAndCards = async () => {
     try {
       console.log('PaymentMarkAsPaidModal: Carregando contas e cartões...');
@@ -81,12 +95,18 @@ export const PaymentMarkAsPaidModal = ({
     return `${selectedAccount.type}:${selectedAccount.id}`;
   };
 
+  const isAccountLinked = () => {
+    return selectedAccount !== null && selectedAccount.id && selectedAccount.type;
+  };
+
   const handleMarkAsPaid = async () => {
-    // Prevenir processamento duplo
-    if (isProcessing || !payment || !selectedAccount) {
-      if (!selectedAccount) {
-        showError('Erro', 'Selecione uma conta ou cartão');
-      }
+    // Verificação aprimorada de conta vinculada
+    if (isProcessing || !payment) {
+      return;
+    }
+
+    if (!isAccountLinked()) {
+      showError('Erro', 'Selecione uma conta ou cartão para processar o pagamento');
       return;
     }
 
@@ -112,8 +132,8 @@ export const PaymentMarkAsPaidModal = ({
       const updates = {
         status: 'completed' as const,
         payment_date: currentBrasiliaDate,
-        account_id: selectedAccount.id,
-        account_type: selectedAccount.type
+        account_id: selectedAccount!.id,
+        account_type: selectedAccount!.type
       };
 
       console.log('PaymentMarkAsPaidModal: Enviando updates:', updates);
@@ -142,8 +162,8 @@ export const PaymentMarkAsPaidModal = ({
         ...payment,
         status: 'completed',
         paymentDate: currentBrasiliaDate,
-        account_id: selectedAccount.id,
-        account_type: selectedAccount.type
+        account_id: selectedAccount!.id,
+        account_type: selectedAccount!.type
       };
 
       showSuccess('Sucesso', 'Pagamento registrado com sucesso!');
@@ -185,6 +205,9 @@ export const PaymentMarkAsPaidModal = ({
                 <p><strong>Prestador:</strong> {payment.providerName}</p>
                 <p><strong>Valor:</strong> {formatCurrency(payment.amount)}</p>
                 <p><strong>Descrição:</strong> {payment.description}</p>
+                {isAccountLinked() && (
+                  <p className="text-green-600"><strong>✓ Conta vinculada</strong></p>
+                )}
               </div>
             </AlertDescription>
           </Alert>
@@ -223,7 +246,7 @@ export const PaymentMarkAsPaidModal = ({
           <div className="flex gap-3 pt-4">
             <Button 
               onClick={handleMarkAsPaid}
-              disabled={loading || !selectedAccount || isProcessing}
+              disabled={loading || !isAccountLinked() || isProcessing}
               className="flex-1 bg-green-600 hover:bg-green-700"
             >
               {loading ? 'Processando...' : 'Confirmar Pagamento'}
