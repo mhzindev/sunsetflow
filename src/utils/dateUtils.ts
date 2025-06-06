@@ -1,7 +1,7 @@
 
 /**
  * Utilitários de data corrigidos DEFINITIVAMENTE para timezone de Brasília (America/Sao_Paulo)
- * Versão 2.0 - Corrige TODOS os problemas de timezone
+ * Versão 3.0 - Corrige TODOS os problemas de timezone incluindo created_at
  */
 
 /**
@@ -34,29 +34,76 @@ const getBrasiliaDate = (): Date => {
 };
 
 /**
- * Converte qualquer data para o timezone de Brasília
+ * Converte qualquer data UTC para o timezone de Brasília - FUNÇÃO CRÍTICA
+ * Esta função é usada para corrigir datas created_at vindas do banco
  */
-const convertToBrasiliaTimezone = (date: Date): Date => {
-  const brasiliaFormatter = new Intl.DateTimeFormat('pt-BR', {
-    timeZone: 'America/Sao_Paulo',
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit',
-    second: '2-digit',
-    hour12: false
-  });
+export const convertToBrasiliaTimezone = (date: Date): Date => {
+  if (!date || isNaN(date.getTime())) {
+    console.warn('convertToBrasiliaTimezone: Data inválida recebida:', date);
+    return getBrasiliaDate();
+  }
 
-  const parts = brasiliaFormatter.formatToParts(date);
-  const year = parseInt(parts.find(p => p.type === 'year')?.value || '0');
-  const month = parseInt(parts.find(p => p.type === 'month')?.value || '0') - 1;
-  const day = parseInt(parts.find(p => p.type === 'day')?.value || '0');
-  const hour = parseInt(parts.find(p => p.type === 'hour')?.value || '0');
-  const minute = parseInt(parts.find(p => p.type === 'minute')?.value || '0');
-  const second = parseInt(parts.find(p => p.type === 'second')?.value || '0');
+  try {
+    // Usar Intl.DateTimeFormat para converter corretamente para Brasília
+    const brasiliaFormatter = new Intl.DateTimeFormat('pt-BR', {
+      timeZone: 'America/Sao_Paulo',
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+      hour12: false
+    });
 
-  return new Date(year, month, day, hour, minute, second);
+    const parts = brasiliaFormatter.formatToParts(date);
+    const year = parseInt(parts.find(p => p.type === 'year')?.value || '0');
+    const month = parseInt(parts.find(p => p.type === 'month')?.value || '0') - 1;
+    const day = parseInt(parts.find(p => p.type === 'day')?.value || '0');
+    const hour = parseInt(parts.find(p => p.type === 'hour')?.value || '0');
+    const minute = parseInt(parts.find(p => p.type === 'minute')?.value || '0');
+    const second = parseInt(parts.find(p => p.type === 'second')?.value || '0');
+
+    const brasiliaDate = new Date(year, month, day, hour, minute, second);
+    
+    console.log('convertToBrasiliaTimezone:', {
+      original: date.toISOString(),
+      converted: brasiliaDate.toISOString(),
+      formatted: `${day.toString().padStart(2, '0')}/${(month + 1).toString().padStart(2, '0')}/${year} ${hour.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')}:${second.toString().padStart(2, '0')}`
+    });
+
+    return brasiliaDate;
+  } catch (error) {
+    console.error('Erro em convertToBrasiliaTimezone:', error);
+    return getBrasiliaDate();
+  }
+};
+
+/**
+ * Converte uma string de data UTC (do banco) para Date no timezone de Brasília
+ * Usado especificamente para campos created_at, updated_at vindos do Supabase
+ */
+export const parseUTCStringToBrasilia = (utcString: string): Date => {
+  if (!utcString) {
+    console.warn('parseUTCStringToBrasilia: String vazia recebida');
+    return getBrasiliaDate();
+  }
+
+  try {
+    // Parse da string UTC para Date object
+    const utcDate = new Date(utcString);
+    
+    if (isNaN(utcDate.getTime())) {
+      console.warn('parseUTCStringToBrasilia: String de data inválida:', utcString);
+      return getBrasiliaDate();
+    }
+
+    // Converter para Brasília
+    return convertToBrasiliaTimezone(utcDate);
+  } catch (error) {
+    console.error('Erro em parseUTCStringToBrasilia:', error);
+    return getBrasiliaDate();
+  }
 };
 
 /**
@@ -85,7 +132,7 @@ export const formatDateForDatabase = (date?: Date): string => {
 export const parseDatabaseDate = (dateString: string): Date => {
   console.log('parseDatabaseDate - String recebida:', dateString);
   
-  // Se é uma data ISO completa, parse diretamente
+  // Se é uma data ISO completa, parse diretamente e converter timezone
   if (dateString.includes('T')) {
     const isoDate = new Date(dateString);
     const brasiliaDate = convertToBrasiliaTimezone(isoDate);
@@ -172,6 +219,29 @@ export const formatDateForDisplay = (dateString: string): string => {
   } catch (error) {
     console.warn('formatDateForDisplay - Erro ao formatar data:', dateString, error);
     return '00/00/0000';
+  }
+};
+
+/**
+ * Formata created_at/updated_at vindos do Supabase (UTC) para exibição em Brasília
+ * Função específica para timestamps do banco que incluem hora
+ */
+export const formatCreatedAtForDisplay = (utcString: string): string => {
+  if (!utcString) return 'N/A';
+  
+  try {
+    const brasiliaDate = parseUTCStringToBrasilia(utcString);
+    
+    const day = String(brasiliaDate.getDate()).padStart(2, '0');
+    const month = String(brasiliaDate.getMonth() + 1).padStart(2, '0');
+    const year = brasiliaDate.getFullYear();
+    const hours = String(brasiliaDate.getHours()).padStart(2, '0');
+    const minutes = String(brasiliaDate.getMinutes()).padStart(2, '0');
+    
+    return `${day}/${month}/${year} ${hours}:${minutes}`;
+  } catch (error) {
+    console.warn('formatCreatedAtForDisplay - Erro ao formatar:', utcString, error);
+    return 'Data inválida';
   }
 };
 
@@ -264,5 +334,22 @@ export const debugDate = (date: Date | string, label: string = 'Debug'): void =>
   console.log('👁️ Formato exibição:', formatDateForDisplay(formatDateForDatabase(targetDate)));
   console.log('🕐 Timezone original:', targetDate.getTimezoneOffset());
   console.log('✅ Válida para Brasília:', validateBrasiliaDate(targetDate));
+  console.groupEnd();
+};
+
+/**
+ * Utilitário para testar conversão de timezone com exemplos
+ */
+export const testTimezoneConversion = (): void => {
+  console.group('🧪 Teste de Conversão de Timezone');
+  
+  // Exemplo de data UTC do banco
+  const utcExample = '2025-06-06T01:00:00Z';
+  console.log('Exemplo UTC do banco:', utcExample);
+  
+  const converted = parseUTCStringToBrasilia(utcExample);
+  console.log('Convertido para Brasília:', converted);
+  console.log('Formatado para exibição:', formatCreatedAtForDisplay(utcExample));
+  
   console.groupEnd();
 };

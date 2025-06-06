@@ -1,255 +1,199 @@
 
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Card } from "@/components/ui/card";
-import { Separator } from "@/components/ui/separator";
-import { Calendar, DollarSign, CreditCard, FileText, Edit, Clock, AlertTriangle } from 'lucide-react';
+import { Calendar, DollarSign, User, FileText, CreditCard, Clock } from 'lucide-react';
 import { Payment } from '@/types/payment';
-import { useToastFeedback } from '@/hooks/useToastFeedback';
+import { PaymentStatusIndicator } from './PaymentStatusIndicator';
+import { formatCurrency, formatDateForDisplay, convertToBrasiliaTimezone } from '@/utils/dateUtils';
 
 interface PaymentViewModalProps {
   isOpen: boolean;
   onClose: () => void;
   payment: Payment | null;
-  onEdit?: (payment: Payment) => void;
-  onMarkAsPaid?: (payment: Payment) => void;
 }
 
-export const PaymentViewModal = ({ isOpen, onClose, payment, onEdit, onMarkAsPaid }: PaymentViewModalProps) => {
-  const { showSuccess } = useToastFeedback();
-
+export const PaymentViewModal = ({ isOpen, onClose, payment }: PaymentViewModalProps) => {
   if (!payment) return null;
-
-  const getStatusColor = (status: string) => {
-    const colors = {
-      pending: 'bg-yellow-100 text-yellow-800',
-      partial: 'bg-blue-100 text-blue-800',
-      completed: 'bg-green-100 text-green-800',
-      overdue: 'bg-red-100 text-red-800',
-      cancelled: 'bg-gray-100 text-gray-800'
-    };
-    return colors[status as keyof typeof colors] || colors.pending;
-  };
-
-  const getStatusLabel = (status: string) => {
-    const labels = {
-      pending: 'Pendente',
-      partial: 'Parcial',
-      completed: 'Concluído',
-      overdue: 'Em Atraso',
-      cancelled: 'Cancelado'
-    };
-    return labels[status as keyof typeof labels] || status;
-  };
 
   const getTypeLabel = (type: string) => {
     const labels = {
       full: 'Integral',
       installment: 'Parcelado',
       advance: 'Adiantamento',
-      partial: 'Parcial'
+      balance_payment: 'Saldo',
+      advance_payment: 'Antecipação'
     };
     return labels[type as keyof typeof labels] || type;
   };
 
-  const isOverdue = () => {
-    const today = new Date();
-    const dueDate = new Date(payment.dueDate);
-    return dueDate < today && payment.status !== 'completed';
+  // Função para formatar created_at no timezone de Brasília
+  const formatCreatedAtDate = (created_at?: string) => {
+    if (!created_at) return 'N/A';
+    
+    try {
+      // Parse da data do banco (UTC)
+      const utcDate = new Date(created_at);
+      
+      // Converter para timezone de Brasília
+      const brasiliaDate = convertToBrasiliaTimezone(utcDate);
+      
+      // Formatar para exibição completa
+      const day = String(brasiliaDate.getDate()).padStart(2, '0');
+      const month = String(brasiliaDate.getMonth() + 1).padStart(2, '0');
+      const year = brasiliaDate.getFullYear();
+      const hours = String(brasiliaDate.getHours()).padStart(2, '0');
+      const minutes = String(brasiliaDate.getMinutes()).padStart(2, '0');
+      const seconds = String(brasiliaDate.getSeconds()).padStart(2, '0');
+      
+      return `${day}/${month}/${year} às ${hours}:${minutes}:${seconds}`;
+    } catch (error) {
+      console.warn('Erro ao formatar created_at:', error);
+      return 'Data inválida';
+    }
   };
 
-  const getDaysUntilDue = () => {
-    const today = new Date();
-    const dueDate = new Date(payment.dueDate);
-    const diffTime = dueDate.getTime() - today.getTime();
-    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-    return diffDays;
+  // Função para formatar payment_date no timezone de Brasília
+  const formatPaymentDate = (paymentDate?: string) => {
+    if (!paymentDate) return null;
+    
+    try {
+      // Se é uma data simples YYYY-MM-DD, usar formatDateForDisplay
+      if (/^\d{4}-\d{2}-\d{2}$/.test(paymentDate)) {
+        return formatDateForDisplay(paymentDate);
+      }
+      
+      // Se é uma data completa com hora, converter timezone
+      const utcDate = new Date(paymentDate);
+      const brasiliaDate = convertToBrasiliaTimezone(utcDate);
+      
+      const day = String(brasiliaDate.getDate()).padStart(2, '0');
+      const month = String(brasiliaDate.getMonth() + 1).padStart(2, '0');
+      const year = brasiliaDate.getFullYear();
+      const hours = String(brasiliaDate.getHours()).padStart(2, '0');
+      const minutes = String(brasiliaDate.getMinutes()).padStart(2, '0');
+      
+      return `${day}/${month}/${year} às ${hours}:${minutes}`;
+    } catch (error) {
+      console.warn('Erro ao formatar payment_date:', error);
+      return 'Data inválida';
+    }
   };
-
-  const handleMarkAsPaid = () => {
-    onMarkAsPaid?.(payment);
-    onClose();
-  };
-
-  const handleEditClick = () => {
-    onEdit?.(payment);
-    onClose();
-  };
-
-  const handleGenerateReceipt = () => {
-    showSuccess('Comprovante Gerado', `Comprovante do pagamento para ${payment.providerName} está sendo preparado para download`);
-  };
-
-  // Safe formatter for currency values
-  const formatCurrency = (value: number | undefined | null) => {
-    const safeValue = value || 0;
-    return safeValue.toLocaleString('pt-BR', { minimumFractionDigits: 2 });
-  };
-
-  // Safe calculation functions for installments
-  const getInstallmentValue = () => {
-    if (!payment.amount || !payment.installments || payment.installments === 0) return 0;
-    return payment.amount / payment.installments;
-  };
-
-  const getRemainingAmount = () => {
-    if (!payment.amount || !payment.installments || !payment.currentInstallment) return payment.amount || 0;
-    const remaining = payment.installments - payment.currentInstallment;
-    return (payment.amount * remaining) / payment.installments;
-  };
-
-  const daysUntilDue = getDaysUntilDue();
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-w-2xl">
         <DialogHeader>
-          <DialogTitle className="flex items-center space-x-2">
-            <DollarSign className="w-5 h-5" />
-            <span>Detalhes do Pagamento</span>
+          <DialogTitle className="flex items-center gap-2">
+            <FileText className="w-5 h-5" />
+            Detalhes do Pagamento
           </DialogTitle>
         </DialogHeader>
 
         <div className="space-y-6">
-          {/* Alertas de Urgência */}
-          {isOverdue() && (
-            <Card className="p-4 border-red-200 bg-red-50">
-              <div className="flex items-center space-x-2">
-                <AlertTriangle className="w-5 h-5 text-red-600" />
-                <div>
-                  <p className="font-semibold text-red-800">Pagamento em Atraso</p>
-                  <p className="text-sm text-red-600">
-                    Este pagamento está {Math.abs(daysUntilDue)} dia{Math.abs(daysUntilDue) > 1 ? 's' : ''} em atraso
-                  </p>
-                </div>
-              </div>
-            </Card>
-          )}
-
-          {!isOverdue() && daysUntilDue <= 3 && daysUntilDue >= 0 && (
-            <Card className="p-4 border-yellow-200 bg-yellow-50">
-              <div className="flex items-center space-x-2">
-                <Clock className="w-5 h-5 text-yellow-600" />
-                <div>
-                  <p className="font-semibold text-yellow-800">Vencimento Próximo</p>
-                  <p className="text-sm text-yellow-600">
-                    Este pagamento vence em {daysUntilDue} dia{daysUntilDue > 1 ? 's' : ''}
-                  </p>
-                </div>
-              </div>
-            </Card>
-          )}
+          {/* Status e Tipo */}
+          <div className="flex items-center justify-between">
+            <PaymentStatusIndicator status={payment.status} size="lg" />
+            <Badge variant="outline" className="text-sm">
+              {getTypeLabel(payment.type)}
+            </Badge>
+          </div>
 
           {/* Informações Principais */}
-          <Card className="p-4">
-            <div className="flex items-start justify-between mb-4">
-              <div>
-                <h3 className="text-xl font-semibold text-slate-800 mb-2">{payment.providerName}</h3>
-                <p className="text-slate-600">{payment.description}</p>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="space-y-4">
+              <div className="flex items-center gap-3">
+                <User className="w-5 h-5 text-blue-600" />
+                <div>
+                  <p className="text-sm text-gray-600">Prestador</p>
+                  <p className="font-semibold">{payment.providerName}</p>
+                </div>
               </div>
-              <Badge className={getStatusColor(payment.status)}>
-                {getStatusLabel(payment.status)}
-              </Badge>
-            </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="flex items-center space-x-2">
-                <DollarSign className="w-4 h-4 text-slate-500" />
+              <div className="flex items-center gap-3">
+                <DollarSign className="w-5 h-5 text-green-600" />
                 <div>
-                  <span className="text-sm text-slate-500">Valor:</span>
-                  <span className="ml-2 font-semibold text-lg">
-                    R$ {formatCurrency(payment.amount)}
-                  </span>
+                  <p className="text-sm text-gray-600">Valor</p>
+                  <p className="font-semibold text-lg">{formatCurrency(payment.amount)}</p>
                 </div>
               </div>
-              <div className="flex items-center space-x-2">
-                <Calendar className="w-4 h-4 text-slate-500" />
+
+              <div className="flex items-center gap-3">
+                <Calendar className="w-5 h-5 text-orange-600" />
                 <div>
-                  <span className="text-sm text-slate-500">Vencimento:</span>
-                  <span className="ml-2 font-medium">
-                    {new Date(payment.dueDate).toLocaleDateString('pt-BR')}
-                  </span>
+                  <p className="text-sm text-gray-600">Vencimento</p>
+                  <p className="font-medium">{formatDateForDisplay(payment.dueDate)}</p>
                 </div>
               </div>
-              <div className="flex items-center space-x-2">
-                <CreditCard className="w-4 h-4 text-slate-500" />
-                <div>
-                  <span className="text-sm text-slate-500">Tipo:</span>
-                  <span className="ml-2 font-medium">{getTypeLabel(payment.type)}</span>
-                </div>
-              </div>
+
               {payment.paymentDate && (
-                <div className="flex items-center space-x-2">
-                  <Calendar className="w-4 h-4 text-slate-500" />
+                <div className="flex items-center gap-3">
+                  <Calendar className="w-5 h-5 text-green-600" />
                   <div>
-                    <span className="text-sm text-slate-500">Pago em:</span>
-                    <span className="ml-2 font-medium">
-                      {new Date(payment.paymentDate).toLocaleDateString('pt-BR')}
-                    </span>
+                    <p className="text-sm text-gray-600">Data de Pagamento</p>
+                    <p className="font-medium">{formatPaymentDate(payment.paymentDate)}</p>
                   </div>
                 </div>
               )}
             </div>
-          </Card>
 
-          {/* Informações de Parcelamento */}
-          {payment.type === 'installment' && payment.installments && payment.installments > 0 && (
-            <Card className="p-4">
-              <h4 className="font-semibold text-slate-800 mb-3">Informações de Parcelamento</h4>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div className="text-center p-3 bg-blue-50 rounded-lg">
-                  <p className="text-sm text-blue-600">Parcela Atual</p>
-                  <p className="text-lg font-semibold text-blue-800">
-                    {payment.currentInstallment || 1} de {payment.installments}
-                  </p>
-                </div>
-                <div className="text-center p-3 bg-green-50 rounded-lg">
-                  <p className="text-sm text-green-600">Valor da Parcela</p>
-                  <p className="text-lg font-semibold text-green-800">
-                    R$ {formatCurrency(getInstallmentValue())}
-                  </p>
-                </div>
-                <div className="text-center p-3 bg-purple-50 rounded-lg">
-                  <p className="text-sm text-purple-600">Total Restante</p>
-                  <p className="text-lg font-semibold text-purple-800">
-                    R$ {formatCurrency(getRemainingAmount())}
-                  </p>
+            <div className="space-y-4">
+              {/* Data de Criação com timezone correto */}
+              <div className="flex items-center gap-3">
+                <Clock className="w-5 h-5 text-purple-600" />
+                <div>
+                  <p className="text-sm text-gray-600">Criado em</p>
+                  <p className="font-medium">{formatCreatedAtDate(payment.created_at)}</p>
                 </div>
               </div>
-            </Card>
-          )}
+
+              {payment.account_id && payment.account_type && (
+                <div className="flex items-center gap-3">
+                  <CreditCard className="w-5 h-5 text-indigo-600" />
+                  <div>
+                    <p className="text-sm text-gray-600">Conta Vinculada</p>
+                    <p className="font-medium">
+                      {payment.account_type === 'bank_account' ? '💳 Conta Bancária' : '🏦 Cartão de Crédito'}
+                    </p>
+                  </div>
+                </div>
+              )}
+
+              {payment.type === 'installment' && (
+                <div className="space-y-2">
+                  <p className="text-sm text-gray-600">Parcelamento</p>
+                  <p className="font-medium">
+                    {payment.currentInstallment || 1} de {payment.installments || 1} parcelas
+                  </p>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Descrição */}
+          <div>
+            <p className="text-sm text-gray-600 mb-2">Descrição</p>
+            <p className="p-3 bg-gray-50 rounded-lg border">{payment.description}</p>
+          </div>
 
           {/* Observações */}
           {payment.notes && (
-            <Card className="p-4">
-              <h4 className="font-semibold text-slate-800 mb-3">Observações</h4>
-              <p className="text-slate-600 bg-gray-50 p-3 rounded-lg">{payment.notes}</p>
-            </Card>
+            <div>
+              <p className="text-sm text-gray-600 mb-2">Observações</p>
+              <p className="p-3 bg-gray-50 rounded-lg border">{payment.notes}</p>
+            </div>
           )}
 
-          <Separator />
-
-          {/* Ações */}
-          <div className="flex space-x-2">
-            {payment.status !== 'completed' && (
-              <Button onClick={handleMarkAsPaid} className="bg-green-600 hover:bg-green-700">
-                <DollarSign className="w-4 h-4 mr-2" />
-                Marcar como Pago
-              </Button>
-            )}
-            <Button variant="outline" onClick={handleEditClick}>
-              <Edit className="w-4 h-4 mr-2" />
-              Editar
-            </Button>
-            <Button variant="outline" onClick={handleGenerateReceipt}>
-              <FileText className="w-4 h-4 mr-2" />
-              Gerar Comprovante
-            </Button>
-            <Button variant="outline" onClick={onClose}>
-              Fechar
-            </Button>
-          </div>
+          {/* Tags */}
+          {payment.tags && payment.tags.length > 0 && (
+            <div>
+              <p className="text-sm text-gray-600 mb-2">Tags</p>
+              <div className="flex flex-wrap gap-2">
+                {payment.tags.map((tag, index) => (
+                  <Badge key={index} variant="secondary">{tag}</Badge>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       </DialogContent>
     </Dialog>
