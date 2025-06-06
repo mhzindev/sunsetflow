@@ -249,7 +249,7 @@ export const ProviderDashboard = () => {
             <ProviderBalanceDetails
               providerId={profile?.provider_id || ''}
               providerName={profile?.name || 'Prestador'}
-              currentBalance={balanceDetails.currentBalance}
+              currentBalance={balanceDetails.availableBalance}
               onRecalculate={recalculate}
             />
           </CardContent>

@@ -162,10 +162,10 @@ export const ProviderBalanceDetailsEnhanced = ({
       totalPaid: isProvider 
         ? "Total que você já recebeu em pagamentos"
         : "Total pago ao prestador até o momento",
-      currentBalance: isProvider 
+      availableBalance: isProvider 
         ? "Valor disponível para saque (ganhos - pagamentos recebidos)"
         : "Saldo atual do prestador disponível para pagamento",
-      pendingBalance: isProvider 
+      accumulatedBalance: isProvider 
         ? "Valor estimado de missões ainda não aprovadas"
         : "Valor previsto de missões pendentes de aprovação",
       missions: isProvider 
@@ -234,20 +234,20 @@ export const ProviderBalanceDetailsEnhanced = ({
             />
             
             <BalanceCard
-              title="Saldo Atual"
-              value={formatCurrency(balanceDetails.currentBalance)}
+              title="Saldo Disponível"
+              value={formatCurrency(balanceDetails.availableBalance)}
               icon={<DollarSign className="w-5 h-5 text-blue-600" />}
               className="bg-blue-50"
-              tooltip={getTooltipText('currentBalance')}
+              tooltip={getTooltipText('availableBalance')}
               isProvider={isProvider}
             />
             
             <BalanceCard
-              title="Saldo Previsto"
-              value={formatCurrency(balanceDetails.pendingBalance)}
+              title="Saldo Acumulado"
+              value={formatCurrency(balanceDetails.accumulatedBalance)}
               icon={<Eye className="w-5 h-5 text-purple-600" />}
               className="bg-purple-50"
-              tooltip={getTooltipText('pendingBalance')}
+              tooltip={getTooltipText('accumulatedBalance')}
               isProvider={isProvider}
             />
             
@@ -271,8 +271,8 @@ export const ProviderBalanceDetailsEnhanced = ({
                   </h4>
                   <p className="text-yellow-700 text-sm">
                     {isProvider 
-                      ? `Você tem ${formatCurrency(balanceDetails.pendingBalance)} em missões aguardando aprovação`
-                      : `Prestador tem ${formatCurrency(balanceDetails.pendingBalance)} em missões pendentes de aprovação`
+                      ? `Você tem ${formatCurrency(balanceDetails.accumulatedBalance)} em missões aguardando aprovação`
+                      : `Prestador tem ${formatCurrency(balanceDetails.accumulatedBalance)} em missões pendentes de aprovação`
                     }
                   </p>
                 </div>
