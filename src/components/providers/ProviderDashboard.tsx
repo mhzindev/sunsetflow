@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -9,13 +10,6 @@ import { useProviderBalanceDetails } from '@/hooks/useProviderBalanceDetails';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { DollarSign, TrendingUp, Calendar, MapPin, RefreshCw, Bell, Eye, AlertCircle } from 'lucide-react';
-
-interface ProviderStats {
-  currentBalance: number;
-  totalEarned: number;
-  missionsCount: number;
-  pendingPayments: number;
-}
 
 interface Mission {
   id: string;
@@ -51,18 +45,6 @@ export const ProviderDashboard = () => {
 
     try {
       setLoading(true);
-
-      // Buscar dados do prestador
-      const { data: providerData, error: providerError } = await supabase
-        .from('service_providers')
-        .select('current_balance')
-        .eq('id', profile.provider_id)
-        .single();
-
-      if (providerError) {
-        console.error('Erro ao buscar dados do prestador:', providerError);
-        return;
-      }
 
       // Buscar missões do prestador
       const { data: missionsData, error: missionsError } = await supabase
@@ -105,22 +87,6 @@ export const ProviderDashboard = () => {
           earned_value: earnedValue
         };
       }) || [];
-
-      // Calcular estatísticas
-      const totalEarned = processedMissions
-        .filter(m => m.is_approved)
-        .reduce((sum, mission) => sum + mission.earned_value, 0);
-
-      const pendingPayments = paymentsData
-        ?.filter(p => p.status === 'pending')
-        .reduce((sum, payment) => sum + payment.amount, 0) || 0;
-
-      setStats({
-        currentBalance: providerData?.current_balance || 0,
-        totalEarned,
-        missionsCount: processedMissions.length,
-        pendingPayments
-      });
 
       setMissions(processedMissions);
       setPayments(paymentsData || []);
