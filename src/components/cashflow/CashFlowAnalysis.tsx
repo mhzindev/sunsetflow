@@ -1,95 +1,13 @@
+
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { TrendingUp, TrendingDown, AlertTriangle, CheckCircle, XCircle, HelpCircle } from 'lucide-react';
+import { useCashFlowAnalysis } from '@/hooks/useCashFlowAnalysis';
 
 export const CashFlowAnalysis = () => {
-  const healthIndicators = [
-    {
-      metric: 'Liquidez Corrente',
-      value: '2.4',
-      status: 'good',
-      description: 'Capacidade de pagamento a curto prazo',
-      benchmark: 'Ideal: > 2.0',
-      tooltip: 'Indica quantas vezes a empresa consegue pagar suas dívidas de curto prazo com os recursos disponíveis. Valor acima de 2.0 demonstra boa saúde financeira.'
-    },
-    {
-      metric: 'Dias de Caixa',
-      value: '45',
-      status: 'warning',
-      description: 'Dias de operação com o caixa atual',
-      benchmark: 'Ideal: > 60 dias',
-      tooltip: 'Mostra quantos dias a empresa consegue operar com o dinheiro em caixa. É crucial manter pelo menos 60 dias para cobrir imprevistos e sazonalidade.'
-    },
-    {
-      metric: 'Margem de Segurança',
-      value: '18%',
-      status: 'good',
-      description: 'Reserva em relação às despesas mensais',
-      benchmark: 'Ideal: > 15%',
-      tooltip: 'Percentual do faturamento mantido como reserva de segurança. Uma margem saudável protege contra variações no mercado e emergências.'
-    },
-    {
-      metric: 'Precisão das Projeções',
-      value: '87%',
-      status: 'good',
-      description: 'Acurácia das previsões dos últimos 3 meses',
-      benchmark: 'Ideal: > 80%',
-      tooltip: 'Mede a qualidade das projeções financeiras comparando valores projetados com realizados. Alta precisão indica bom controle e planejamento.'
-    }
-  ];
-
-  const riskAnalysis = [
-    {
-      risk: 'Concentração de Recebimentos',
-      level: 'medium',
-      impact: 'Médio',
-      description: '65% dos recebimentos vêm de 3 clientes principais',
-      recommendation: 'Diversificar base de clientes',
-      tooltip: 'Dependência excessiva de poucos clientes pode comprometer o fluxo de caixa se algum atrasar pagamentos ou cancelar contratos.'
-    },
-    {
-      risk: 'Sazonalidade',
-      level: 'low',
-      impact: 'Baixo',
-      description: 'Variação de 15% entre meses de alta e baixa',
-      recommendation: 'Manter reserva para períodos sazonais',
-      tooltip: 'Variações sazonais naturais do negócio que devem ser consideradas no planejamento financeiro para evitar problemas de caixa.'
-    },
-    {
-      risk: 'Inadimplência',
-      level: 'low',
-      impact: 'Baixo',
-      description: 'Taxa histórica de 2.1% nos últimos 12 meses',
-      recommendation: 'Manter política atual de cobrança',
-      tooltip: 'Percentual de clientes que não pagam dentro do prazo. Taxa baixa indica boa qualidade da carteira de clientes.'
-    }
-  ];
-
-  const opportunities = [
-    {
-      opportunity: 'Antecipação de Recebíveis',
-      potential: 'R$ 25.000',
-      description: 'Negociar desconto para pagamento antecipado',
-      timeframe: '30 dias',
-      tooltip: 'Oferecer desconto aos clientes em troca de pagamento antecipado melhora o fluxo de caixa e reduz inadimplência.'
-    },
-    {
-      opportunity: 'Renegociação de Prazos',
-      potential: 'R$ 8.500',
-      description: 'Estender prazos de pagamento com fornecedores',
-      timeframe: '15 dias',
-      tooltip: 'Negociar prazos maiores com fornecedores sem impacto nos custos libera capital de giro para outras necessidades.'
-    },
-    {
-      opportunity: 'Investimento de Sobras',
-      potential: 'R$ 1.200/mês',
-      description: 'Aplicar excedente de caixa em CDB/Tesouro',
-      timeframe: 'Imediato',
-      tooltip: 'Aplicar recursos excedentes em investimentos seguros gera receita adicional sem comprometer a liquidez operacional.'
-    }
-  ];
+  const { healthIndicators, riskAnalysis, opportunities, loading } = useCashFlowAnalysis();
 
   const getStatusIcon = (status: string) => {
     switch (status) {
@@ -122,6 +40,30 @@ export const CashFlowAnalysis = () => {
     return colors[level as keyof typeof colors] || colors.medium;
   };
 
+  if (loading) {
+    return (
+      <div className="space-y-6">
+        <Card className="p-6">
+          <div className="text-center">Carregando análise financeira...</div>
+        </Card>
+      </div>
+    );
+  }
+
+  const generateSummary = () => {
+    const dangerIndicators = healthIndicators.filter(i => i.status === 'danger').length;
+    const warningIndicators = healthIndicators.filter(i => i.status === 'warning').length;
+    const highRisks = riskAnalysis.filter(r => r.level === 'high').length;
+    
+    if (dangerIndicators > 0 || highRisks > 0) {
+      return `Atenção necessária: ${dangerIndicators + highRisks} indicador(es) crítico(s) identificado(s). Ação imediata recomendada.`;
+    } else if (warningIndicators > 0) {
+      return `Situação estável com ${warningIndicators} ponto(s) de atenção. Monitore os indicadores em amarelo.`;
+    } else {
+      return `Excelente saúde financeira! Todos os indicadores estão dentro dos parâmetros ideais.`;
+    }
+  };
+
   return (
     <TooltipProvider>
       <div className="space-y-6">
@@ -134,7 +76,7 @@ export const CashFlowAnalysis = () => {
                 <HelpCircle className="w-5 h-5 text-slate-500 ml-2 cursor-help" />
               </TooltipTrigger>
               <TooltipContent className="max-w-xs p-3">
-                <p className="text-sm">Métricas essenciais que avaliam a solidez financeira da empresa e sua capacidade de honrar compromissos e crescer de forma sustentável.</p>
+                <p className="text-sm">Métricas essenciais calculadas com base nos dados reais da empresa para avaliar a solidez financeira atual.</p>
               </TooltipContent>
             </Tooltip>
           </div>
@@ -173,7 +115,7 @@ export const CashFlowAnalysis = () => {
                 <AlertTriangle className="w-5 h-5 text-slate-500 ml-2 cursor-help" />
               </TooltipTrigger>
               <TooltipContent className="max-w-xs p-3">
-                <p className="text-sm">Identificação e avaliação dos principais riscos que podem impactar o fluxo de caixa da empresa, com recomendações para mitigação.</p>
+                <p className="text-sm">Riscos identificados automaticamente com base nos dados financeiros reais da empresa.</p>
               </TooltipContent>
             </Tooltip>
           </div>
@@ -214,7 +156,7 @@ export const CashFlowAnalysis = () => {
                 <TrendingUp className="w-5 h-5 text-slate-500 ml-2 cursor-help" />
               </TooltipTrigger>
               <TooltipContent className="max-w-xs p-3">
-                <p className="text-sm">Oportunidades identificadas para otimizar o fluxo de caixa e aumentar a rentabilidade através de ações estratégicas de curto e médio prazo.</p>
+                <p className="text-sm">Oportunidades calculadas automaticamente com base na situação financeira atual da empresa.</p>
               </TooltipContent>
             </Tooltip>
           </div>
@@ -248,9 +190,7 @@ export const CashFlowAnalysis = () => {
           <Alert className="mt-6">
             <AlertTriangle className="h-4 w-4" />
             <AlertDescription>
-              <strong>Resumo:</strong> O fluxo de caixa está saudável com potencial de melhoria de 
-              R$ 34.700 através das oportunidades identificadas. Recomenda-se foco na diversificação 
-              de clientes e otimização dos prazos de pagamento.
+              <strong>Resumo:</strong> {generateSummary()}
             </AlertDescription>
           </Alert>
         </Card>
