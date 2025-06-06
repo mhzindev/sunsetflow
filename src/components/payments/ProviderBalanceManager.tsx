@@ -2,16 +2,16 @@
 import { useState, useEffect } from 'react';
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Badge } from "@/components/ui/badge";
+import { Table, TableBody, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { PaymentModal } from './PaymentModal';
 import { ProviderBalanceDetailsEnhanced } from '@/components/providers/ProviderBalanceDetailsEnhanced';
+import { ProviderBalanceManagerRow } from './ProviderBalanceManagerRow';
 import { useSupabaseData } from '@/hooks/useSupabaseData';
 import { useToastFeedback } from '@/hooks/useToastFeedback';
 import { supabase } from '@/integrations/supabase/client';
 import { ServiceProvider } from '@/types/payment';
-import { Eye, RefreshCw } from 'lucide-react';
+import { RefreshCw } from 'lucide-react';
 
 export const ProviderBalanceManager = () => {
   const [providers, setProviders] = useState<ServiceProvider[]>([]);
@@ -87,19 +87,6 @@ export const ProviderBalanceManager = () => {
     }
   };
 
-  const formatCurrency = (value: number) => {
-    return new Intl.NumberFormat('pt-BR', {
-      style: 'currency',
-      currency: 'BRL'
-    }).format(value);
-  };
-
-  const getBalanceColor = (balance: number) => {
-    if (balance > 0) return 'bg-green-100 text-green-800';
-    if (balance < 0) return 'bg-red-100 text-red-800';
-    return 'bg-gray-100 text-gray-800';
-  };
-
   if (loading) {
     return (
       <Card className="p-6">
@@ -145,50 +132,13 @@ export const ProviderBalanceManager = () => {
             </TableHeader>
             <TableBody>
               {providers.map((provider) => (
-                <TableRow key={provider.id}>
-                  <TableCell>
-                    <div>
-                      <div className="font-medium">{provider.name}</div>
-                      <div className="text-sm text-gray-500">{provider.email}</div>
-                    </div>
-                  </TableCell>
-                  <TableCell>{provider.service}</TableCell>
-                  <TableCell>
-                    <Badge className={getBalanceColor(provider.currentBalance || 0)}>
-                      {formatCurrency(provider.currentBalance || 0)}
-                    </Badge>
-                  </TableCell>
-                  <TableCell>
-                    <div className="flex gap-2">
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => handleViewDetails(provider)}
-                      >
-                        <Eye className="w-4 h-4 mr-1" />
-                        Detalhes
-                      </Button>
-                      
-                      {(provider.currentBalance || 0) > 0 && (
-                        <Button
-                          size="sm"
-                          onClick={() => handlePayBalance(provider)}
-                          className="bg-green-600 hover:bg-green-700"
-                        >
-                          Pagar Saldo
-                        </Button>
-                      )}
-                      
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => handleAdvancePayment(provider)}
-                      >
-                        Adiantamento
-                      </Button>
-                    </div>
-                  </TableCell>
-                </TableRow>
+                <ProviderBalanceManagerRow
+                  key={provider.id}
+                  provider={provider}
+                  onViewDetails={handleViewDetails}
+                  onPayBalance={handlePayBalance}
+                  onAdvancePayment={handleAdvancePayment}
+                />
               ))}
             </TableBody>
           </Table>
