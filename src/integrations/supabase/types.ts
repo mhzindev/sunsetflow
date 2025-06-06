@@ -863,6 +863,10 @@ export type Database = {
         Args: Record<PropertyKey, never>
         Returns: Json
       }
+      fix_orphan_payments_enhanced: {
+        Args: Record<PropertyKey, never>
+        Returns: Json
+      }
       get_active_employees: {
         Args: Record<PropertyKey, never>
         Returns: {

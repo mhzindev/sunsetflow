@@ -1,8 +1,9 @@
+
 import { useState } from 'react';
 import { TableCell, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { AlertTriangle, Clock, Eye, Edit, DollarSign, Loader2 } from 'lucide-react';
+import { AlertTriangle, Clock, Eye, Edit, DollarSign, Loader2, AlertCircle } from 'lucide-react';
 import { Payment } from '@/types/payment';
 import { PaymentViewModal } from './PaymentViewModal';
 import { PaymentEditModal } from './PaymentEditModal';
@@ -76,34 +77,47 @@ export const PaymentTableRow = ({ payment }: PaymentTableRowProps) => {
     return null;
   };
 
+  // NOVO: Verificar se pagamento tem problemas de vinculação
+  const hasProviderIssue = !payment.providerId && payment.providerName;
+
   const handleSavePayment = (updatedPayment: Payment) => {
     console.log('Payment updated via modal:', updatedPayment);
     showSuccess('Sucesso', 'Pagamento atualizado com sucesso!');
-    // O modal já chama as funções do contexto, não precisamos fazer nada adicional aqui
   };
 
   const handleMarkAsPaid = async (payment: Payment) => {
-    if (isProcessing) return; // Prevenir cliques múltiplos
+    if (isProcessing) return;
     
     console.log('PaymentTableRow: Processando pagamento:', payment.id);
+    
+    // NOVO: Verificar se há problemas antes de processar
+    if (!payment.providerId && payment.providerName) {
+      showError(
+        'Erro de Vinculação', 
+        `Este pagamento não está vinculado a um prestador válido. Entre em contato com o administrador para corrigir a vinculação do prestador "${payment.providerName}".`
+      );
+      return;
+    }
     
     try {
       setIsProcessing(true);
       
-      // Chamar função do contexto que agora persiste no banco PRIMEIRO
+      console.log('PaymentTableRow: Atualizando status no banco via FinancialContext...');
       const success = await updatePaymentStatus(payment.id, 'completed');
       
       if (success) {
+        console.log('PaymentTableRow: Status atualizado com sucesso no banco');
         showSuccess(
           'Pagamento Confirmado', 
           `Pagamento de R$ ${payment.amount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} para ${payment.providerName} foi processado e salvo no banco de dados!`
         );
       } else {
+        console.error('PaymentTableRow: Falha ao atualizar status no banco');
         showError('Erro', 'Falha ao salvar o pagamento no banco de dados. Tente novamente.');
       }
       
     } catch (error) {
-      console.error('PaymentTableRow: Erro ao processar pagamento:', error);
+      console.error('PaymentTableRow: Erro inesperado ao processar pagamento:', error);
       showError('Erro', 'Erro inesperado ao processar pagamento. Verifique sua conexão e tente novamente.');
     } finally {
       setIsProcessing(false);
@@ -119,8 +133,15 @@ export const PaymentTableRow = ({ payment }: PaymentTableRowProps) => {
 
   return (
     <>
-      <TableRow>
-        <TableCell className="font-medium">{payment.providerName}</TableCell>
+      <TableRow className={hasProviderIssue ? "bg-orange-50" : ""}>
+        <TableCell className="font-medium">
+          <div className="flex items-center gap-2">
+            {payment.providerName}
+            {hasProviderIssue && (
+              <AlertCircle className="w-4 h-4 text-orange-500" title="Prestador não vinculado corretamente" />
+            )}
+          </div>
+        </TableCell>
         <TableCell>{payment.description}</TableCell>
         <TableCell>{getTypeLabel(payment.type)}</TableCell>
         <TableCell className="font-semibold">
@@ -139,6 +160,7 @@ export const PaymentTableRow = ({ payment }: PaymentTableRowProps) => {
               variant="outline" 
               size="sm"
               onClick={() => setIsViewModalOpen(true)}
+              title="Visualizar detalhes"
             >
               <Eye className="w-4 h-4" />
             </Button>
@@ -146,6 +168,7 @@ export const PaymentTableRow = ({ payment }: PaymentTableRowProps) => {
               variant="outline" 
               size="sm"
               onClick={() => setIsEditModalOpen(true)}
+              title="Editar pagamento"
             >
               <Edit className="w-4 h-4" />
             </Button>
@@ -154,7 +177,8 @@ export const PaymentTableRow = ({ payment }: PaymentTableRowProps) => {
                 size="sm" 
                 className="bg-green-600 hover:bg-green-700"
                 onClick={() => handleMarkAsPaid(payment)}
-                disabled={isProcessing}
+                disabled={isProcessing || hasProviderIssue}
+                title={hasProviderIssue ? "Prestador não vinculado corretamente" : "Marcar como pago"}
               >
                 {isProcessing ? (
                   <Loader2 className="w-4 h-4 animate-spin" />

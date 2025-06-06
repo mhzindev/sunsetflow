@@ -63,21 +63,29 @@ export const FinancialProvider = ({ children }: { children: React.ReactNode }) =
     try {
       setData(prev => ({ ...prev, loading: true, error: null }));
 
-      // Buscar dados usando a nova função RPC que implementa lógica hierárquica
+      console.log('FinancialContext: Iniciando busca de dados...');
+
       const [transactions, expenses, payments, bankAccounts, creditCards] = await Promise.all([
         fetchTransactions(),
-        isOwner ? fetchExpenses() : [], // Só buscar despesas se for dono
-        isOwner ? fetchPayments() : [], // Só buscar pagamentos se for dono
-        isOwner ? fetchBankAccounts() : [], // Só buscar contas se for dono
-        isOwner ? fetchCreditCards() : [] // Só buscar cartões se for dono
+        isOwner ? fetchExpenses() : [],
+        isOwner ? fetchPayments() : [],
+        isOwner ? fetchBankAccounts() : [],
+        isOwner ? fetchCreditCards() : []
       ]);
 
-      console.log('=== DEBUG: Dados carregados no FinancialContext ===');
-      console.log('Tipo de usuário:', profile?.role, profile?.user_type);
-      console.log('É dono?', isOwner);
-      console.log('Transações carregadas:', transactions?.length || 0);
-      console.log('Despesas carregadas:', expenses?.length || 0);
-      console.log('Pagamentos carregados:', payments?.length || 0);
+      console.log('FinancialContext: Dados carregados:', {
+        transactions: transactions?.length || 0,
+        expenses: expenses?.length || 0,
+        payments: payments?.length || 0,
+        bankAccounts: bankAccounts?.length || 0,
+        creditCards: creditCards?.length || 0
+      });
+
+      // Verificar pagamentos órfãos
+      const orphanPayments = payments?.filter(p => !p.providerId && p.providerName) || [];
+      if (orphanPayments.length > 0) {
+        console.warn('FinancialContext: Encontrados pagamentos órfãos:', orphanPayments.length);
+      }
 
       // Filtrar dados dos últimos 30 dias
       const thirtyDaysAgo = new Date();
@@ -134,8 +142,10 @@ export const FinancialProvider = ({ children }: { children: React.ReactNode }) =
         error: null
       });
 
+      console.log('FinancialContext: Dados processados com sucesso');
+
     } catch (error: any) {
-      console.error('Erro ao carregar dados financeiros:', error);
+      console.error('FinancialContext: Erro ao carregar dados:', error);
       setData(prev => ({ 
         ...prev, 
         loading: false, 
@@ -181,20 +191,35 @@ export const FinancialProvider = ({ children }: { children: React.ReactNode }) =
     }));
   };
 
-  // CORRIGIDO: Função para atualizar pagamento - agora persiste no banco PRIMEIRO
+  // MELHORADO: Função com melhor tratamento de erro e logs detalhados
   const updatePayment = async (id: string, updates: any): Promise<boolean> => {
     try {
-      console.log('FinancialContext: Atualizando pagamento no banco:', id, updates);
+      console.log('FinancialContext: Iniciando atualização do pagamento:', { id, updates });
       
-      // 1. Primeiro, atualizar no banco de dados
+      // Validação prévia
+      if (!id || typeof id !== 'string') {
+        console.error('FinancialContext: ID do pagamento inválido:', id);
+        return false;
+      }
+
+      // Buscar pagamento atual para comparação
+      const currentPayment = data.payments.find(p => p.id === id);
+      if (!currentPayment) {
+        console.error('FinancialContext: Pagamento não encontrado no estado local:', id);
+        return false;
+      }
+
+      console.log('FinancialContext: Pagamento atual:', currentPayment);
+      
+      // Atualizar no banco de dados primeiro
       const { data: result, error } = await updatePaymentInDB(id, updates);
       
       if (error) {
-        console.error('FinancialContext: Erro ao atualizar pagamento no banco:', error);
+        console.error('FinancialContext: Erro do banco de dados:', error);
         return false;
       }
       
-      // 2. Só atualizar estado local APÓS sucesso no banco
+      // Atualizar estado local apenas após sucesso no banco
       setData(prev => ({
         ...prev,
         payments: prev.payments.map(payment => 
@@ -206,53 +231,44 @@ export const FinancialProvider = ({ children }: { children: React.ReactNode }) =
       return true;
       
     } catch (error) {
-      console.error('FinancialContext: Erro inesperado ao atualizar pagamento:', error);
+      console.error('FinancialContext: Erro inesperado na atualização:', error);
       return false;
     }
   };
 
-  // CORRIGIDO: Função para atualizar status de pagamento - agora persiste no banco PRIMEIRO
+  // MELHORADO: Função com logs mais detalhados
   const updatePaymentStatus = async (id: string, status: string): Promise<boolean> => {
     try {
-      console.log('FinancialContext: Atualizando status do pagamento no banco:', id, status);
+      console.log('FinancialContext: Atualizando status do pagamento:', { id, status });
       
-      // 1. Preparar dados para atualização
       const updates: any = { 
         status: status
       };
       
-      // Se for marcado como completed, adicionar data de pagamento
       if (status === 'completed') {
         updates.payment_date = new Date().toISOString().split('T')[0];
+        console.log('FinancialContext: Adicionando data de pagamento:', updates.payment_date);
       }
       
-      // 2. Primeiro, atualizar no banco de dados
-      const { data: result, error } = await updatePaymentInDB(id, updates);
+      const success = await updatePayment(id, updates);
       
-      if (error) {
-        console.error('FinancialContext: Erro ao atualizar status no banco:', error);
-        return false;
+      if (success) {
+        console.log('FinancialContext: Status atualizado com sucesso');
+      } else {
+        console.error('FinancialContext: Falha ao atualizar status');
       }
       
-      // 3. Só atualizar estado local APÓS sucesso no banco
-      setData(prev => ({
-        ...prev,
-        payments: prev.payments.map(payment => 
-          payment.id === id ? { ...payment, ...updates } : payment
-        )
-      }));
-      
-      console.log('FinancialContext: Status do pagamento atualizado com sucesso:', result);
-      return true;
+      return success;
       
     } catch (error) {
-      console.error('FinancialContext: Erro inesperado ao atualizar status:', error);
+      console.error('FinancialContext: Erro ao atualizar status:', error);
       return false;
     }
   };
 
   useEffect(() => {
     if (profile) {
+      console.log('FinancialContext: Perfil carregado, buscando dados...');
       fetchData();
     }
   }, [profile]);
