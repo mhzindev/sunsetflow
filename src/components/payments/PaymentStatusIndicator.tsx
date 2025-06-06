@@ -5,9 +5,14 @@ import { AlertCircle, CheckCircle, Clock, XCircle } from 'lucide-react';
 interface PaymentStatusIndicatorProps {
   status: string;
   hasProviderIssue?: boolean;
+  hasAccountIssue?: boolean;
 }
 
-export const PaymentStatusIndicator = ({ status, hasProviderIssue }: PaymentStatusIndicatorProps) => {
+export const PaymentStatusIndicator = ({ 
+  status, 
+  hasProviderIssue = false, 
+  hasAccountIssue = false 
+}: PaymentStatusIndicatorProps) => {
   const getStatusConfig = (status: string) => {
     const configs = {
       pending: {
@@ -42,25 +47,26 @@ export const PaymentStatusIndicator = ({ status, hasProviderIssue }: PaymentStat
   const config = getStatusConfig(status);
   const Icon = config.icon;
 
-  if (hasProviderIssue) {
-    return (
-      <div className="flex items-center gap-2">
+  return (
+    <div className="flex items-center gap-2">
+      {hasProviderIssue && (
         <Badge className="bg-orange-100 text-orange-800">
           <AlertCircle className="w-3 h-3 mr-1" />
           Sem Prestador
         </Badge>
-        <Badge className={config.color}>
-          <Icon className="w-3 h-3 mr-1" />
-          {config.label}
+      )}
+      
+      {hasAccountIssue && status === 'completed' && (
+        <Badge className="bg-red-100 text-red-800">
+          <AlertCircle className="w-3 h-3 mr-1" />
+          Sem Conta
         </Badge>
-      </div>
-    );
-  }
-
-  return (
-    <Badge className={config.color}>
-      <Icon className="w-3 h-3 mr-1" />
-      {config.label}
-    </Badge>
+      )}
+      
+      <Badge className={config.color}>
+        <Icon className="w-3 h-3 mr-1" />
+        {config.label}
+      </Badge>
+    </div>
   );
 };

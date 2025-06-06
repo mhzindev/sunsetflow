@@ -7,6 +7,7 @@ import { AlertTriangle, Clock, Eye, Edit, DollarSign, Loader2, AlertCircle } fro
 import { Payment } from '@/types/payment';
 import { PaymentViewModal } from './PaymentViewModal';
 import { PaymentEditModal } from './PaymentEditModal';
+import { PaymentStatusIndicator } from './PaymentStatusIndicator';
 import { useToastFeedback } from '@/hooks/useToastFeedback';
 import { useFinancial } from '@/contexts/FinancialContext';
 
@@ -21,34 +22,14 @@ export const PaymentTableRow = ({ payment }: PaymentTableRowProps) => {
   const { showSuccess, showError } = useToastFeedback();
   const { updatePaymentStatus } = useFinancial();
 
-  const getStatusColor = (status: string) => {
-    const colors = {
-      pending: 'bg-yellow-100 text-yellow-800',
-      partial: 'bg-blue-100 text-blue-800',
-      completed: 'bg-green-100 text-green-800',
-      overdue: 'bg-red-100 text-red-800',
-      cancelled: 'bg-gray-100 text-gray-800'
-    };
-    return colors[status as keyof typeof colors] || colors.pending;
-  };
-
-  const getStatusLabel = (status: string) => {
-    const labels = {
-      pending: 'Pendente',
-      partial: 'Parcial',
-      completed: 'Concluído',
-      overdue: 'Em Atraso',
-      cancelled: 'Cancelado'
-    };
-    return labels[status as keyof typeof labels] || status;
-  };
-
   const getTypeLabel = (type: string) => {
     const labels = {
       full: 'Integral',
       installment: 'Parcelado',
       advance: 'Adiantamento',
-      partial: 'Parcial'
+      partial: 'Parcial',
+      balance_payment: 'Saldo',
+      advance_payment: 'Adiantamento'
     };
     return labels[type as keyof typeof labels] || type;
   };
@@ -77,8 +58,10 @@ export const PaymentTableRow = ({ payment }: PaymentTableRowProps) => {
     return null;
   };
 
-  // Verificar se pagamento tem problemas de vinculação - garantir que retorna boolean
+  // Verificar problemas no pagamento
   const hasProviderIssue = Boolean(!payment.providerId && payment.providerName);
+  const hasAccountIssue = Boolean(payment.status === 'completed' && (!payment.account_id || !payment.account_type));
+  const hasAnyIssue = hasProviderIssue || hasAccountIssue;
 
   const handleSavePayment = (updatedPayment: Payment) => {
     console.log('Payment updated via modal:', updatedPayment);
@@ -90,8 +73,8 @@ export const PaymentTableRow = ({ payment }: PaymentTableRowProps) => {
     
     console.log('PaymentTableRow: Processando pagamento:', payment.id);
     
-    // Verificar se há problemas antes de processar
-    if (!payment.providerId && payment.providerName) {
+    // Verificar problemas críticos antes de processar
+    if (hasProviderIssue) {
       showError(
         'Erro de Vinculação', 
         `Este pagamento não está vinculado a um prestador válido. Entre em contato com o administrador para corrigir a vinculação do prestador "${payment.providerName}".`
@@ -99,29 +82,12 @@ export const PaymentTableRow = ({ payment }: PaymentTableRowProps) => {
       return;
     }
     
-    try {
-      setIsProcessing(true);
-      
-      console.log('PaymentTableRow: Atualizando status no banco via FinancialContext...');
-      const success = await updatePaymentStatus(payment.id, 'completed');
-      
-      if (success) {
-        console.log('PaymentTableRow: Status atualizado com sucesso no banco');
-        showSuccess(
-          'Pagamento Confirmado', 
-          `Pagamento de R$ ${payment.amount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} para ${payment.providerName} foi processado e salvo no banco de dados!`
-        );
-      } else {
-        console.error('PaymentTableRow: Falha ao atualizar status no banco');
-        showError('Erro', 'Falha ao salvar o pagamento no banco de dados. Tente novamente.');
-      }
-      
-    } catch (error) {
-      console.error('PaymentTableRow: Erro inesperado ao processar pagamento:', error);
-      showError('Erro', 'Erro inesperado ao processar pagamento. Verifique sua conexão e tente novamente.');
-    } finally {
-      setIsProcessing(false);
-    }
+    // Para marcar como pago, precisamos de conta obrigatoriamente
+    showError(
+      'Conta Obrigatória', 
+      'Para marcar um pagamento como pago, é necessário editar o pagamento e selecionar uma conta ou cartão de onde o valor será debitado.'
+    );
+    return;
   };
 
   const handleEditFromView = (payment: Payment) => {
@@ -133,13 +99,18 @@ export const PaymentTableRow = ({ payment }: PaymentTableRowProps) => {
 
   return (
     <>
-      <TableRow className={hasProviderIssue ? "bg-orange-50" : ""}>
+      <TableRow className={hasAnyIssue ? "bg-orange-50" : ""}>
         <TableCell className="font-medium">
           <div className="flex items-center gap-2">
             {payment.providerName}
             {hasProviderIssue && (
               <div title="Prestador não vinculado corretamente">
                 <AlertCircle className="w-4 h-4 text-orange-500" />
+              </div>
+            )}
+            {hasAccountIssue && (
+              <div title="Pagamento completed sem conta vinculada">
+                <AlertCircle className="w-4 h-4 text-red-500" />
               </div>
             )}
           </div>
@@ -151,9 +122,11 @@ export const PaymentTableRow = ({ payment }: PaymentTableRowProps) => {
         </TableCell>
         <TableCell>{new Date(payment.dueDate).toLocaleDateString('pt-BR')}</TableCell>
         <TableCell>
-          <Badge className={getStatusColor(payment.status)}>
-            {getStatusLabel(payment.status)}
-          </Badge>
+          <PaymentStatusIndicator 
+            status={payment.status}
+            hasProviderIssue={hasProviderIssue}
+            hasAccountIssue={hasAccountIssue}
+          />
         </TableCell>
         <TableCell>{getUrgencyBadge()}</TableCell>
         <TableCell>
@@ -179,8 +152,12 @@ export const PaymentTableRow = ({ payment }: PaymentTableRowProps) => {
                 size="sm" 
                 className="bg-green-600 hover:bg-green-700"
                 onClick={() => handleMarkAsPaid(payment)}
-                disabled={isProcessing || hasProviderIssue}
-                title={hasProviderIssue ? "Prestador não vinculado corretamente" : "Marcar como pago"}
+                disabled={isProcessing || hasAnyIssue}
+                title={
+                  hasProviderIssue ? "Prestador não vinculado corretamente" :
+                  hasAccountIssue ? "Pagamento sem conta vinculada" :
+                  "Para marcar como pago, edite e selecione uma conta"
+                }
               >
                 {isProcessing ? (
                   <Loader2 className="w-4 h-4 animate-spin" />

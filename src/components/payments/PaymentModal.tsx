@@ -6,6 +6,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { AlertCircle } from 'lucide-react';
 import { useSupabaseData } from '@/hooks/useSupabaseData';
 import { useToastFeedback } from '@/hooks/useToastFeedback';
 import { ServiceProvider, PaymentType } from '@/types/payment';
@@ -36,6 +38,7 @@ export const PaymentModal = ({
   const [accounts, setAccounts] = useState<any[]>([]);
   const [cards, setCards] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
+  const [validationErrors, setValidationErrors] = useState<string[]>([]);
 
   const { insertPayment, fetchBankAccounts, fetchCreditCards } = useSupabaseData();
   const { showSuccess, showError } = useToastFeedback();
@@ -62,6 +65,8 @@ export const PaymentModal = ({
           description: `Adiantamento para ${provider.name}`
         }));
       }
+      // Reset validation errors
+      setValidationErrors([]);
     }
   }, [isOpen, paymentType, provider]);
 
@@ -78,6 +83,32 @@ export const PaymentModal = ({
     }
   };
 
+  const validateForm = () => {
+    const errors: string[] = [];
+    
+    if (!formData.amount || parseFloat(formData.amount) <= 0) {
+      errors.push('O valor deve ser maior que zero');
+    }
+    
+    if (!formData.description.trim()) {
+      errors.push('A descrição é obrigatória');
+    }
+    
+    if (!formData.account_id || !formData.account_type) {
+      errors.push('Selecione uma conta ou cartão para debitar o pagamento');
+    }
+    
+    if (paymentType === 'balance_payment' && provider?.currentBalance) {
+      const amount = parseFloat(formData.amount);
+      if (amount > provider.currentBalance) {
+        errors.push('O valor não pode ser maior que o saldo atual');
+      }
+    }
+    
+    setValidationErrors(errors);
+    return errors.length === 0;
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
@@ -86,22 +117,11 @@ export const PaymentModal = ({
       return;
     }
     
-    if (!formData.amount || !formData.description) {
-      showError('Erro', 'Preencha todos os campos obrigatórios');
+    if (!validateForm()) {
       return;
     }
 
     const amount = parseFloat(formData.amount);
-    if (amount <= 0) {
-      showError('Erro', 'O valor deve ser maior que zero');
-      return;
-    }
-
-    // Validação para pagamento de saldo
-    if (paymentType === 'balance_payment' && provider.currentBalance && amount > provider.currentBalance) {
-      showError('Erro', 'O valor não pode ser maior que o saldo atual');
-      return;
-    }
 
     setLoading(true);
     try {
@@ -115,11 +135,11 @@ export const PaymentModal = ({
         type: paymentType as PaymentType,
         description: formData.description,
         notes: formData.notes || undefined,
-        account_id: formData.account_id || undefined,
-        account_type: formData.account_type
+        account_id: formData.account_id,
+        account_type: formData.account_type!
       };
 
-      console.log('Criando pagamento de prestador:', paymentData);
+      console.log('Criando pagamento de prestador com validação aprimorada:', paymentData);
       
       const { data, error } = await insertPayment(paymentData);
       
@@ -130,7 +150,9 @@ export const PaymentModal = ({
       }
 
       console.log('Pagamento registrado com sucesso:', data);
+      showSuccess('Sucesso', 'Pagamento registrado e processado com sucesso!');
       onSuccess();
+      onOpenChange(false);
     } catch (error) {
       console.error('Erro inesperado:', error);
       showError('Erro', 'Erro inesperado ao registrar pagamento');
@@ -155,6 +177,8 @@ export const PaymentModal = ({
       account_id: id,
       account_type: type as 'bank_account' | 'credit_card'
     }));
+    // Clear validation errors when user makes a selection
+    setValidationErrors(prev => prev.filter(error => !error.includes('conta')));
   };
 
   const getAccountValue = () => {
@@ -185,6 +209,19 @@ export const PaymentModal = ({
         </DialogHeader>
 
         <form onSubmit={handleSubmit} className="space-y-4">
+          {validationErrors.length > 0 && (
+            <Alert variant="destructive">
+              <AlertCircle className="h-4 w-4" />
+              <AlertDescription>
+                <ul className="list-disc list-inside space-y-1">
+                  {validationErrors.map((error, index) => (
+                    <li key={index}>{error}</li>
+                  ))}
+                </ul>
+              </AlertDescription>
+            </Alert>
+          )}
+
           {paymentType === 'balance_payment' && provider.currentBalance && (
             <div className="bg-blue-50 p-3 rounded-lg">
               <p className="text-sm text-blue-800">
@@ -200,7 +237,10 @@ export const PaymentModal = ({
               type="number"
               step="0.01"
               value={formData.amount}
-              onChange={(e) => setFormData(prev => ({ ...prev, amount: e.target.value }))}
+              onChange={(e) => {
+                setFormData(prev => ({ ...prev, amount: e.target.value }));
+                setValidationErrors(prev => prev.filter(error => !error.includes('valor')));
+              }}
               placeholder="0,00"
               required
             />
@@ -218,25 +258,28 @@ export const PaymentModal = ({
           </div>
 
           <div>
-            <Label htmlFor="account">Conta/Cartão</Label>
+            <Label htmlFor="account">Conta/Cartão *</Label>
             <Select value={getAccountValue()} onValueChange={handleAccountChange}>
               <SelectTrigger>
-                <SelectValue placeholder="Selecionar conta ou cartão" />
+                <SelectValue placeholder="Selecionar conta ou cartão obrigatoriamente" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="none">Nenhuma conta selecionada</SelectItem>
+                <SelectItem value="none" disabled>Selecione uma conta ou cartão</SelectItem>
                 {accounts.map((account) => (
                   <SelectItem key={account.id} value={`bank_account:${account.id}`}>
-                    {account.name} - {account.bank}
+                    💳 {account.name} - {account.bank}
                   </SelectItem>
                 ))}
                 {cards.map((card) => (
                   <SelectItem key={card.id} value={`credit_card:${card.id}`}>
-                    {card.name} - {card.brand}
+                    🏦 {card.name} - {card.brand}
                   </SelectItem>
                 ))}
               </SelectContent>
             </Select>
+            <p className="text-xs text-gray-600 mt-1">
+              Obrigatório: selecione de onde o valor será debitado
+            </p>
           </div>
 
           <div>
@@ -244,7 +287,10 @@ export const PaymentModal = ({
             <Input
               id="description"
               value={formData.description}
-              onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
+              onChange={(e) => {
+                setFormData(prev => ({ ...prev, description: e.target.value }));
+                setValidationErrors(prev => prev.filter(error => !error.includes('descrição')));
+              }}
               placeholder="Descrição do pagamento"
               required
             />
