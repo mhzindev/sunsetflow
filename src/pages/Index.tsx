@@ -32,10 +32,14 @@ const IndexContent = () => {
     checkAuth();
   }, [navigate]);
 
+  const handleNavigate = (section: string) => {
+    setActiveSection(section as PageSection);
+  };
+
   const renderContent = () => {
     switch (activeSection) {
       case 'dashboard':
-        return <Dashboard onNavigate={setActiveSection} />;
+        return <Dashboard onNavigate={handleNavigate} />;
       case 'transactions':
         return <TransactionManager />;
       case 'payments':
@@ -49,33 +53,31 @@ const IndexContent = () => {
       case 'settings':
         return <Settings />;
       default:
-        return <Dashboard onNavigate={setActiveSection} />;
+        return <Dashboard onNavigate={handleNavigate} />;
     }
   };
 
   return (
-    <FinancialProvider>
-      <div className="flex h-screen bg-slate-50">
-        <Sidebar 
+    <div className="flex h-screen bg-slate-50">
+      <Sidebar 
+        activeSection={activeSection}
+        setActiveSection={setActiveSection}
+        isOpen={sidebarOpen}
+        setIsOpen={setSidebarOpen}
+      />
+      
+      <div className="flex-1 flex flex-col overflow-hidden">
+        <TopBar 
           activeSection={activeSection}
-          onSectionChange={setActiveSection}
-          isOpen={sidebarOpen}
-          onToggle={setSidebarOpen}
+          sidebarOpen={sidebarOpen}
+          setSidebarOpen={setSidebarOpen}
         />
         
-        <div className="flex-1 flex flex-col overflow-hidden">
-          <TopBar 
-            activeSection={activeSection}
-            sidebarOpen={sidebarOpen}
-            setSidebarOpen={setSidebarOpen}
-          />
-          
-          <main className="flex-1 overflow-x-hidden overflow-y-auto bg-slate-50 p-6">
-            {renderContent()}
-          </main>
-        </div>
+        <main className="flex-1 overflow-x-hidden overflow-y-auto bg-slate-50 p-6">
+          {renderContent()}
+        </main>
       </div>
-    </FinancialProvider>
+    </div>
   );
 };
 
@@ -119,7 +121,9 @@ const Index = () => {
 
   return (
     <AuthProvider>
-      <IndexContent />
+      <FinancialProvider>
+        <IndexContent />
+      </FinancialProvider>
     </AuthProvider>
   );
 };
