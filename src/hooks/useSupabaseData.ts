@@ -71,10 +71,10 @@ export const useSupabaseData = () => {
     }
   };
 
-  // Função para buscar pagamentos - CORRIGIDA COM MAPEAMENTO CORRETO
+  // Função para buscar pagamentos - MELHORADA COM FALLBACK PARA DADOS ÓRFÃOS
   const fetchPayments = async () => {
     try {
-      console.log('Buscando pagamentos com RLS corrigido...');
+      console.log('Buscando pagamentos com fallback melhorado...');
       const { data, error } = await supabase
         .from('payments')
         .select(`
@@ -90,32 +90,66 @@ export const useSupabaseData = () => {
       
       console.log('Dados brutos dos pagamentos:', data);
       
-      // Mapear os dados para o formato correto (snake_case → camelCase)
-      const mappedPayments = data?.map(payment => ({
-        id: payment.id,
-        providerId: payment.provider_id,
-        providerName: payment.provider_name,
-        amount: payment.amount,
-        dueDate: payment.due_date,
-        paymentDate: payment.payment_date,
-        status: payment.status,
-        type: payment.type,
-        description: payment.description,
-        installments: payment.installments,
-        currentInstallment: payment.current_installment,
-        tags: payment.tags,
-        notes: payment.notes,
-        // Dados do prestador se disponível
-        serviceProvider: payment.service_providers ? {
-          name: payment.service_providers.name,
-          email: payment.service_providers.email,
-          phone: payment.service_providers.phone,
-          service: payment.service_providers.service
-        } : null
-      })) || [];
+      // Mapear os dados para o formato correto com fallback inteligente
+      const mappedPayments = data?.map(payment => {
+        // Fallback inteligente para pagamentos órfãos
+        let providerName = payment.provider_name;
+        let providerId = payment.provider_id;
+        
+        // Se há dados do prestador vinculado, usar os dados mais atualizados
+        if (payment.service_providers) {
+          providerName = payment.service_providers.name;
+          providerId = payment.provider_id; // Manter o ID original
+        }
+        
+        // Se não tem provider_id mas tem provider_name, marcar como órfão
+        if (!providerId && providerName) {
+          console.warn('⚠️ Pagamento órfão detectado:', {
+            id: payment.id,
+            providerName,
+            amount: payment.amount
+          });
+        }
+        
+        return {
+          id: payment.id,
+          providerId: providerId || null,
+          providerName: providerName || 'Prestador não especificado',
+          amount: payment.amount,
+          dueDate: payment.due_date,
+          paymentDate: payment.payment_date,
+          status: payment.status,
+          type: payment.type,
+          description: payment.description || 'Sem descrição',
+          installments: payment.installments,
+          currentInstallment: payment.current_installment,
+          tags: payment.tags,
+          notes: payment.notes,
+          // Marcar se é um pagamento órfão para exibição
+          isOrphan: !providerId && !!providerName,
+          // Dados do prestador se disponível
+          serviceProvider: payment.service_providers ? {
+            name: payment.service_providers.name,
+            email: payment.service_providers.email,
+            phone: payment.service_providers.phone,
+            service: payment.service_providers.service
+          } : null
+        };
+      }) || [];
       
-      console.log('Pagamentos mapeados:', mappedPayments.length);
-      console.log('Primeiro pagamento mapeado:', mappedPayments[0]);
+      // Estatísticas para debugging
+      const orphanCount = mappedPayments.filter(p => p.isOrphan).length;
+      const validCount = mappedPayments.filter(p => !p.isOrphan).length;
+      
+      console.log('Pagamentos mapeados:', {
+        total: mappedPayments.length,
+        valid: validCount,
+        orphan: orphanCount
+      });
+      
+      if (orphanCount > 0) {
+        console.warn(`⚠️ ${orphanCount} pagamento(s) órfão(s) detectado(s). Execute a correção automática.`);
+      }
       
       return mappedPayments;
     } catch (err) {

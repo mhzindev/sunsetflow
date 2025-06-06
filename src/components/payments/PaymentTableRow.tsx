@@ -95,6 +95,7 @@ export const PaymentTableRow = ({ payment, onPaymentUpdate }: PaymentTableRowPro
       console.log('Provider Name:', payment.providerName);
       console.log('Amount:', payment.amount);
       console.log('Status atual:', payment.status);
+      console.log('É órfão?:', !payment.providerId);
       
       // Verificar se o pagamento existe no banco de dados
       console.log('Verificando existência do pagamento...');
@@ -125,7 +126,7 @@ export const PaymentTableRow = ({ payment, onPaymentUpdate }: PaymentTableRowPro
         return;
       }
 
-      // Preparar dados de atualização - SIMPLIFICADO
+      // Preparar dados de atualização
       const updateData = { 
         status: 'completed',
         payment_date: new Date().toISOString().split('T')[0]
@@ -134,11 +135,11 @@ export const PaymentTableRow = ({ payment, onPaymentUpdate }: PaymentTableRowPro
       console.log('Dados para atualização:', updateData);
       console.log('Atualizando pagamento no banco...');
       
-      // CORRIGIDO: Usar apenas o ID como filtro, sem filtros adicionais
+      // Usar apenas o ID como filtro
       const { data: updatedData, error: updateError } = await supabase
         .from('payments')
         .update(updateData)
-        .eq('id', payment.id)  // APENAS o ID como filtro
+        .eq('id', payment.id)
         .select('*');
 
       if (updateError) {
@@ -147,22 +148,18 @@ export const PaymentTableRow = ({ payment, onPaymentUpdate }: PaymentTableRowPro
         return;
       }
 
-      // Verificar se a atualização foi bem-sucedida
       if (!updatedData || updatedData.length === 0) {
-        console.error('❌ Nenhum pagamento foi atualizado - possíveis causas:');
-        console.error('- Filtros muito restritivos no WHERE');
-        console.error('- Pagamento não existe');
-        console.error('- Problemas de permissão (RLS)');
-        showError('Erro', 'Falha ao atualizar o pagamento - registro não foi modificado');
+        console.error('❌ Nenhum pagamento foi atualizado');
+        showError('Erro', 'Falha ao atualizar o pagamento');
         return;
       }
 
       console.log('✅ Pagamento atualizado no banco:', updatedData[0]);
 
-      // Aguardar um momento para triggers serem executados
+      // Aguardar triggers serem executados
       await new Promise(resolve => setTimeout(resolve, 500));
 
-      // CORRIGIDO: Verificar se tem provider_id válido antes de recalcular saldo
+      // Verificar se tem provider_id válido antes de recalcular saldo
       const providerId = payment.providerId;
       if (providerId && providerId !== 'undefined' && providerId.trim() !== '' && providerId !== 'null') {
         console.log('Recalculando saldo do prestador:', providerId);
@@ -181,20 +178,28 @@ export const PaymentTableRow = ({ payment, onPaymentUpdate }: PaymentTableRowPro
           }
         } catch (recalcError) {
           console.error('Erro inesperado no recálculo:', recalcError);
-          // Não bloquear o processo por erro no recálculo
         }
       } else {
-        console.log('⚠️ Pagamento sem provider_id válido - saldo não será recalculado');
+        console.log('⚠️ Pagamento órfão - saldo não será recalculado');
         console.log('Provider ID recebido:', providerId);
+        
+        // Aviso especial para pagamentos órfãos
+        showSuccess(
+          'Pagamento Órfão Processado', 
+          `Pagamento de R$ ${payment.amount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} foi marcado como concluído. ⚠️ Este pagamento não está vinculado a um prestador específico.`
+        );
+        
+        setTimeout(() => {
+          onPaymentUpdate?.();
+        }, 1000);
+        return;
       }
       
       showSuccess(
         'Pagamento Confirmado', 
-        `Pagamento de R$ ${payment.amount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} para ${payment.providerName} foi processado! Status atualizado para concluído.`
+        `Pagamento de R$ ${payment.amount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} para ${payment.providerName} foi processado!`
       );
 
-      // Forçar refresh dos dados
-      console.log('Executando refresh dos dados...');
       setTimeout(() => {
         onPaymentUpdate?.();
       }, 1000);
@@ -214,10 +219,22 @@ export const PaymentTableRow = ({ payment, onPaymentUpdate }: PaymentTableRowPro
     }, 100);
   };
 
+  // Verificar se é um pagamento órfão
+  const isOrphanPayment = !payment.providerId || payment.providerId === '' || payment.providerId === 'undefined';
+
   return (
     <>
-      <TableRow>
-        <TableCell className="font-medium">{payment.providerName || 'Prestador não especificado'}</TableCell>
+      <TableRow className={isOrphanPayment ? 'bg-orange-50 border-l-4 border-l-orange-400' : ''}>
+        <TableCell className="font-medium">
+          <div className="flex items-center gap-2">
+            <span>{payment.providerName || 'Prestador não especificado'}</span>
+            {isOrphanPayment && (
+              <Badge variant="outline" className="text-orange-600 border-orange-600 text-xs">
+                Órfão
+              </Badge>
+            )}
+          </div>
+        </TableCell>
         <TableCell>{payment.description || 'Sem descrição'}</TableCell>
         <TableCell>{getTypeLabel(payment.type)}</TableCell>
         <TableCell className="font-semibold">

@@ -7,6 +7,7 @@ import { PaymentModal } from './PaymentModal';
 import { PaymentSummaryCards } from './PaymentSummaryCards';
 import { PaymentFilters } from './PaymentFilters';
 import { PaymentTable } from './PaymentTable';
+import { PaymentDataHealthCheck } from './PaymentDataHealthCheck';
 import { useFinancial } from '@/contexts/FinancialContext';
 import { Payment, PaymentStatus } from '@/types/payment';
 
@@ -31,6 +32,12 @@ export const PaymentManager = () => {
       completed: payments.filter(p => p.status === 'completed').length,
       partial: payments.filter(p => p.status === 'partial').length
     });
+
+    // Verificar pagamentos órfãos
+    const orphanPayments = payments.filter(p => !p.providerId || p.providerId === '' || p.providerId === 'undefined');
+    if (orphanPayments.length > 0) {
+      console.warn('⚠️ Pagamentos órfãos detectados:', orphanPayments.length);
+    }
 
     let filtered = [...payments];
 
@@ -108,6 +115,9 @@ export const PaymentManager = () => {
           </Button>
         </div>
       </div>
+
+      {/* Verificação de Integridade dos Dados */}
+      <PaymentDataHealthCheck />
 
       <PaymentSummaryCards payments={payments} />
 
