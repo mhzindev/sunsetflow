@@ -16,6 +16,40 @@ import { FinancialProvider } from "@/contexts/FinancialContext";
 
 export type PageSection = 'dashboard' | 'transactions' | 'payments' | 'expenses' | 'cashflow' | 'accounts' | 'reports' | 'settings';
 
+const Index = () => {
+  const { isAuthenticated, loading } = useAuth();
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    if (!loading && !isAuthenticated) {
+      navigate('/auth');
+    }
+  }, [isAuthenticated, loading, navigate]);
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-slate-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center mb-4 mx-auto">
+            <span className="text-white font-bold text-sm">S</span>
+          </div>
+          <h1 className="text-xl font-bold text-slate-800">Carregando...</h1>
+        </div>
+      </div>
+    );
+  }
+
+  if (!isAuthenticated) {
+    return null; // Redirect will handle this
+  }
+
+  return (
+    <FinancialProvider>
+      <IndexContent />
+    </FinancialProvider>
+  );
+};
+
 const IndexContent = () => {
   const { profile } = useAuth();
   const isProvider = profile?.user_type === 'provider';
@@ -126,40 +160,6 @@ const IndexContent = () => {
         </main>
       </div>
     </div>
-  );
-};
-
-const Index = () => {
-  const { isAuthenticated, loading } = useAuth();
-  const navigate = useNavigate();
-
-  useEffect(() => {
-    if (!loading && !isAuthenticated) {
-      navigate('/auth');
-    }
-  }, [isAuthenticated, loading, navigate]);
-
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-slate-50 flex items-center justify-center">
-        <div className="text-center">
-          <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center mb-4 mx-auto">
-            <span className="text-white font-bold text-sm">S</span>
-          </div>
-          <h1 className="text-xl font-bold text-slate-800">Carregando...</h1>
-        </div>
-      </div>
-    );
-  }
-
-  if (!isAuthenticated) {
-    return null; // Redirect will handle this
-  }
-
-  return (
-    <FinancialProvider>
-      <IndexContent />
-    </FinancialProvider>
   );
 };
 
