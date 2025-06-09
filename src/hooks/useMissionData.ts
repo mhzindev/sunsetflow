@@ -60,7 +60,7 @@ export const useMissionData = () => {
       queryFn: () => missionId ? fetchMissionWithProviderOptimized(missionId) : null,
       enabled: !!missionId,
       staleTime: 5 * 60 * 1000, // 5 minutes
-      cacheTime: 10 * 60 * 1000, // 10 minutes
+      gcTime: 10 * 60 * 1000, // 10 minutes (renamed from cacheTime)
       refetchOnWindowFocus: false,
     });
   };
@@ -112,7 +112,7 @@ export const useMissionData = () => {
         return missionsWithProviders;
       },
       staleTime: 2 * 60 * 1000, // 2 minutes
-      cacheTime: 5 * 60 * 1000, // 5 minutes
+      gcTime: 5 * 60 * 1000, // 5 minutes (renamed from cacheTime)
     });
   };
 
@@ -198,8 +198,9 @@ export const useMissionData = () => {
           console.log('Real-time mission change:', payload);
           // Invalidate queries to refetch fresh data
           queryClient.invalidateQueries({ queryKey: ['missions'] });
-          if (payload.new?.id) {
-            queryClient.invalidateQueries({ queryKey: ['mission', payload.new.id] });
+          // Type assertion for payload.new to access id property safely
+          if (payload.new && typeof payload.new === 'object' && 'id' in payload.new) {
+            queryClient.invalidateQueries({ queryKey: ['mission', (payload.new as any).id] });
           }
         }
       )
