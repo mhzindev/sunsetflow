@@ -7,6 +7,7 @@ import { Slider } from "@/components/ui/slider";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useAuth } from '@/contexts/AuthContext';
+import { isAdmin } from '@/utils/authUtils';
 
 interface ServiceValueDistributionProps {
   serviceValue: number;
@@ -34,6 +35,9 @@ export const ServiceValueDistribution = ({
   const [companyValue, setCompanyValue] = useState(0);
   const [providerValue, setProviderValue] = useState(0);
 
+  // Verificar se o usuário pode editar valores (apenas administradores)
+  const canEditValues = isAdmin(profile) && !isApproved && !readOnly;
+
   useEffect(() => {
     const newProviderPercentage = 100 - companyPercentage;
     setProviderPercentage(newProviderPercentage);
@@ -46,13 +50,13 @@ export const ServiceValueDistribution = ({
   }, [serviceValue, companyPercentage]);
 
   const handlePercentageChange = (value: number[]) => {
-    if (readOnly || isApproved) return;
+    if (!canEditValues) return;
     const newCompanyPercentage = value[0];
     onCompanyPercentageChange(newCompanyPercentage);
   };
 
   const handleServiceValueChange = (value: number) => {
-    if (readOnly || isApproved) return;
+    if (!canEditValues) return;
     onServiceValueChange(value);
   };
 
@@ -62,9 +66,6 @@ export const ServiceValueDistribution = ({
       currency: 'BRL'
     }).format(value);
   };
-
-  // Verificar se o usuário é dono/admin usando o profile do banco
-  const isOwner = profile?.role === 'admin';
 
   return (
     <Card className="mt-4">
@@ -88,11 +89,15 @@ export const ServiceValueDistribution = ({
             value={serviceValue || ''}
             onChange={(e) => handleServiceValueChange(parseFloat(e.target.value) || 0)}
             placeholder="0,00"
-            disabled={readOnly || isApproved || !isOwner}
+            disabled={!canEditValues}
+            className={!canEditValues ? "bg-gray-100" : ""}
           />
-          {!isOwner && (
+          {!canEditValues && (
             <p className="text-xs text-gray-500 mt-1">
-              * Apenas o dono pode definir o valor do serviço
+              {profile?.user_type === 'provider' 
+                ? "* Apenas administradores podem definir o valor do serviço"
+                : "* Valor não pode ser alterado após aprovação"
+              }
             </p>
           )}
         </div>
@@ -115,7 +120,7 @@ export const ServiceValueDistribution = ({
                   min={0}
                   step={5}
                   className="w-full"
-                  disabled={readOnly || isApproved || !isOwner}
+                  disabled={!canEditValues}
                 />
               </div>
             </div>
@@ -138,7 +143,7 @@ export const ServiceValueDistribution = ({
               </div>
             </div>
 
-            {canApprove && !isApproved && serviceValue > 0 && isOwner && onApprove && (
+            {canApprove && !isApproved && serviceValue > 0 && canEditValues && onApprove && (
               <div className="pt-4 border-t">
                 <Button 
                   onClick={onApprove}

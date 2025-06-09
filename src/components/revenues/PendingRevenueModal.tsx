@@ -42,10 +42,18 @@ export const PendingRevenueModal = ({
     onCancel(revenue.id);
   };
 
-  const allAccounts = [
-    ...(accounts || []).map(acc => ({ ...acc, type: 'bank_account' })),
-    ...(creditCards || []).map(card => ({ ...card, type: 'credit_card' }))
-  ];
+  const handleAccountSelection = (accountId: string) => {
+    // Determinar o tipo da conta baseado nos dados disponíveis
+    const isBankAccount = accounts?.some(acc => acc.id === accountId);
+    const isCreditCard = creditCards?.some(card => card.id === accountId);
+    
+    setSelectedAccountId(accountId);
+    if (isCreditCard) {
+      setSelectedAccountType('credit_card');
+    } else {
+      setSelectedAccountType('bank_account');
+    }
+  };
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
@@ -108,26 +116,29 @@ export const PendingRevenueModal = ({
           <div>
             <h4 className="font-semibold text-slate-800 mb-3">Selecionar Conta para Recebimento</h4>
             
-            <Select value={selectedAccountId} onValueChange={setSelectedAccountId}>
+            <Select value={selectedAccountId} onValueChange={handleAccountSelection}>
               <SelectTrigger>
                 <SelectValue placeholder="Selecione a conta que receberá o valor" />
               </SelectTrigger>
               <SelectContent>
-                {allAccounts.map((account) => (
-                  <SelectItem 
-                    key={account.id} 
-                    value={account.id}
-                    onSelect={() => setSelectedAccountType(account.type as 'bank_account' | 'credit_card')}
-                  >
+                {accounts?.map((account) => (
+                  <SelectItem key={`bank_${account.id}`} value={account.id}>
                     <div className="flex items-center gap-2">
-                      {account.type === 'bank_account' ? (
-                        <Building2 className="w-4 h-4" />
-                      ) : (
-                        <CreditCard className="w-4 h-4" />
-                      )}
+                      <Building2 className="w-4 h-4" />
                       <span>{account.name}</span>
                       <Badge variant="outline" className="text-xs">
                         {account.bank}
+                      </Badge>
+                    </div>
+                  </SelectItem>
+                ))}
+                {creditCards?.map((card) => (
+                  <SelectItem key={`card_${card.id}`} value={card.id}>
+                    <div className="flex items-center gap-2">
+                      <CreditCard className="w-4 h-4" />
+                      <span>{card.name}</span>
+                      <Badge variant="outline" className="text-xs">
+                        {card.bank}
                       </Badge>
                     </div>
                   </SelectItem>

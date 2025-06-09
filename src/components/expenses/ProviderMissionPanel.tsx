@@ -27,7 +27,6 @@ export const ProviderMissionPanel = () => {
     location: '',
     start_date: getCurrentDateForInput(),
     end_date: '',
-    service_value: 0,
     client_name: '',
     status: 'planning'
   });
@@ -96,7 +95,6 @@ export const ProviderMissionPanel = () => {
         location: formData.location,
         start_date: formData.start_date,
         end_date: formData.end_date || null,
-        service_value: formData.service_value || null,
         client_name: formData.client_name,
         assigned_providers: [profile?.provider_id], // Auto-atribuir ao prestador atual
         status: 'planning',
@@ -122,7 +120,6 @@ export const ProviderMissionPanel = () => {
         location: '',
         start_date: getCurrentDateForInput(),
         end_date: '',
-        service_value: 0,
         client_name: '',
         status: 'planning'
       });
@@ -286,7 +283,7 @@ export const ProviderMissionPanel = () => {
                 />
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <Label htmlFor="start_date">Data de Início *</Label>
                   <Input
@@ -307,17 +304,6 @@ export const ProviderMissionPanel = () => {
                     onChange={(e) => setFormData({...formData, end_date: e.target.value})}
                   />
                 </div>
-                
-                <div>
-                  <Label htmlFor="service_value">Valor do Serviço (R$)</Label>
-                  <Input
-                    id="service_value"
-                    type="number"
-                    step="0.01"
-                    value={formData.service_value}
-                    onChange={(e) => setFormData({...formData, service_value: parseFloat(e.target.value) || 0})}
-                  />
-                </div>
               </div>
 
               <div>
@@ -327,6 +313,12 @@ export const ProviderMissionPanel = () => {
                   onValueChange={(value) => setFormData({...formData, client_name: value})}
                   placeholder="Digite o nome do cliente"
                 />
+              </div>
+
+              <div className="bg-yellow-50 border border-yellow-200 rounded-md p-3">
+                <p className="text-sm text-yellow-800">
+                  <strong>Nota:</strong> O valor do serviço será definido pelo administrador após a aprovação da missão.
+                </p>
               </div>
 
               <div className="flex space-x-4 pt-4">
