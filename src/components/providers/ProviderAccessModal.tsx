@@ -11,6 +11,7 @@ import { useToastFeedback } from '@/hooks/useToastFeedback';
 import { useSupabaseData } from '@/hooks/useSupabaseData';
 import { useSecureAuth } from '@/hooks/useSecureAuth';
 import { validateInput, sanitizeInput } from '@/utils/securityValidation';
+import { supabase } from '@/integrations/supabase/client';
 
 interface ProviderAccessModalProps {
   isOpen: boolean;
