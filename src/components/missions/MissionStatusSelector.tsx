@@ -21,37 +21,37 @@ export const MissionStatusSelector = ({
       value: 'planning',
       label: 'Planejamento',
       icon: Clock,
-      description: 'Missão em fase de planejamento'
+      description: 'Missão em fase de planejamento - sem impacto financeiro'
     },
     {
       value: 'in-progress',
       label: 'Em Andamento',
       icon: Clock,
-      description: 'Missão sendo executada'
+      description: 'Missão sendo executada - sem impacto financeiro'
     },
     {
       value: 'completed',
       label: 'Concluída',
       icon: CheckCircle,
-      description: 'Missão finalizada com sucesso'
+      description: 'Cria receita pendente automaticamente para recebimento'
     },
     {
       value: 'no-show-client',
       label: 'No Show Cliente',
       icon: UserX,
-      description: 'Cliente não compareceu - valor mantido como receita'
+      description: 'Registra receita automaticamente - valor mantido pela empresa'
     },
     {
       value: 'no-show-technician',
       label: 'No Show Técnico',
       icon: Wrench,
-      description: 'Técnico não compareceu - valor registrado como saída'
+      description: 'Registra despesa automaticamente - valor perdido pela empresa'
     },
     {
       value: 'pending',
       label: 'Pendente',
       icon: AlertTriangle,
-      description: 'Missão pendente de resolução'
+      description: 'Aguardando resolução - sem impacto financeiro'
     }
   ];
 
@@ -69,6 +69,18 @@ export const MissionStatusSelector = ({
         return 'text-orange-600';
       default:
         return 'text-gray-600';
+    }
+  };
+
+  const getFinancialImpactColor = (statusValue: string) => {
+    switch (statusValue) {
+      case 'completed':
+      case 'no-show-client':
+        return 'text-green-700 bg-green-50';
+      case 'no-show-technician':
+        return 'text-red-700 bg-red-50';
+      default:
+        return 'text-gray-600 bg-gray-50';
     }
   };
 
@@ -96,7 +108,7 @@ export const MissionStatusSelector = ({
                 <div className="flex-1">
                   <div className="font-medium">{option.label}</div>
                   {showFinancialImpact && (
-                    <div className="text-xs text-gray-500">{option.description}</div>
+                    <div className="text-xs text-gray-500 mt-1">{option.description}</div>
                   )}
                 </div>
               </div>
@@ -106,8 +118,13 @@ export const MissionStatusSelector = ({
       </Select>
 
       {showFinancialImpact && selectedStatus && (
-        <div className="text-xs text-gray-600 mt-1">
+        <div className={`text-xs p-2 rounded-md border ${getFinancialImpactColor(selectedStatus.value)}`}>
           <strong>Impacto financeiro:</strong> {selectedStatus.description}
+          {(selectedStatus.value === 'no-show-client' || selectedStatus.value === 'no-show-technician' || selectedStatus.value === 'completed') && (
+            <div className="mt-1 text-xs opacity-80">
+              ⚡ Transação será criada automaticamente ao alterar para este status
+            </div>
+          )}
         </div>
       )}
     </div>
