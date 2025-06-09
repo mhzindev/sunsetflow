@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
@@ -28,6 +27,15 @@ interface TransactionViewModalProps {
 
 export const TransactionViewModal = ({ transaction, isOpen, onClose }: TransactionViewModalProps) => {
   if (!transaction) return null;
+
+  // Função segura para formatar currency dentro do modal
+  const safeFormatCurrency = (amount: number | null | undefined) => {
+    if (amount === null || amount === undefined || isNaN(Number(amount))) {
+      console.warn('TransactionViewModal: Valor inválido para amount:', amount);
+      return 'R$ 0,00';
+    }
+    return formatCurrency(Number(amount));
+  };
 
   const getStatusBadge = (status: string) => {
     const config = {
@@ -98,7 +106,7 @@ export const TransactionViewModal = ({ transaction, isOpen, onClose }: Transacti
               <p className={`text-2xl font-bold ${
                 transaction.type === 'income' ? 'text-green-600' : 'text-red-600'
               }`}>
-                {transaction.type === 'income' ? '+' : '-'} {formatCurrency(transaction.amount)}
+                {transaction.type === 'income' ? '+' : '-'} {safeFormatCurrency(transaction.amount)}
               </p>
             </div>
           </div>

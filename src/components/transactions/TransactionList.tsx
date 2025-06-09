@@ -108,11 +108,17 @@ export const TransactionList = ({ transactions, onView, onEdit, onDelete }: Tran
     return <Badge className={typeConfig.className}>{typeConfig.label}</Badge>;
   };
 
-  const formatCurrency = (value: number) => {
+  // Função corrigida para lidar com valores inválidos
+  const formatCurrency = (value: number | null | undefined) => {
+    if (value === null || value === undefined || isNaN(Number(value))) {
+      console.warn('TransactionList formatCurrency: Valor inválido:', value);
+      return 'R$ 0,00';
+    }
+    
     return new Intl.NumberFormat('pt-BR', {
       style: 'currency',
       currency: 'BRL'
-    }).format(value);
+    }).format(Number(value));
   };
 
   const formatDate = (dateString: string) => {

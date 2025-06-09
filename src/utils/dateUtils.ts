@@ -1,4 +1,3 @@
-
 /**
  * Utilitários de data corrigidos DEFINITIVAMENTE para timezone de Brasília (America/Sao_Paulo)
  * Versão 3.0 - Corrige TODOS os problemas de timezone incluindo created_at
@@ -253,13 +252,27 @@ export const formatDate = (dateString: string): string => {
 };
 
 /**
- * Formata um valor para moeda brasileira
+ * Formata um valor para moeda brasileira - CORRIGIDO para lidar com valores inválidos
  */
-export const formatCurrency = (value: number): string => {
-  return new Intl.NumberFormat('pt-BR', {
-    style: 'currency',
-    currency: 'BRL'
-  }).format(value);
+export const formatCurrency = (value: number | null | undefined): string => {
+  // Verificar se o valor é válido
+  if (value === null || value === undefined || isNaN(Number(value))) {
+    console.warn('formatCurrency: Valor inválido recebido:', value);
+    return 'R$ 0,00';
+  }
+  
+  // Converter para número se necessário
+  const numericValue = Number(value);
+  
+  try {
+    return new Intl.NumberFormat('pt-BR', {
+      style: 'currency',
+      currency: 'BRL'
+    }).format(numericValue);
+  } catch (error) {
+    console.error('formatCurrency: Erro ao formatar valor:', value, error);
+    return 'R$ 0,00';
+  }
 };
 
 /**
