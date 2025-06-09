@@ -33,6 +33,25 @@ export const MissionViewModal = ({ isOpen, onClose, mission, onEdit }: MissionVi
 
   if (!mission) return null;
 
+  // Função segura para formatar valores monetários
+  const safeFormatCurrency = (value: number | undefined | null): string => {
+    if (value === null || value === undefined || isNaN(Number(value))) {
+      return 'R$ 0,00';
+    }
+    return new Intl.NumberFormat('pt-BR', {
+      style: 'currency',
+      currency: 'BRL'
+    }).format(Number(value));
+  };
+
+  // Função segura para formatar números
+  const safeFormatNumber = (value: number | undefined | null): string => {
+    if (value === null || value === undefined || isNaN(Number(value))) {
+      return '0';
+    }
+    return Number(value).toLocaleString('pt-BR', { minimumFractionDigits: 2 });
+  };
+
   const getStatusColor = (status: string) => {
     const colors = {
       planned: 'bg-blue-100 text-blue-800',
@@ -58,6 +77,24 @@ export const MissionViewModal = ({ isOpen, onClose, mission, onEdit }: MissionVi
     const diffTime = Math.abs(end.getTime() - start.getTime());
     const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
     return `${diffDays} dia${diffDays > 1 ? 's' : ''}`;
+  };
+
+  const calculateBudgetRemaining = (): number => {
+    const budget = 10000; // Orçamento padrão
+    const expenses = mission.totalExpenses || 0;
+    return budget - expenses;
+  };
+
+  const calculateCostPerDay = (): number => {
+    const expenses = mission.totalExpenses || 0;
+    const duration = calculateDuration();
+    
+    if (duration === 'Em andamento') return expenses;
+    
+    const days = parseInt(duration);
+    if (isNaN(days) || days <= 0) return expenses;
+    
+    return expenses / days;
   };
 
   const handleGenerateReport = () => {
@@ -111,7 +148,7 @@ export const MissionViewModal = ({ isOpen, onClose, mission, onEdit }: MissionVi
               <div className="flex items-center space-x-2">
                 <DollarSign className="w-4 h-4 text-slate-500" />
                 <span className="text-sm text-slate-600">
-                  Despesas: R$ {mission.totalExpenses.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                  Despesas: {safeFormatCurrency(mission.totalExpenses)}
                 </span>
               </div>
             </div>
@@ -153,19 +190,19 @@ export const MissionViewModal = ({ isOpen, onClose, mission, onEdit }: MissionVi
               <div className="text-center p-3 bg-blue-50 rounded-lg">
                 <p className="text-sm text-blue-600">Total de Despesas</p>
                 <p className="text-lg font-semibold text-blue-800">
-                  R$ {mission.totalExpenses.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                  {safeFormatCurrency(mission.totalExpenses)}
                 </p>
               </div>
               <div className="text-center p-3 bg-green-50 rounded-lg">
                 <p className="text-sm text-green-600">Orçamento Restante</p>
                 <p className="text-lg font-semibold text-green-800">
-                  R$ {(10000 - mission.totalExpenses).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                  {safeFormatCurrency(calculateBudgetRemaining())}
                 </p>
               </div>
               <div className="text-center p-3 bg-purple-50 rounded-lg">
                 <p className="text-sm text-purple-600">Custo por Dia</p>
                 <p className="text-lg font-semibold text-purple-800">
-                  R$ {(mission.totalExpenses / Math.max(1, calculateDuration() === 'Em andamento' ? 1 : parseInt(calculateDuration()))).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                  {safeFormatCurrency(calculateCostPerDay())}
                 </p>
               </div>
             </div>
