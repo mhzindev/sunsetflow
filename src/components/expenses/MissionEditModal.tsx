@@ -5,24 +5,31 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import { Checkbox } from "@/components/ui/checkbox";
 import { useToastFeedback } from '@/hooks/useToastFeedback';
+import { ServiceProviderSelector } from '@/components/missions/ServiceProviderSelector';
+import { MissionStatusSelector } from '@/components/missions/MissionStatusSelector';
+import { ServiceValueDistribution } from '@/components/missions/ServiceValueDistribution';
+import { useAuth } from '@/contexts/AuthContext';
+import { isAdmin } from '@/utils/authUtils';
 import { X } from 'lucide-react';
 
 interface Mission {
   id: string;
   title: string;
-  client: string;
+  client_name: string;
   location: string;
-  startDate: string;
-  endDate?: string;
+  start_date: string;
+  end_date?: string;
   status: string;
-  assignedEmployees: string[];
-  totalExpenses: number;
+  assigned_providers: string[];
   description?: string;
-  progress?: number;
+  service_value?: number;
+  company_percentage?: number;
+  provider_percentage?: number;
+  company_value?: number;
+  provider_value?: number;
+  is_approved?: boolean;
 }
 
 interface MissionEditModalProps {
@@ -34,44 +41,45 @@ interface MissionEditModalProps {
 
 export const MissionEditModal = ({ isOpen, onClose, mission, onSave }: MissionEditModalProps) => {
   const { showSuccess, showError } = useToastFeedback();
+  const { profile } = useAuth();
   const [isLoading, setIsLoading] = useState(false);
   const [formData, setFormData] = useState({
     title: '',
-    client: '',
+    client_name: '',
     location: '',
-    startDate: '',
-    endDate: '',
-    status: 'planned',
-    assignedEmployees: [] as string[],
+    start_date: '',
+    end_date: '',
+    status: 'planning',
+    assigned_providers: [] as string[],
     description: '',
-    progress: 0
+    service_value: 0,
+    company_percentage: 30,
+    provider_percentage: 70,
+    company_value: 0,
+    provider_value: 0,
+    is_approved: false
   });
 
-  const mockEmployees = [
-    { id: '1', name: 'Ana Silva (Proprietária)' },
-    { id: '2', name: 'Carlos Santos' },
-    { id: '3', name: 'João Oliveira' },
-    { id: '4', name: 'Maria Costa' },
-    { id: '5', name: 'Pedro Alves' }
-  ];
-
-  // Função segura para garantir que assignedEmployees seja um array
-  const safeGetEmployees = (employees: string[] | undefined | null): string[] => {
-    return Array.isArray(employees) ? employees : [];
-  };
+  const canEditValues = isAdmin(profile);
+  const canApprove = isAdmin(profile);
 
   useEffect(() => {
     if (mission) {
       setFormData({
         title: mission.title,
-        client: mission.client,
+        client_name: mission.client_name,
         location: mission.location,
-        startDate: mission.startDate,
-        endDate: mission.endDate || '',
+        start_date: mission.start_date,
+        end_date: mission.end_date || '',
         status: mission.status,
-        assignedEmployees: safeGetEmployees(mission.assignedEmployees),
+        assigned_providers: Array.isArray(mission.assigned_providers) ? mission.assigned_providers : [],
         description: mission.description || '',
-        progress: mission.progress || 0
+        service_value: mission.service_value || 0,
+        company_percentage: mission.company_percentage || 30,
+        provider_percentage: mission.provider_percentage || 70,
+        company_value: mission.company_value || 0,
+        provider_value: mission.provider_value || 0,
+        is_approved: mission.is_approved || false
       });
     }
   }, [mission]);
@@ -79,13 +87,13 @@ export const MissionEditModal = ({ isOpen, onClose, mission, onSave }: MissionEd
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!formData.title.trim() || !formData.client.trim() || !formData.location.trim() || !formData.startDate) {
+    if (!formData.title.trim() || !formData.client_name.trim() || !formData.location.trim() || !formData.start_date) {
       showError('Erro de Validação', 'Por favor, preencha todos os campos obrigatórios');
       return;
     }
 
-    if (formData.assignedEmployees.length === 0) {
-      showError('Erro de Validação', 'Por favor, selecione pelo menos um funcionário');
+    if (formData.assigned_providers.length === 0) {
+      showError('Erro de Validação', 'Por favor, selecione pelo menos um prestador de serviço');
       return;
     }
 
@@ -109,38 +117,38 @@ export const MissionEditModal = ({ isOpen, onClose, mission, onSave }: MissionEd
     }
   };
 
-  const handleEmployeeToggle = (employeeName: string) => {
-    const currentEmployees = safeGetEmployees(formData.assignedEmployees);
-    
-    setFormData(prev => ({
-      ...prev,
-      assignedEmployees: currentEmployees.includes(employeeName)
-        ? currentEmployees.filter(emp => emp !== employeeName)
-        : [...currentEmployees, employeeName]
+  const handleServiceValueChange = (value: number) => {
+    setFormData(prev => ({ ...prev, service_value: value }));
+  };
+
+  const handleCompanyPercentageChange = (percentage: number) => {
+    setFormData(prev => ({ 
+      ...prev, 
+      company_percentage: percentage,
+      provider_percentage: 100 - percentage
     }));
   };
 
-  const removeEmployee = (employeeName: string) => {
-    const currentEmployees = safeGetEmployees(formData.assignedEmployees);
-    
-    setFormData(prev => ({
-      ...prev,
-      assignedEmployees: currentEmployees.filter(emp => emp !== employeeName)
-    }));
+  const handleApprove = () => {
+    if (formData.service_value <= 0) {
+      showError('Erro', 'Defina um valor para o serviço antes de aprovar');
+      return;
+    }
+
+    setFormData(prev => ({ ...prev, is_approved: true }));
+    showSuccess('Sucesso', 'Missão aprovada!');
   };
 
   if (!mission) return null;
 
-  const currentAssignedEmployees = safeGetEmployees(formData.assignedEmployees);
-
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Editar Missão</DialogTitle>
         </DialogHeader>
 
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <form onSubmit={handleSubmit} className="space-y-6">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <Label htmlFor="title">Título da Missão *</Label>
@@ -152,11 +160,11 @@ export const MissionEditModal = ({ isOpen, onClose, mission, onSave }: MissionEd
               />
             </div>
             <div>
-              <Label htmlFor="client">Cliente *</Label>
+              <Label htmlFor="client_name">Cliente *</Label>
               <Input
-                id="client"
-                value={formData.client}
-                onChange={(e) => setFormData({...formData, client: e.target.value})}
+                id="client_name"
+                value={formData.client_name}
+                onChange={(e) => setFormData({...formData, client_name: e.target.value})}
                 required
               />
             </div>
@@ -174,90 +182,38 @@ export const MissionEditModal = ({ isOpen, onClose, mission, onSave }: MissionEd
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <Label htmlFor="startDate">Data de Início *</Label>
+              <Label htmlFor="start_date">Data de Início *</Label>
               <Input
-                id="startDate"
+                id="start_date"
                 type="date"
-                value={formData.startDate}
-                onChange={(e) => setFormData({...formData, startDate: e.target.value})}
+                value={formData.start_date}
+                onChange={(e) => setFormData({...formData, start_date: e.target.value})}
                 required
               />
             </div>
             <div>
-              <Label htmlFor="endDate">Data de Término</Label>
+              <Label htmlFor="end_date">Data de Término</Label>
               <Input
-                id="endDate"
+                id="end_date"
                 type="date"
-                value={formData.endDate}
-                onChange={(e) => setFormData({...formData, endDate: e.target.value})}
+                value={formData.end_date}
+                onChange={(e) => setFormData({...formData, end_date: e.target.value})}
               />
             </div>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <Label htmlFor="status">Status</Label>
-              <Select value={formData.status} onValueChange={(value) => 
-                setFormData({...formData, status: value})
-              }>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="planned">Planejada</SelectItem>
-                  <SelectItem value="in-progress">Em Andamento</SelectItem>
-                  <SelectItem value="completed">Concluída</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            {formData.status === 'in-progress' && (
-              <div>
-                <Label htmlFor="progress">Progresso (%)</Label>
-                <Input
-                  id="progress"
-                  type="number"
-                  min="0"
-                  max="100"
-                  value={formData.progress}
-                  onChange={(e) => setFormData({...formData, progress: parseInt(e.target.value) || 0})}
-                />
-              </div>
-            )}
-          </div>
+          <MissionStatusSelector
+            value={formData.status}
+            onValueChange={(value) => setFormData({...formData, status: value})}
+            disabled={!canEditValues}
+            showFinancialImpact={canEditValues}
+          />
 
-          <div>
-            <Label>Funcionários Designados *</Label>
-            <div className="space-y-2 mt-2">
-              {mockEmployees.map((employee) => (
-                <div key={employee.id} className="flex items-center space-x-2">
-                  <Checkbox
-                    id={employee.id}
-                    checked={currentAssignedEmployees.includes(employee.name)}
-                    onCheckedChange={() => handleEmployeeToggle(employee.name)}
-                  />
-                  <Label htmlFor={employee.id} className="text-sm">
-                    {employee.name}
-                  </Label>
-                </div>
-              ))}
-            </div>
-            {currentAssignedEmployees.length > 0 && (
-              <div className="flex flex-wrap gap-2 mt-3">
-                {currentAssignedEmployees.map((employee, index) => (
-                  <Badge key={index} variant="outline" className="px-2 py-1">
-                    {employee}
-                    <button
-                      type="button"
-                      onClick={() => removeEmployee(employee)}
-                      className="ml-2 text-red-500 hover:text-red-700"
-                    >
-                      <X className="w-3 h-3" />
-                    </button>
-                  </Badge>
-                ))}
-              </div>
-            )}
-          </div>
+          <ServiceProviderSelector
+            selectedProviders={formData.assigned_providers}
+            onProvidersChange={(providers) => setFormData({...formData, assigned_providers: providers})}
+            disabled={formData.is_approved && !canEditValues}
+          />
 
           <div>
             <Label htmlFor="description">Descrição</Label>
@@ -269,6 +225,19 @@ export const MissionEditModal = ({ isOpen, onClose, mission, onSave }: MissionEd
               rows={3}
             />
           </div>
+
+          {canEditValues && (
+            <ServiceValueDistribution
+              serviceValue={formData.service_value}
+              companyPercentage={formData.company_percentage}
+              onServiceValueChange={handleServiceValueChange}
+              onCompanyPercentageChange={handleCompanyPercentageChange}
+              isApproved={formData.is_approved}
+              canApprove={canApprove}
+              onApprove={handleApprove}
+              readOnly={formData.is_approved}
+            />
+          )}
 
           <div className="flex space-x-4 pt-4">
             <Button 

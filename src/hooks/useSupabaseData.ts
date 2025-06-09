@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
@@ -152,22 +151,21 @@ export const useSupabaseData = () => {
   // Função para buscar fornecedores - ATUALIZADA
   const fetchServiceProviders = async () => {
     try {
-      console.log('Buscando prestadores de serviço...');
       const { data, error } = await supabase
         .from('service_providers')
         .select('*')
-        .order('name', { ascending: true });
+        .eq('active', true)
+        .order('name');
 
       if (error) {
-        console.error('Erro SQL ao buscar prestadores:', error);
-        return [];
+        console.error('Erro ao buscar prestadores:', error);
+        throw error;
       }
-      
-      console.log('Prestadores encontrados:', data?.length || 0);
+
       return data || [];
-    } catch (err) {
-      console.error('Erro ao buscar prestadores:', err);
-      return [];
+    } catch (error) {
+      console.error('Erro na função fetchServiceProviders:', error);
+      throw error;
     }
   };
 
