@@ -5,14 +5,13 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Badge } from "@/components/ui/badge";
 import { useToastFeedback } from '@/hooks/useToastFeedback';
 import { ServiceProviderSelector } from '@/components/missions/ServiceProviderSelector';
 import { MissionStatusSelector } from '@/components/missions/MissionStatusSelector';
 import { ServiceValueDistribution } from '@/components/missions/ServiceValueDistribution';
 import { useAuth } from '@/contexts/AuthContext';
 import { isAdmin } from '@/utils/authUtils';
-import { useSupabaseData } from '@/hooks/useSupabaseData';
+import { useMissionData } from '@/hooks/useMissionData';
 import { Mission } from '@/types/mission';
 
 interface MissionEditModalProps {
@@ -25,8 +24,7 @@ interface MissionEditModalProps {
 export const MissionEditModal = ({ isOpen, onClose, mission, onSave }: MissionEditModalProps) => {
   const { showSuccess, showError } = useToastFeedback();
   const { profile } = useAuth();
-  const { updateMission } = useSupabaseData();
-  const [isLoading, setIsLoading] = useState(false);
+  const { updateMissionMutation } = useMissionData();
   const [formData, setFormData] = useState({
     title: '',
     client_name: '',
@@ -49,7 +47,7 @@ export const MissionEditModal = ({ isOpen, onClose, mission, onSave }: MissionEd
 
   useEffect(() => {
     if (mission) {
-      console.log('Carregando dados da missão para edição:', mission);
+      console.log('Loading mission data for editing:', mission);
       setFormData({
         title: mission.title,
         client_name: mission.client_name,
@@ -82,13 +80,10 @@ export const MissionEditModal = ({ isOpen, onClose, mission, onSave }: MissionEd
       return;
     }
 
-    setIsLoading(true);
-
     try {
-      console.log('Iniciando atualização da missão:', mission.id);
-      console.log('Dados do formulário:', formData);
+      console.log('Submitting mission update:', mission.id, formData);
 
-      // Preparar dados para atualização
+      // Prepare update data
       const updateData = {
         title: formData.title.trim(),
         client_name: formData.client_name.trim(),
@@ -103,47 +98,27 @@ export const MissionEditModal = ({ isOpen, onClose, mission, onSave }: MissionEd
         provider_percentage: formData.provider_percentage,
         company_value: formData.company_value,
         provider_value: formData.provider_value,
-        is_approved: formData.is_approved,
-        updated_at: new Date().toISOString()
+        is_approved: formData.is_approved
       };
 
-      console.log('Dados preparados para atualização:', updateData);
+      // Use the optimized mutation
+      await updateMissionMutation.mutateAsync({
+        id: mission.id,
+        updates: updateData
+      });
 
-      // Usar a função updateMission do useSupabaseData
-      const { data, error } = await updateMission(mission.id, updateData);
-
-      if (error) {
-        console.error('Erro retornado do Supabase:', error);
-        showError('Erro', `Erro ao atualizar missão: ${error.message || error}`);
-        return;
-      }
-
-      if (!data) {
-        console.error('Nenhum dado retornado ao atualizar missão');
-        showError('Erro', 'Nenhum dado retornado ao atualizar missão');
-        return;
-      }
-
-      console.log('Missão atualizada com sucesso:', data);
-
-      // Criar objeto da missão atualizada
+      // Create updated mission object for callback
       const updatedMission: Mission = {
         ...mission,
-        ...updateData,
-        id: mission.id
+        ...updateData
       };
 
-      console.log('Missão atualizada para callback:', updatedMission);
-
-      // Chamar callback para atualizar a lista
+      // Call callback to update parent component
       onSave(updatedMission);
-      showSuccess('Sucesso', 'Missão atualizada com sucesso!');
       onClose();
     } catch (error) {
-      console.error('Erro inesperado ao atualizar missão:', error);
-      showError('Erro', 'Erro inesperado ao atualizar missão. Tente novamente.');
-    } finally {
-      setIsLoading(false);
+      console.error('Error updating mission:', error);
+      // Error is already handled by the mutation
     }
   };
 
@@ -170,6 +145,8 @@ export const MissionEditModal = ({ isOpen, onClose, mission, onSave }: MissionEd
   };
 
   if (!mission) return null;
+
+  const isLoading = updateMissionMutation.isPending;
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>

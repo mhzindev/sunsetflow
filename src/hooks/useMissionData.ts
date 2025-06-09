@@ -1,70 +1,21 @@
 
 import { useState, useEffect } from 'react';
+import { useQuery, useQueryClient, useMutation } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Mission, MissionWithProvider, MissionProgress } from '@/types/mission';
 import { useToastFeedback } from './useToastFeedback';
 
 export const useMissionData = () => {
-  const { showError } = useToastFeedback();
-  const [missions, setMissions] = useState<MissionWithProvider[]>([]);
-  const [isLoading, setIsLoading] = useState(false);
+  const { showError, showSuccess } = useToastFeedback();
+  const queryClient = useQueryClient();
 
-  const fetchMissionWithProvider = async (missionId: string): Promise<MissionWithProvider | null> => {
+  // Optimized single query to fetch mission with all provider details
+  const fetchMissionWithProviderOptimized = async (missionId: string): Promise<MissionWithProvider | null> => {
     try {
-      console.log('Buscando missão com prestador:', missionId);
+      console.log('Fetching optimized mission data for:', missionId);
       
-      const { data: mission, error: missionError } = await supabase
-        .from('missions')
-        .select('*')
-        .eq('id', missionId)
-        .single();
-
-      if (missionError) {
-        console.error('Erro ao buscar missão:', missionError);
-        return null;
-      }
-
-      let missionWithProvider: MissionWithProvider = { ...mission };
-
-      // Buscar dados do prestador principal se existir
-      if (mission.provider_id) {
-        const { data: provider, error: providerError } = await supabase
-          .from('service_providers')
-          .select('id, name, email, phone, service')
-          .eq('id', mission.provider_id)
-          .single();
-
-        if (!providerError && provider) {
-          missionWithProvider.provider = provider;
-        }
-      }
-
-      // Buscar dados dos prestadores designados
-      if (mission.assigned_providers && mission.assigned_providers.length > 0) {
-        const { data: assignedProviders, error: assignedError } = await supabase
-          .from('service_providers')
-          .select('id, name, email, phone, service')
-          .in('id', mission.assigned_providers);
-
-        if (!assignedError && assignedProviders) {
-          missionWithProvider.assigned_providers_details = assignedProviders;
-        }
-      }
-
-      console.log('Missão carregada com prestador:', missionWithProvider);
-      return missionWithProvider;
-    } catch (error) {
-      console.error('Erro inesperado ao buscar missão:', error);
-      return null;
-    }
-  };
-
-  const fetchAllMissions = async (): Promise<MissionWithProvider[]> => {
-    setIsLoading(true);
-    try {
-      console.log('Buscando todas as missões com prestadores...');
-      
-      const { data: missions, error } = await supabase
+      // Single optimized query with JOINs
+      const { data: mission, error } = await supabase
         .from('missions')
         .select(`
           *,
@@ -72,48 +23,134 @@ export const useMissionData = () => {
             id, name, email, phone, service
           )
         `)
-        .order('created_at', { ascending: false });
+        .eq('id', missionId)
+        .single();
 
       if (error) {
-        console.error('Erro ao buscar missões:', error);
-        showError('Erro', 'Erro ao carregar missões');
-        return [];
+        console.error('Error fetching mission:', error);
+        return null;
       }
 
-      // Para cada missão, buscar os prestadores designados
-      const missionsWithProviders = await Promise.all(
-        missions.map(async (mission) => {
-          let missionWithProvider: MissionWithProvider = { ...mission };
+      let missionWithProvider: MissionWithProvider = { ...mission };
 
-          if (mission.assigned_providers && mission.assigned_providers.length > 0) {
-            const { data: assignedProviders } = await supabase
-              .from('service_providers')
-              .select('id, name, email, phone, service')
-              .in('id', mission.assigned_providers);
+      // Fetch assigned providers if they exist (separate query for array IDs)
+      if (mission.assigned_providers && mission.assigned_providers.length > 0) {
+        const { data: assignedProviders } = await supabase
+          .from('service_providers')
+          .select('id, name, email, phone, service')
+          .in('id', mission.assigned_providers);
 
-            if (assignedProviders) {
-              missionWithProvider.assigned_providers_details = assignedProviders;
-            }
-          }
+        if (assignedProviders) {
+          missionWithProvider.assigned_providers_details = assignedProviders;
+        }
+      }
 
-          return missionWithProvider;
-        })
-      );
-
-      console.log('Missões carregadas com prestadores:', missionsWithProviders.length);
-      setMissions(missionsWithProviders);
-      return missionsWithProviders;
+      console.log('Optimized mission data loaded:', missionWithProvider);
+      return missionWithProvider;
     } catch (error) {
-      console.error('Erro inesperado ao buscar missões:', error);
-      showError('Erro', 'Erro inesperado ao carregar missões');
-      return [];
-    } finally {
-      setIsLoading(false);
+      console.error('Unexpected error fetching mission:', error);
+      return null;
     }
   };
 
+  // React Query hook for single mission
+  const useMissionQuery = (missionId: string | null) => {
+    return useQuery({
+      queryKey: ['mission', missionId],
+      queryFn: () => missionId ? fetchMissionWithProviderOptimized(missionId) : null,
+      enabled: !!missionId,
+      staleTime: 5 * 60 * 1000, // 5 minutes
+      cacheTime: 10 * 60 * 1000, // 10 minutes
+      refetchOnWindowFocus: false,
+    });
+  };
+
+  // Optimized query for all missions
+  const useAllMissionsQuery = () => {
+    return useQuery({
+      queryKey: ['missions'],
+      queryFn: async (): Promise<MissionWithProvider[]> => {
+        console.log('Fetching all missions with providers...');
+        
+        const { data: missions, error } = await supabase
+          .from('missions')
+          .select(`
+            *,
+            provider:service_providers!missions_provider_id_fkey(
+              id, name, email, phone, service
+            )
+          `)
+          .order('created_at', { ascending: false });
+
+        if (error) {
+          console.error('Error fetching missions:', error);
+          showError('Erro', 'Erro ao carregar missões');
+          return [];
+        }
+
+        // Process assigned providers for all missions
+        const missionsWithProviders = await Promise.all(
+          missions.map(async (mission) => {
+            let missionWithProvider: MissionWithProvider = { ...mission };
+
+            if (mission.assigned_providers && mission.assigned_providers.length > 0) {
+              const { data: assignedProviders } = await supabase
+                .from('service_providers')
+                .select('id, name, email, phone, service')
+                .in('id', mission.assigned_providers);
+
+              if (assignedProviders) {
+                missionWithProvider.assigned_providers_details = assignedProviders;
+              }
+            }
+
+            return missionWithProvider;
+          })
+        );
+
+        console.log('All missions loaded:', missionsWithProviders.length);
+        return missionsWithProviders;
+      },
+      staleTime: 2 * 60 * 1000, // 2 minutes
+      cacheTime: 5 * 60 * 1000, // 5 minutes
+    });
+  };
+
+  // Mission update mutation with cache invalidation
+  const updateMissionMutation = useMutation({
+    mutationFn: async ({ id, updates }: { id: string; updates: Partial<Mission> }) => {
+      console.log('Updating mission:', id, updates);
+      
+      const { data, error } = await supabase
+        .from('missions')
+        .update({
+          ...updates,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', id)
+        .select()
+        .single();
+
+      if (error) {
+        console.error('Error updating mission:', error);
+        throw error;
+      }
+
+      return data;
+    },
+    onSuccess: (data) => {
+      // Invalidate and refetch related queries
+      queryClient.invalidateQueries({ queryKey: ['missions'] });
+      queryClient.invalidateQueries({ queryKey: ['mission', data.id] });
+      showSuccess('Sucesso', 'Missão atualizada com sucesso!');
+    },
+    onError: (error) => {
+      console.error('Mission update error:', error);
+      showError('Erro', 'Erro ao atualizar missão');
+    }
+  });
+
   const calculateMissionProgress = (mission: Mission): MissionProgress => {
-    // Lógica real de progresso baseada em despesas vs orçamento
     const budget = mission.budget || mission.service_value || 0;
     const expenses = mission.total_expenses || 0;
     
@@ -126,7 +163,6 @@ export const useMissionData = () => {
       };
     }
 
-    // Se as despesas são menores que o orçamento, calcular % baseado em despesas
     if (expenses <= budget) {
       const percentage = Math.min((expenses / budget) * 100, 100);
       return {
@@ -137,7 +173,6 @@ export const useMissionData = () => {
       };
     }
 
-    // Se excedeu o orçamento, mostrar 100% com indicação de excesso
     return {
       percentage: 100,
       completedExpenses: expenses,
@@ -146,22 +181,56 @@ export const useMissionData = () => {
     };
   };
 
-  const updateMissionInList = (updatedMission: Mission) => {
-    setMissions(prevMissions => 
-      prevMissions.map(mission => 
-        mission.id === updatedMission.id 
-          ? { ...mission, ...updatedMission }
-          : mission
+  // Set up real-time subscription
+  useEffect(() => {
+    console.log('Setting up real-time subscription for missions');
+    
+    const channel = supabase
+      .channel('missions-changes')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'missions'
+        },
+        (payload) => {
+          console.log('Real-time mission change:', payload);
+          // Invalidate queries to refetch fresh data
+          queryClient.invalidateQueries({ queryKey: ['missions'] });
+          if (payload.new?.id) {
+            queryClient.invalidateQueries({ queryKey: ['mission', payload.new.id] });
+          }
+        }
       )
-    );
-  };
+      .subscribe();
+
+    return () => {
+      console.log('Cleaning up real-time subscription');
+      supabase.removeChannel(channel);
+    };
+  }, [queryClient]);
 
   return {
-    missions,
-    isLoading,
-    fetchMissionWithProvider,
-    fetchAllMissions,
+    useMissionQuery,
+    useAllMissionsQuery,
+    updateMissionMutation,
     calculateMissionProgress,
-    updateMissionInList
+    // Legacy functions for backward compatibility
+    fetchMissionWithProvider: fetchMissionWithProviderOptimized,
+    fetchAllMissions: async () => {
+      const result = await useAllMissionsQuery().refetch();
+      return result.data || [];
+    },
+    updateMissionInList: (updatedMission: Mission) => {
+      queryClient.setQueryData(['missions'], (oldData: MissionWithProvider[] | undefined) => {
+        if (!oldData) return [];
+        return oldData.map(mission => 
+          mission.id === updatedMission.id 
+            ? { ...mission, ...updatedMission }
+            : mission
+        );
+      });
+    }
   };
 };

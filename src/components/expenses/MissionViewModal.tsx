@@ -5,11 +5,13 @@ import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { Progress } from "@/components/ui/progress";
-import { Calendar, MapPin, Users, DollarSign, Clock, Edit, FileText, User, Phone, Mail } from 'lucide-react';
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Calendar, MapPin, Users, DollarSign, Clock, Edit, FileText, User, Phone, Mail, AlertCircle } from 'lucide-react';
 import { useToastFeedback } from '@/hooks/useToastFeedback';
 import { useMissionData } from '@/hooks/useMissionData';
 import { MissionWithProvider } from '@/types/mission';
-import { useEffect, useState } from 'react';
+import { MissionDetailsSkeleton } from '@/components/common/MissionDetailsSkeleton';
+import { useEffect } from 'react';
 
 interface MissionViewModalProps {
   isOpen: boolean;
@@ -20,29 +22,35 @@ interface MissionViewModalProps {
 
 export const MissionViewModal = ({ isOpen, onClose, mission, onEdit }: MissionViewModalProps) => {
   const { showSuccess } = useToastFeedback();
-  const { fetchMissionWithProvider, calculateMissionProgress } = useMissionData();
-  const [fullMissionData, setFullMissionData] = useState<MissionWithProvider | null>(null);
-  const [isLoadingDetails, setIsLoadingDetails] = useState(false);
+  const { useMissionQuery, calculateMissionProgress } = useMissionData();
 
+  // Use React Query to fetch mission details
+  const { 
+    data: fullMissionData, 
+    isLoading, 
+    error, 
+    refetch 
+  } = useMissionQuery(mission?.id || null);
+
+  // Retry mechanism for failed requests
   useEffect(() => {
-    if (mission && isOpen) {
-      setIsLoadingDetails(true);
-      fetchMissionWithProvider(mission.id)
-        .then(data => {
-          if (data) {
-            setFullMissionData(data);
-            console.log('Dados completos da missão carregados:', data);
-          }
-        })
-        .finally(() => setIsLoadingDetails(false));
+    if (error && mission?.id) {
+      console.error('Error loading mission details:', error);
+      // Auto-retry after 2 seconds
+      const timer = setTimeout(() => {
+        console.log('Retrying mission fetch...');
+        refetch();
+      }, 2000);
+      
+      return () => clearTimeout(timer);
     }
-  }, [mission, isOpen, fetchMissionWithProvider]);
+  }, [error, mission?.id, refetch]);
 
   if (!mission) return null;
 
   const displayMission = fullMissionData || mission;
 
-  // Função segura para formatar valores monetários
+  // Safe currency formatter
   const safeFormatCurrency = (value: number | undefined | null): string => {
     if (value === null || value === undefined || isNaN(Number(value))) {
       return 'R$ 0,00';
@@ -109,13 +117,22 @@ export const MissionViewModal = ({ isOpen, onClose, mission, onEdit }: MissionVi
           </DialogTitle>
         </DialogHeader>
 
-        {isLoadingDetails ? (
-          <div className="flex items-center justify-center p-8">
-            <div className="text-sm text-gray-600">Carregando detalhes...</div>
-          </div>
+        {/* Error State */}
+        {error && (
+          <Alert variant="destructive">
+            <AlertCircle className="h-4 w-4" />
+            <AlertDescription>
+              Erro ao carregar detalhes da missão. Tentando novamente...
+            </AlertDescription>
+          </Alert>
+        )}
+
+        {/* Loading State */}
+        {isLoading ? (
+          <MissionDetailsSkeleton />
         ) : (
           <div className="space-y-6">
-            {/* Cabeçalho da Missão */}
+            {/* Mission Header */}
             <Card className="p-4">
               <div className="flex items-start justify-between mb-4">
                 <div>
@@ -152,7 +169,7 @@ export const MissionViewModal = ({ isOpen, onClose, mission, onEdit }: MissionVi
               </div>
             </Card>
 
-            {/* Prestador Principal */}
+            {/* Main Provider */}
             {displayMission.provider && (
               <Card className="p-4">
                 <h4 className="font-semibold text-slate-800 mb-3 flex items-center">
@@ -176,7 +193,7 @@ export const MissionViewModal = ({ isOpen, onClose, mission, onEdit }: MissionVi
               </Card>
             )}
 
-            {/* Prestadores Designados */}
+            {/* Assigned Providers */}
             {displayMission.assigned_providers_details && displayMission.assigned_providers_details.length > 0 && (
               <Card className="p-4">
                 <h4 className="font-semibold text-slate-800 mb-3 flex items-center">
@@ -204,7 +221,7 @@ export const MissionViewModal = ({ isOpen, onClose, mission, onEdit }: MissionVi
               </Card>
             )}
 
-            {/* Progresso da Missão */}
+            {/* Mission Progress */}
             {displayMission.status === 'in-progress' && (
               <Card className="p-4">
                 <h4 className="font-semibold text-slate-800 mb-3">Progresso da Missão</h4>
@@ -223,7 +240,7 @@ export const MissionViewModal = ({ isOpen, onClose, mission, onEdit }: MissionVi
               </Card>
             )}
 
-            {/* Resumo Financeiro */}
+            {/* Financial Summary */}
             <Card className="p-4">
               <h4 className="font-semibold text-slate-800 mb-3">Resumo Financeiro</h4>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -256,7 +273,7 @@ export const MissionViewModal = ({ isOpen, onClose, mission, onEdit }: MissionVi
               </div>
             </Card>
 
-            {/* Descrição */}
+            {/* Description */}
             {displayMission.description && (
               <Card className="p-4">
                 <h4 className="font-semibold text-slate-800 mb-3">Descrição</h4>
@@ -266,7 +283,7 @@ export const MissionViewModal = ({ isOpen, onClose, mission, onEdit }: MissionVi
 
             <Separator />
 
-            {/* Ações */}
+            {/* Actions */}
             <div className="flex space-x-4">
               <Button onClick={handleEditClick} className="flex-1">
                 <Edit className="w-4 h-4 mr-2" />
