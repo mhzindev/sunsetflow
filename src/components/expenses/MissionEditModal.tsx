@@ -55,6 +55,11 @@ export const MissionEditModal = ({ isOpen, onClose, mission, onSave }: MissionEd
     { id: '5', name: 'Pedro Alves' }
   ];
 
+  // Função segura para garantir que assignedEmployees seja um array
+  const safeGetEmployees = (employees: string[] | undefined | null): string[] => {
+    return Array.isArray(employees) ? employees : [];
+  };
+
   useEffect(() => {
     if (mission) {
       setFormData({
@@ -64,7 +69,7 @@ export const MissionEditModal = ({ isOpen, onClose, mission, onSave }: MissionEd
         startDate: mission.startDate,
         endDate: mission.endDate || '',
         status: mission.status,
-        assignedEmployees: mission.assignedEmployees,
+        assignedEmployees: safeGetEmployees(mission.assignedEmployees),
         description: mission.description || '',
         progress: mission.progress || 0
       });
@@ -105,22 +110,28 @@ export const MissionEditModal = ({ isOpen, onClose, mission, onSave }: MissionEd
   };
 
   const handleEmployeeToggle = (employeeName: string) => {
+    const currentEmployees = safeGetEmployees(formData.assignedEmployees);
+    
     setFormData(prev => ({
       ...prev,
-      assignedEmployees: prev.assignedEmployees.includes(employeeName)
-        ? prev.assignedEmployees.filter(emp => emp !== employeeName)
-        : [...prev.assignedEmployees, employeeName]
+      assignedEmployees: currentEmployees.includes(employeeName)
+        ? currentEmployees.filter(emp => emp !== employeeName)
+        : [...currentEmployees, employeeName]
     }));
   };
 
   const removeEmployee = (employeeName: string) => {
+    const currentEmployees = safeGetEmployees(formData.assignedEmployees);
+    
     setFormData(prev => ({
       ...prev,
-      assignedEmployees: prev.assignedEmployees.filter(emp => emp !== employeeName)
+      assignedEmployees: currentEmployees.filter(emp => emp !== employeeName)
     }));
   };
 
   if (!mission) return null;
+
+  const currentAssignedEmployees = safeGetEmployees(formData.assignedEmployees);
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
@@ -221,7 +232,7 @@ export const MissionEditModal = ({ isOpen, onClose, mission, onSave }: MissionEd
                 <div key={employee.id} className="flex items-center space-x-2">
                   <Checkbox
                     id={employee.id}
-                    checked={formData.assignedEmployees.includes(employee.name)}
+                    checked={currentAssignedEmployees.includes(employee.name)}
                     onCheckedChange={() => handleEmployeeToggle(employee.name)}
                   />
                   <Label htmlFor={employee.id} className="text-sm">
@@ -230,9 +241,9 @@ export const MissionEditModal = ({ isOpen, onClose, mission, onSave }: MissionEd
                 </div>
               ))}
             </div>
-            {formData.assignedEmployees.length > 0 && (
+            {currentAssignedEmployees.length > 0 && (
               <div className="flex flex-wrap gap-2 mt-3">
-                {formData.assignedEmployees.map((employee, index) => (
+                {currentAssignedEmployees.map((employee, index) => (
                   <Badge key={index} variant="outline" className="px-2 py-1">
                     {employee}
                     <button
