@@ -3,7 +3,7 @@ import { useState } from 'react';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Upload, X, FileImage } from "lucide-react";
+import { Upload, X, FileImage, FileText } from "lucide-react";
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToastFeedback } from '@/hooks/useToastFeedback';
@@ -17,6 +17,7 @@ interface ReceiptUploadProps {
 export const ReceiptUpload = ({ value, onChange, label = "Comprovante" }: ReceiptUploadProps) => {
   const [uploading, setUploading] = useState(false);
   const [preview, setPreview] = useState<string | null>(value || null);
+  const [fileType, setFileType] = useState<string>('');
   const { user } = useAuth();
   const { showSuccess, showError } = useToastFeedback();
 
@@ -48,6 +49,7 @@ export const ReceiptUpload = ({ value, onChange, label = "Comprovante" }: Receip
 
       console.log('Comprovante enviado:', urlData.publicUrl);
       setPreview(urlData.publicUrl);
+      setFileType(file.type);
       onChange(urlData.publicUrl);
       showSuccess('Sucesso', 'Comprovante enviado com sucesso!');
     } catch (error) {
@@ -62,15 +64,15 @@ export const ReceiptUpload = ({ value, onChange, label = "Comprovante" }: Receip
     const file = e.target.files?.[0];
     if (!file) return;
 
-    // Validar tipo de arquivo
-    if (!file.type.startsWith('image/')) {
-      showError('Erro', 'Por favor, selecione apenas arquivos de imagem');
+    // Validar tipo de arquivo - aceitar imagens e PDFs
+    if (!file.type.startsWith('image/') && file.type !== 'application/pdf') {
+      showError('Erro', 'Por favor, selecione apenas arquivos de imagem ou PDF');
       return;
     }
 
-    // Validar tamanho (máx 5MB)
-    if (file.size > 5 * 1024 * 1024) {
-      showError('Erro', 'Arquivo muito grande. Máximo 5MB');
+    // Validar tamanho (máx 10MB)
+    if (file.size > 10 * 1024 * 1024) {
+      showError('Erro', 'Arquivo muito grande. Máximo 10MB');
       return;
     }
 
@@ -79,7 +81,19 @@ export const ReceiptUpload = ({ value, onChange, label = "Comprovante" }: Receip
 
   const removeReceipt = () => {
     setPreview(null);
+    setFileType('');
     onChange(null);
+  };
+
+  const getFileIcon = () => {
+    if (fileType === 'application/pdf' || preview?.includes('.pdf')) {
+      return <FileText className="w-5 h-5 text-red-600" />;
+    }
+    return <FileImage className="w-5 h-5 text-green-600" />;
+  };
+
+  const isImage = (url: string) => {
+    return url.match(/\.(jpeg|jpg|gif|png|webp)$/i) || (!url.includes('.pdf') && fileType.startsWith('image/'));
   };
 
   return (
@@ -89,8 +103,10 @@ export const ReceiptUpload = ({ value, onChange, label = "Comprovante" }: Receip
       {preview ? (
         <div className="relative">
           <div className="flex items-center space-x-2 p-3 border border-green-200 bg-green-50 rounded-lg">
-            <FileImage className="w-5 h-5 text-green-600" />
-            <span className="text-sm text-green-700 flex-1">Comprovante anexado</span>
+            {getFileIcon()}
+            <span className="text-sm text-green-700 flex-1">
+              {preview.includes('.pdf') || fileType === 'application/pdf' ? 'PDF anexado' : 'Imagem anexada'}
+            </span>
             <Button
               type="button"
               variant="ghost"
@@ -103,19 +119,31 @@ export const ReceiptUpload = ({ value, onChange, label = "Comprovante" }: Receip
           </div>
           
           <div className="mt-2">
-            <img 
-              src={preview} 
-              alt="Comprovante" 
-              className="max-w-full h-32 object-cover rounded border cursor-pointer"
-              onClick={() => window.open(preview, '_blank')}
-            />
+            {isImage(preview) ? (
+              <img 
+                src={preview} 
+                alt="Comprovante" 
+                className="max-w-full h-32 object-cover rounded border cursor-pointer"
+                onClick={() => window.open(preview, '_blank')}
+              />
+            ) : (
+              <div 
+                className="flex items-center justify-center h-32 bg-gray-100 border rounded cursor-pointer hover:bg-gray-200"
+                onClick={() => window.open(preview, '_blank')}
+              >
+                <div className="text-center">
+                  <FileText className="w-12 h-12 text-red-600 mx-auto mb-2" />
+                  <p className="text-sm text-gray-600">Clique para visualizar PDF</p>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       ) : (
         <div className="relative">
           <Input
             type="file"
-            accept="image/*"
+            accept="image/*,application/pdf"
             onChange={handleFileChange}
             disabled={uploading}
             className="hidden"
@@ -127,7 +155,7 @@ export const ReceiptUpload = ({ value, onChange, label = "Comprovante" }: Receip
           >
             <Upload className="w-5 h-5 text-gray-500" />
             <span className="text-sm text-gray-600">
-              {uploading ? 'Enviando...' : 'Clique para anexar comprovante'}
+              {uploading ? 'Enviando...' : 'Clique para anexar comprovante (imagem ou PDF)'}
             </span>
           </Label>
         </div>

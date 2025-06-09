@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -5,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
+import { ReceiptUpload } from "@/components/common/ReceiptUpload";
 import { useSupabaseData } from '@/hooks/useSupabaseData';
 import { useToastFeedback } from '@/hooks/useToastFeedback';
 import { useAuth } from '@/contexts/AuthContext';
@@ -335,16 +337,11 @@ export const TransactionForm = ({ onClose, onSubmit }: TransactionFormProps) => 
           />
         </div>
 
-        <div>
-          <Label htmlFor="receipt">URL do Comprovante</Label>
-          <Input
-            id="receipt"
-            type="url"
-            value={formData.receipt}
-            onChange={(e) => setFormData(prev => ({ ...prev, receipt: e.target.value }))}
-            placeholder="https://exemplo.com/comprovante.pdf"
-          />
-        </div>
+        <ReceiptUpload
+          value={formData.receipt}
+          onChange={(url) => setFormData(prev => ({ ...prev, receipt: url || '' }))}
+          label="Comprovante"
+        />
 
         <div className="flex gap-4 pt-4">
           <Button type="submit" disabled={loading} className="flex-1">

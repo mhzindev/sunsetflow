@@ -135,7 +135,7 @@ export const ExpenseForm = ({ onSave, onCancel }: ExpenseFormProps) => {
         showSuccess('Sucesso', `Deslocamento registrado: R$ ${totalRevenue.toFixed(2)}`);
 
       } else if (formData.category === 'accommodation') {
-        // LÓGICA PARA HOSPEDAGEM - SÓ REGISTRA RECEITA LÍQUIDA
+        // CORREÇÃO: HOSPEDAGEM - SÓ REGISTRA RECEITA LÍQUIDA NAS TRANSAÇÕES
         if (!formData.invoice_amount || !formData.amount) {
           showError('Erro', 'Para hospedagem, informe o valor da nota fiscal e o valor gasto pela empresa');
           return;
@@ -145,7 +145,7 @@ export const ExpenseForm = ({ onSave, onCancel }: ExpenseFormProps) => {
         const companyCost = parseFloat(formData.amount);
         const netRevenue = invoiceAmount - companyCost;
 
-        // 1. Criar registro na tabela expenses com o gasto da empresa
+        // 1. Criar registro na tabela expenses APENAS para controle interno
         const expenseData = {
           mission_id: formData.mission_id === 'none' ? null : formData.mission_id || null,
           category: formData.category,
@@ -162,7 +162,7 @@ export const ExpenseForm = ({ onSave, onCancel }: ExpenseFormProps) => {
           }
         };
 
-        console.log('Criando registro de despesa de hospedagem:', expenseData);
+        console.log('Criando registro de controle interno de hospedagem:', expenseData);
         
         const { data: expenseResult, error: expenseError } = await insertExpense(expenseData);
         
@@ -172,7 +172,8 @@ export const ExpenseForm = ({ onSave, onCancel }: ExpenseFormProps) => {
           return;
         }
 
-        // 2. Se há receita líquida positiva, registrar APENAS uma transação de receita
+        // 2. CORREÇÃO: Se há receita líquida positiva, registrar APENAS a receita líquida nas transações
+        // NÃO criar transação de saída para o gasto da empresa
         if (netRevenue > 0) {
           const revenueData = {
             type: 'income' as const,
@@ -197,10 +198,10 @@ export const ExpenseForm = ({ onSave, onCancel }: ExpenseFormProps) => {
           }
 
           console.log('Hospedagem registrada com receita líquida:', { expenseResult, revenueResult });
-          showSuccess('Sucesso', `Hospedagem registrada - Receita Líquida: R$ ${netRevenue.toFixed(2)}`);
+          showSuccess('Sucesso', `Hospedagem registrada - Receita Líquida: R$ ${netRevenue.toFixed(2)} (Gasto interno: R$ ${companyCost.toFixed(2)})`);
         } else {
           console.log('Hospedagem registrada sem receita líquida:', expenseResult);
-          showSuccess('Sucesso', `Hospedagem registrada - Gasto da Empresa: R$ ${companyCost.toFixed(2)} (sem receita adicional)`);
+          showSuccess('Sucesso', `Hospedagem registrada - Gasto interno: R$ ${companyCost.toFixed(2)} (sem receita adicional)`);
         }
 
       } else {
@@ -395,7 +396,7 @@ export const ExpenseForm = ({ onSave, onCancel }: ExpenseFormProps) => {
                   required
                 />
                 <p className="text-xs text-gray-600 mt-1">
-                  Valor que a empresa realmente gastou. Só a receita líquida será registrada.
+                  Gasto interno (não será lançado como saída nas transações)
                 </p>
               </div>
             </>

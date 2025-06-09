@@ -7,13 +7,16 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { useSupabaseData } from '@/hooks/useSupabaseData';
 import { useToastFeedback } from '@/hooks/useToastFeedback';
 import { useAuth } from '@/contexts/AuthContext';
 import { ClientAutocomplete } from '@/components/clients/ClientAutocomplete';
 import { ServiceValueDistribution } from '@/components/missions/ServiceValueDistribution';
 import { ServiceProviderSelector } from '@/components/missions/ServiceProviderSelector';
-import { Plus, Calendar, MapPin, Users, DollarSign, RefreshCw, CheckCircle, Clock } from 'lucide-react';
+import { MissionViewModal } from './MissionViewModal';
+import { MissionEditModal } from './MissionEditModal';
+import { Plus, Calendar, MapPin, Users, DollarSign, RefreshCw, CheckCircle, Clock, MoreHorizontal, Eye, Edit, Settings } from 'lucide-react';
 import { isAdmin } from '@/utils/authUtils';
 
 interface MissionManagerProps {
@@ -24,15 +27,21 @@ export const MissionManager = ({ onMissionCreated }: MissionManagerProps) => {
   const [missions, setMissions] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
+  const [selectedMission, setSelectedMission] = useState<any>(null);
+  const [showViewModal, setShowViewModal] = useState(false);
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [showApprovalModal, setShowApprovalModal] = useState(false);
+  const [approvalData, setApprovalData] = useState({
+    service_value: 0,
+    company_percentage: 30,
+    provider_percentage: 70
+  });
   const [formData, setFormData] = useState({
     title: '',
     description: '',
     location: '',
     start_date: '',
     end_date: '',
-    service_value: 0,
-    company_percentage: 30,
-    provider_percentage: 70,
     client_name: '',
     assigned_providers: [] as string[],
     status: 'planning'
@@ -42,7 +51,7 @@ export const MissionManager = ({ onMissionCreated }: MissionManagerProps) => {
   const { showSuccess, showError } = useToastFeedback();
   const { user, profile } = useAuth();
 
-  // Verificar se o usuário é admin usando a função helper
+  // Verificar se o usuário é admin
   const userIsAdmin = isAdmin(profile);
 
   useEffect(() => {
@@ -88,12 +97,15 @@ export const MissionManager = ({ onMissionCreated }: MissionManagerProps) => {
         location: formData.location,
         start_date: formData.start_date,
         end_date: formData.end_date || null,
-        service_value: formData.service_value || null,
-        company_percentage: formData.company_percentage,
-        provider_percentage: formData.provider_percentage,
         client_name: formData.client_name,
         assigned_providers: formData.assigned_providers,
-        status: formData.status
+        status: formData.status,
+        // CORREÇÃO: Prestadores não podem mais definir valores
+        service_value: 0,
+        company_percentage: 30,
+        provider_percentage: 70,
+        company_value: 0,
+        provider_value: 0
       };
 
       console.log('Criando missão:', missionData);
@@ -106,7 +118,7 @@ export const MissionManager = ({ onMissionCreated }: MissionManagerProps) => {
         return;
       }
 
-      showSuccess('Sucesso', 'Missão criada com sucesso!');
+      showSuccess('Sucesso', 'Missão criada com sucesso! Aguardando aprovação do administrador para definir valores.');
       setShowForm(false);
       setFormData({
         title: '',
@@ -114,9 +126,6 @@ export const MissionManager = ({ onMissionCreated }: MissionManagerProps) => {
         location: '',
         start_date: '',
         end_date: '',
-        service_value: 0,
-        company_percentage: 30,
-        provider_percentage: 70,
         client_name: '',
         assigned_providers: [],
         status: 'planning'
@@ -129,18 +138,50 @@ export const MissionManager = ({ onMissionCreated }: MissionManagerProps) => {
     }
   };
 
-  const handleApproveMission = async (missionId: string) => {
-    try {
-      console.log('Aprovando missão:', missionId);
+  const handleViewMission = (mission: any) => {
+    setSelectedMission(mission);
+    setShowViewModal(true);
+  };
 
-      // Usar apenas os campos que existem na tabela missions
+  const handleEditMission = (mission: any) => {
+    setSelectedMission(mission);
+    setShowEditModal(true);
+  };
+
+  const handleApprovalModalOpen = (mission: any) => {
+    setSelectedMission(mission);
+    setApprovalData({
+      service_value: mission.service_value || 0,
+      company_percentage: mission.company_percentage || 30,
+      provider_percentage: mission.provider_percentage || 70
+    });
+    setShowApprovalModal(true);
+  };
+
+  const handleApproveMission = async () => {
+    if (!selectedMission || approvalData.service_value <= 0) {
+      showError('Erro', 'Informe um valor de serviço válido');
+      return;
+    }
+
+    try {
+      console.log('Aprovando missão:', selectedMission.id);
+
+      const companyValue = (approvalData.service_value * approvalData.company_percentage) / 100;
+      const providerValue = (approvalData.service_value * approvalData.provider_percentage) / 100;
+
       const updateData = {
+        service_value: approvalData.service_value,
+        company_percentage: approvalData.company_percentage,
+        provider_percentage: approvalData.provider_percentage,
+        company_value: companyValue,
+        provider_value: providerValue,
         is_approved: true,
         approved_by: user?.id,
         approved_at: new Date().toISOString()
       };
 
-      const result = await updateMission(missionId, updateData);
+      const result = await updateMission(selectedMission.id, updateData);
 
       if (result.error) {
         console.error('Erro ao aprovar missão:', result.error);
@@ -149,6 +190,7 @@ export const MissionManager = ({ onMissionCreated }: MissionManagerProps) => {
       }
 
       showSuccess('Sucesso', 'Missão aprovada! Receita registrada no sistema.');
+      setShowApprovalModal(false);
       loadData();
     } catch (error) {
       console.error('Erro ao aprovar missão:', error);
@@ -299,18 +341,17 @@ export const MissionManager = ({ onMissionCreated }: MissionManagerProps) => {
                     />
                   </div>
 
-                  <ServiceValueDistribution
-                    serviceValue={formData.service_value}
-                    companyPercentage={formData.company_percentage}
-                    onCompanyPercentageChange={(percentage) => setFormData({...formData, company_percentage: percentage, provider_percentage: 100 - percentage})}
-                    onServiceValueChange={(value) => setFormData({...formData, service_value: value})}
-                  />
-
                   <ServiceProviderSelector
                     selectedProviders={formData.assigned_providers}
                     onProvidersChange={(providers) => setFormData({...formData, assigned_providers: providers})}
                     label="Prestadores de Serviço *"
                   />
+
+                  <div className="p-4 bg-blue-50 rounded-lg border border-blue-200">
+                    <p className="text-sm text-blue-800">
+                      <strong>Nota:</strong> Os valores da missão serão definidos pelo administrador durante a aprovação.
+                    </p>
+                  </div>
 
                   <div className="flex space-x-4 pt-4">
                     <Button type="submit" className="flex-1">
@@ -400,20 +441,6 @@ export const MissionManager = ({ onMissionCreated }: MissionManagerProps) => {
                           <p className="mt-2 text-gray-700">{mission.description}</p>
                         )}
 
-                        {/* Botão de aprovação APENAS para admins */}
-                        {userIsAdmin && !mission.is_approved && mission.service_value > 0 && (
-                          <div className="pt-3 mt-3 border-t">
-                            <Button 
-                              onClick={() => handleApproveMission(mission.id)}
-                              className="bg-green-600 hover:bg-green-700"
-                              size="sm"
-                            >
-                              <CheckCircle className="w-4 h-4 mr-2" />
-                              Aprovar e Registrar Receita
-                            </Button>
-                          </div>
-                        )}
-
                         {mission.is_approved && mission.approved_at && (
                           <div className="pt-2 mt-2 border-t text-xs text-green-600">
                             <div className="flex items-center gap-1">
@@ -424,6 +451,41 @@ export const MissionManager = ({ onMissionCreated }: MissionManagerProps) => {
                         )}
                       </div>
                     </div>
+                    
+                    <div className="flex items-center gap-2">
+                      {/* Botão de aprovação APENAS para admins em missões sem valor */}
+                      {userIsAdmin && !mission.is_approved && (
+                        <Button 
+                          onClick={() => handleApprovalModalOpen(mission)}
+                          className="bg-orange-600 hover:bg-orange-700"
+                          size="sm"
+                        >
+                          <Settings className="w-4 h-4 mr-2" />
+                          Definir Valores
+                        </Button>
+                      )}
+
+                      {/* Menu de três pontos */}
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="ghost" size="sm">
+                            <MoreHorizontal className="w-4 h-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem onClick={() => handleViewMission(mission)}>
+                            <Eye className="w-4 h-4 mr-2" />
+                            Visualizar
+                          </DropdownMenuItem>
+                          {userIsAdmin && (
+                            <DropdownMenuItem onClick={() => handleEditMission(mission)}>
+                              <Edit className="w-4 h-4 mr-2" />
+                              Editar
+                            </DropdownMenuItem>
+                          )}
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </div>
                   </div>
                 </Card>
               ))}
@@ -431,6 +493,72 @@ export const MissionManager = ({ onMissionCreated }: MissionManagerProps) => {
           )}
         </CardContent>
       </Card>
+
+      {/* Modal de Visualização */}
+      <MissionViewModal
+        isOpen={showViewModal}
+        onClose={() => setShowViewModal(false)}
+        mission={selectedMission}
+        onEdit={userIsAdmin ? handleEditMission : undefined}
+      />
+
+      {/* Modal de Edição */}
+      <MissionEditModal
+        isOpen={showEditModal}
+        onClose={() => setShowEditModal(false)}
+        mission={selectedMission}
+        onSave={(updatedMission) => {
+          setShowEditModal(false);
+          loadData();
+        }}
+      />
+
+      {/* Modal de Aprovação/Definição de Valores */}
+      {showApprovalModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <Card className="w-full max-w-md mx-4">
+            <CardHeader>
+              <CardTitle>Aprovar e Definir Valores</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <p className="text-sm text-gray-600">
+                Missão: <strong>{selectedMission?.title}</strong>
+              </p>
+              
+              <ServiceValueDistribution
+                serviceValue={approvalData.service_value}
+                companyPercentage={approvalData.company_percentage}
+                onCompanyPercentageChange={(percentage) => 
+                  setApprovalData(prev => ({
+                    ...prev,
+                    company_percentage: percentage,
+                    provider_percentage: 100 - percentage
+                  }))
+                }
+                onServiceValueChange={(value) => 
+                  setApprovalData(prev => ({ ...prev, service_value: value }))
+                }
+              />
+
+              <div className="flex gap-2 pt-4">
+                <Button 
+                  onClick={handleApproveMission} 
+                  className="flex-1 bg-green-600 hover:bg-green-700"
+                >
+                  <CheckCircle className="w-4 h-4 mr-2" />
+                  Aprovar
+                </Button>
+                <Button 
+                  variant="outline" 
+                  onClick={() => setShowApprovalModal(false)}
+                >
+                  Cancelar
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
     </div>
   );
 };
