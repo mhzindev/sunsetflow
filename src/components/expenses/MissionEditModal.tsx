@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -12,7 +11,9 @@ import { ServiceValueDistribution } from '@/components/missions/ServiceValueDist
 import { useAuth } from '@/contexts/AuthContext';
 import { isAdmin } from '@/utils/authUtils';
 import { useMissionData } from '@/hooks/useMissionData';
+import { useSecureAuth } from '@/hooks/useSecureAuth';
 import { Mission } from '@/types/mission';
+import { validateInput, sanitizeInput } from '@/utils/securityValidation';
 
 interface MissionEditModalProps {
   isOpen: boolean;
@@ -25,6 +26,7 @@ export const MissionEditModal = ({ isOpen, onClose, mission, onSave }: MissionEd
   const { showSuccess, showError } = useToastFeedback();
   const { profile } = useAuth();
   const { updateMissionMutation } = useMissionData();
+  const { validatePermission } = useSecureAuth();
   const [formData, setFormData] = useState({
     title: '',
     client_name: '',
@@ -47,7 +49,6 @@ export const MissionEditModal = ({ isOpen, onClose, mission, onSave }: MissionEd
 
   useEffect(() => {
     if (mission) {
-      console.log('Loading mission data for editing:', mission);
       setFormData({
         title: mission.title,
         client_name: mission.client_name,
@@ -70,8 +71,19 @@ export const MissionEditModal = ({ isOpen, onClose, mission, onSave }: MissionEd
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!formData.title.trim() || !formData.client_name.trim() || !formData.location.trim() || !formData.start_date) {
-      showError('Erro de Validação', 'Por favor, preencha todos os campos obrigatórios');
+    // Security validation
+    if (!validatePermission()) {
+      return;
+    }
+
+    // Input validation
+    if (!validateInput(formData.title) || !validateInput(formData.client_name) || !validateInput(formData.location)) {
+      showError('Erro de Validação', 'Preencha todos os campos obrigatórios com dados válidos');
+      return;
+    }
+
+    if (!formData.start_date) {
+      showError('Erro de Validação', 'Data de início é obrigatória');
       return;
     }
 
@@ -81,18 +93,16 @@ export const MissionEditModal = ({ isOpen, onClose, mission, onSave }: MissionEd
     }
 
     try {
-      console.log('Submitting mission update:', mission.id, formData);
-
-      // Prepare update data
-      const updateData = {
-        title: formData.title.trim(),
-        client_name: formData.client_name.trim(),
-        location: formData.location.trim(),
+      // Sanitize inputs
+      const sanitizedData = {
+        title: sanitizeInput(formData.title),
+        client_name: sanitizeInput(formData.client_name),
+        location: sanitizeInput(formData.location),
         start_date: formData.start_date,
         end_date: formData.end_date || null,
         status: formData.status,
         assigned_providers: formData.assigned_providers,
-        description: formData.description.trim(),
+        description: sanitizeInput(formData.description),
         service_value: formData.service_value,
         company_percentage: formData.company_percentage,
         provider_percentage: formData.provider_percentage,
@@ -104,20 +114,20 @@ export const MissionEditModal = ({ isOpen, onClose, mission, onSave }: MissionEd
       // Use the optimized mutation
       await updateMissionMutation.mutateAsync({
         id: mission.id,
-        updates: updateData
+        updates: sanitizedData
       });
 
       // Create updated mission object for callback
       const updatedMission: Mission = {
         ...mission,
-        ...updateData
+        ...sanitizedData
       };
 
       // Call callback to update parent component
       onSave(updatedMission);
       onClose();
     } catch (error) {
-      console.error('Error updating mission:', error);
+      console.error('Erro ao atualizar missão');
       // Error is already handled by the mutation
     }
   };

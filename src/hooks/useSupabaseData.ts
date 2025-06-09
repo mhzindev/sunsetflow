@@ -2,36 +2,38 @@ import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { PaymentCreateData } from '@/types/payment';
+import { useSecureAuth } from './useSecureAuth';
+import { validateInput, sanitizeInput, isValidUUID } from '@/utils/securityValidation';
 
 export const useSupabaseData = () => {
   const { user, profile } = useAuth();
+  const { validatePermission } = useSecureAuth();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // Função para buscar transações - OTIMIZADA
+  // Função para buscar transações - SECURED
   const fetchTransactions = async () => {
     try {
-      console.log('Buscando transações usando RPC otimizada...');
-      
+      if (!validatePermission()) return [];
+
       const { data, error } = await supabase.rpc('get_user_transactions_simple');
 
       if (error) {
-        console.error('Erro RPC ao buscar transações:', error);
+        console.error('Erro ao buscar transações:', error.code);
         throw error;
       }
       
-      console.log('Transações encontradas via RPC:', data?.length || 0);
       return data || [];
     } catch (err) {
-      console.error('Erro ao buscar transações:', err);
+      console.error('Erro ao buscar transações');
       return [];
     }
   };
 
-  // Função para buscar despesas - OTIMIZADA COM FILTRO PARA PRESTADORES
+  // Função para buscar despesas - SECURED
   const fetchExpenses = async () => {
     try {
-      console.log('Buscando despesas com filtro por prestador...');
+      if (!validatePermission()) return [];
       
       const { data, error } = await supabase
         .from('expenses')
@@ -51,28 +53,22 @@ export const useSupabaseData = () => {
         .order('created_at', { ascending: false });
 
       if (error) {
-        console.error('Erro SQL ao buscar despesas:', error);
+        console.error('Erro ao buscar despesas:', error.code);
         return [];
-      }
-      
-      console.log('Despesas encontradas:', data?.length || 0);
-      console.log('Tipo de usuário:', profile?.user_type);
-      
-      if (profile?.user_type === 'provider') {
-        console.log('Usuário é prestador - dados filtrados pelas políticas RLS');
       }
       
       return data || [];
     } catch (err) {
-      console.error('Erro ao buscar despesas:', err);
+      console.error('Erro ao buscar despesas');
       return [];
     }
   };
 
-  // Função para buscar pagamentos - CORRIGIDA COM MAPEAMENTO CORRETO
+  // Função para buscar pagamentos - SECURED
   const fetchPayments = async () => {
     try {
-      console.log('Buscando pagamentos com RLS corrigido...');
+      if (!validatePermission()) return [];
+
       const { data, error } = await supabase
         .from('payments')
         .select(`
@@ -82,11 +78,9 @@ export const useSupabaseData = () => {
         .order('due_date', { ascending: true });
 
       if (error) {
-        console.error('Erro SQL ao buscar pagamentos:', error);
+        console.error('Erro ao buscar pagamentos:', error.code);
         return [];
       }
-      
-      console.log('Dados brutos dos pagamentos:', data);
       
       const mappedPayments = data?.map(payment => ({
         id: payment.id,
@@ -110,12 +104,9 @@ export const useSupabaseData = () => {
         } : null
       })) || [];
       
-      console.log('Pagamentos mapeados:', mappedPayments.length);
-      console.log('Primeiro pagamento mapeado:', mappedPayments[0]);
-      
       return mappedPayments;
     } catch (err) {
-      console.error('Erro ao buscar pagamentos:', err);
+      console.error('Erro ao buscar pagamentos');
       return [];
     }
   };
@@ -248,7 +239,7 @@ export const useSupabaseData = () => {
     }
   };
 
-  // Função para inserir transação - CORRIGIDA COM VALIDAÇÃO MELHORADA
+  // Função para inserir transação - SECURED WITH VALIDATION
   const insertTransaction = async (transaction: {
     type: 'income' | 'expense';
     category: string;
@@ -264,26 +255,31 @@ export const useSupabaseData = () => {
     account_type?: 'bank_account' | 'credit_card';
   }) => {
     try {
+      if (!validatePermission()) {
+        return { data: null, error: 'Acesso negado' };
+      }
+
       if (!user) {
-        console.error('insertTransaction: Usuário não autenticado');
         return { data: null, error: 'Usuário não autenticado' };
       }
 
-      console.log('insertTransaction: Iniciando inserção:', transaction);
-
-      if (!transaction.description || transaction.description.trim().length === 0) {
-        return { data: null, error: 'Descrição é obrigatória' };
+      // Input validation
+      if (!validateInput(transaction.description)) {
+        return { data: null, error: 'Descrição inválida' };
       }
 
       if (!transaction.amount || transaction.amount <= 0) {
         return { data: null, error: 'Valor deve ser maior que zero' };
       }
 
+      // Sanitize description
+      const sanitizedDescription = sanitizeInput(transaction.description);
+
       const { data, error } = await supabase.rpc('insert_transaction_with_casting', {
         p_type: transaction.type,
         p_category: transaction.category,
         p_amount: transaction.amount,
-        p_description: transaction.description.trim(),
+        p_description: sanitizedDescription,
         p_date: transaction.date,
         p_method: transaction.method,
         p_status: transaction.status || 'completed',
@@ -297,14 +293,13 @@ export const useSupabaseData = () => {
       });
 
       if (error) {
-        console.error('insertTransaction: Erro RPC:', error);
+        console.error('Erro ao inserir transação:', error.code);
         return { data: null, error: error.message };
       }
 
-      console.log('insertTransaction: Transação inserida com sucesso via RPC:', data);
       return { data: data?.[0], error: null };
     } catch (err) {
-      console.error('insertTransaction: Erro inesperado:', err);
+      console.error('Erro inesperado ao inserir transação');
       return { data: null, error: err instanceof Error ? err.message : 'Erro desconhecido' };
     }
   };
@@ -385,65 +380,68 @@ export const useSupabaseData = () => {
     }
   };
 
-  // Função para inserir pagamento - VERSÃO ATUALIZADA PARA USAR A NOVA FUNÇÃO ENHANCED
+  // Função para inserir pagamento - SECURED WITH VALIDATION
   const insertPayment = async (paymentData: PaymentCreateData) => {
     try {
-      console.log('insertPayment: Iniciando inserção de pagamento com validação aprimorada:', paymentData);
-      
-      // Validação rigorosa no frontend antes de enviar
-      if (!paymentData.provider_id) {
-        return { data: null, error: 'provider_id é obrigatório para criar pagamentos' };
+      if (!validatePermission('admin')) {
+        return { data: null, error: 'Permissões insuficientes' };
       }
 
-      if (!paymentData.provider_name || paymentData.provider_name.trim().length === 0) {
-        return { data: null, error: 'Nome do prestador é obrigatório' };
+      // Validation
+      if (!paymentData.provider_id || !isValidUUID(paymentData.provider_id)) {
+        return { data: null, error: 'ID do prestador inválido' };
+      }
+
+      if (!validateInput(paymentData.provider_name)) {
+        return { data: null, error: 'Nome do prestador inválido' };
       }
 
       if (!paymentData.amount || paymentData.amount <= 0) {
         return { data: null, error: 'Valor deve ser maior que zero' };
       }
 
-      if (!paymentData.description || paymentData.description.trim().length === 0) {
-        return { data: null, error: 'Descrição é obrigatória' };
+      if (!validateInput(paymentData.description)) {
+        return { data: null, error: 'Descrição inválida' };
       }
 
-      // Validação crítica: se status completed, deve ter conta
-      if (paymentData.status === 'completed' && (!paymentData.account_id || !paymentData.account_type)) {
-        return { data: null, error: 'account_id e account_type são obrigatórios para pagamentos completed' };
-      }
+      // Sanitize inputs
+      const sanitizedData = {
+        ...paymentData,
+        provider_name: sanitizeInput(paymentData.provider_name),
+        description: sanitizeInput(paymentData.description),
+        notes: paymentData.notes ? sanitizeInput(paymentData.notes) : null
+      };
 
-      // Usar a nova função enhanced que valida provider_id obrigatório
       const { data, error } = await supabase.rpc('insert_payment_enhanced', {
-        p_provider_id: paymentData.provider_id,
-        p_provider_name: paymentData.provider_name.trim(),
-        p_amount: paymentData.amount,
-        p_due_date: paymentData.due_date,
-        p_payment_date: paymentData.payment_date,
-        p_status: paymentData.status,
-        p_type: paymentData.type,
-        p_description: paymentData.description.trim(),
-        p_installments: paymentData.installments,
-        p_current_installment: paymentData.current_installment,
-        p_tags: paymentData.tags,
-        p_notes: paymentData.notes,
-        p_account_id: paymentData.account_id,
-        p_account_type: paymentData.account_type
+        p_provider_id: sanitizedData.provider_id,
+        p_provider_name: sanitizedData.provider_name,
+        p_amount: sanitizedData.amount,
+        p_due_date: sanitizedData.due_date,
+        p_payment_date: sanitizedData.payment_date,
+        p_status: sanitizedData.status,
+        p_type: sanitizedData.type,
+        p_description: sanitizedData.description,
+        p_installments: sanitizedData.installments,
+        p_current_installment: sanitizedData.current_installment,
+        p_tags: sanitizedData.tags,
+        p_notes: sanitizedData.notes,
+        p_account_id: sanitizedData.account_id,
+        p_account_type: sanitizedData.account_type
       });
 
       if (error) {
-        console.error('insertPayment: Erro no RPC insert_payment_enhanced:', error);
+        console.error('Erro ao inserir pagamento:', error.code);
         return { data: null, error: error.message || 'Erro ao inserir pagamento' };
       }
 
-      console.log('insertPayment: Pagamento inserido com sucesso via enhanced RPC:', data);
       return { data: data?.[0], error: null };
     } catch (error) {
-      console.error('insertPayment: Erro inesperado:', error);
+      console.error('Erro inesperado ao inserir pagamento');
       return { data: null, error: error instanceof Error ? error.message : 'Erro desconhecido' };
     }
   };
 
-  // CORRIGIDO: Função updatePayment melhorada com logs detalhados e validação
+  // Função para atualizar pagamento - SECURED WITH VALIDATION
   const updatePayment = async (paymentId: string, updates: any) => {
     try {
       console.log('=== updatePayment: Iniciando atualização SEGURA ===');

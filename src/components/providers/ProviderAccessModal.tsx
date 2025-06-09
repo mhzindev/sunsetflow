@@ -1,16 +1,16 @@
-
 import { useState } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { UserPlus, Copy, Check } from 'lucide-react';
 import { useToastFeedback } from '@/hooks/useToastFeedback';
 import { useSupabaseData } from '@/hooks/useSupabaseData';
+import { useSecureAuth } from '@/hooks/useSecureAuth';
+import { validateInput, sanitizeInput } from '@/utils/securityValidation';
 
 interface ProviderAccessModalProps {
   isOpen: boolean;
@@ -27,6 +27,7 @@ export const ProviderAccessModal = ({
 }: ProviderAccessModalProps) => {
   const { showSuccess, showError } = useToastFeedback();
   const { insertServiceProvider } = useSupabaseData();
+  const { validatePermission } = useSecureAuth();
   const [isLoading, setIsLoading] = useState(false);
   const [accessCreated, setAccessCreated] = useState(false);
   const [accessData, setAccessData] = useState<any>(null);
@@ -44,8 +45,13 @@ export const ProviderAccessModal = ({
     address: ''
   });
 
-  const generateAccessCode = () => {
-    return Math.random().toString(36).substr(2, 12).toUpperCase();
+  const generateSecureAccessCode = () => {
+    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+    let result = '';
+    for (let i = 0; i < 12; i++) {
+      result += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
+    return result;
   };
 
   const copyToClipboard = async (text: string, field: string) => {
@@ -62,53 +68,78 @@ export const ProviderAccessModal = ({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!formData.email || !formData.password) {
-      showError('Erro de Validação', 'Email e senha são obrigatórios');
+    // Security validation
+    if (!validatePermission('admin')) {
       return;
     }
 
-    if (formData.password.length < 6) {
-      showError('Senha Inválida', 'A senha deve ter pelo menos 6 caracteres');
+    // Input validation
+    if (!validateInput(formData.email, 'email')) {
+      showError('Erro de Validação', 'Email inválido');
       return;
     }
+
+    if (formData.password.length < 8) {
+      showError('Senha Inválida', 'A senha deve ter pelo menos 8 caracteres');
+      return;
+    }
+
+    // Sanitize inputs
+    const sanitizedFormData = {
+      ...formData,
+      email: sanitizeInput(formData.email.toLowerCase()),
+      specialties: sanitizeInput(formData.specialties),
+      cpfCnpj: sanitizeInput(formData.cpfCnpj),
+      address: sanitizeInput(formData.address)
+    };
 
     setIsLoading(true);
 
     try {
-      const accessCode = generateAccessCode();
+      const accessCode = generateSecureAccessCode();
       const permissions = {
-        can_create_expenses: formData.canCreateExpenses,
-        can_view_missions: formData.canViewMissions,
-        can_update_missions: formData.canUpdateMissions
+        can_create_expenses: sanitizedFormData.canCreateExpenses,
+        can_view_missions: sanitizedFormData.canViewMissions,
+        can_update_missions: sanitizedFormData.canUpdateMissions
       };
 
-      // Simular criação do acesso (em produção, isso seria feito via Edge Function)
-      const newAccess = {
-        id: Date.now().toString(),
-        provider_id: provider.id,
-        email: formData.email,
-        access_code: accessCode,
-        permissions,
-        created_at: new Date().toISOString(),
-        is_active: true
-      };
+      // Create access using edge function for secure password hashing
+      const { data: newAccess, error: accessError } = await supabase.functions.invoke('create-provider-access', {
+        body: {
+          provider_id: provider.id,
+          email: sanitizedFormData.email,
+          password: sanitizedFormData.password,
+          access_code: accessCode,
+          permissions
+        }
+      });
 
-      // Atualizar dados do prestador
+      if (accessError) {
+        throw new Error(accessError.message || 'Erro ao criar acesso');
+      }
+
+      // Update provider data
       const updatedProvider = {
         ...provider,
         has_system_access: true,
-        specialties: formData.specialties.split(',').map(s => s.trim()).filter(s => s),
-        hourly_rate: formData.hourlyRate ? parseFloat(formData.hourlyRate) : null,
-        cpf_cnpj: formData.cpfCnpj,
-        address: formData.address
+        specialties: sanitizedFormData.specialties.split(',').map(s => s.trim()).filter(s => s),
+        hourly_rate: sanitizedFormData.hourlyRate ? parseFloat(sanitizedFormData.hourlyRate) : null,
+        cpf_cnpj: sanitizedFormData.cpfCnpj,
+        address: sanitizedFormData.address
       };
 
-      setAccessData(newAccess);
+      setAccessData({
+        ...newAccess,
+        access_code: accessCode,
+        email: sanitizedFormData.email,
+        permissions
+      });
       setAccessCreated(true);
       
       showSuccess('Acesso Criado!', 'Acesso ao sistema criado com sucesso para o prestador');
       onSuccess();
     } catch (error) {
+      console.error('Erro ao criar acesso');
       showError('Erro', 'Erro ao criar acesso. Tente novamente.');
     } finally {
       setIsLoading(false);
@@ -242,13 +273,14 @@ export const ProviderAccessModal = ({
             </div>
 
             <div>
-              <Label htmlFor="password">Senha Temporária *</Label>
+              <Label htmlFor="password">Senha Segura *</Label>
               <Input
                 id="password"
                 type="password"
                 value={formData.password}
                 onChange={(e) => setFormData({...formData, password: e.target.value})}
-                placeholder="Mínimo 6 caracteres"
+                placeholder="Mínimo 8 caracteres"
+                minLength={8}
                 required
               />
             </div>
