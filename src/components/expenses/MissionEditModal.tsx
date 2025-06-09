@@ -13,25 +13,7 @@ import { ServiceValueDistribution } from '@/components/missions/ServiceValueDist
 import { useAuth } from '@/contexts/AuthContext';
 import { isAdmin } from '@/utils/authUtils';
 import { useSupabaseData } from '@/hooks/useSupabaseData';
-import { X } from 'lucide-react';
-
-interface Mission {
-  id: string;
-  title: string;
-  client_name: string;
-  location: string;
-  start_date: string;
-  end_date?: string;
-  status: string;
-  assigned_providers: string[];
-  description?: string;
-  service_value?: number;
-  company_percentage?: number;
-  provider_percentage?: number;
-  company_value?: number;
-  provider_value?: number;
-  is_approved?: boolean;
-}
+import { Mission } from '@/types/mission';
 
 interface MissionEditModalProps {
   isOpen: boolean;
@@ -67,6 +49,7 @@ export const MissionEditModal = ({ isOpen, onClose, mission, onSave }: MissionEd
 
   useEffect(() => {
     if (mission) {
+      console.log('Carregando dados da missão para edição:', mission);
       setFormData({
         title: mission.title,
         client_name: mission.client_name,
@@ -94,11 +77,6 @@ export const MissionEditModal = ({ isOpen, onClose, mission, onSave }: MissionEd
       return;
     }
 
-    if (formData.assigned_providers.length === 0) {
-      showError('Erro de Validação', 'Por favor, selecione pelo menos um prestador de serviço');
-      return;
-    }
-
     if (!mission?.id) {
       showError('Erro', 'ID da missão não encontrado');
       return;
@@ -107,10 +85,11 @@ export const MissionEditModal = ({ isOpen, onClose, mission, onSave }: MissionEd
     setIsLoading(true);
 
     try {
-      console.log('Atualizando missão no banco de dados:', mission.id, formData);
+      console.log('Iniciando atualização da missão:', mission.id);
+      console.log('Dados do formulário:', formData);
 
-      // Usar a função updateMission do useSupabaseData para salvar no banco
-      const { data, error } = await updateMission(mission.id, {
+      // Preparar dados para atualização
+      const updateData = {
         title: formData.title.trim(),
         client_name: formData.client_name.trim(),
         location: formData.location.trim(),
@@ -124,30 +103,41 @@ export const MissionEditModal = ({ isOpen, onClose, mission, onSave }: MissionEd
         provider_percentage: formData.provider_percentage,
         company_value: formData.company_value,
         provider_value: formData.provider_value,
-        is_approved: formData.is_approved
-      });
+        is_approved: formData.is_approved,
+        updated_at: new Date().toISOString()
+      };
+
+      console.log('Dados preparados para atualização:', updateData);
+
+      // Usar a função updateMission do useSupabaseData
+      const { data, error } = await updateMission(mission.id, updateData);
 
       if (error) {
-        console.error('Erro ao atualizar missão:', error);
-        showError('Erro', `Erro ao atualizar missão: ${error}`);
+        console.error('Erro retornado do Supabase:', error);
+        showError('Erro', `Erro ao atualizar missão: ${error.message || error}`);
         return;
       }
 
       if (!data) {
+        console.error('Nenhum dado retornado ao atualizar missão');
         showError('Erro', 'Nenhum dado retornado ao atualizar missão');
         return;
       }
 
-      console.log('Missão atualizada com sucesso no banco:', data);
+      console.log('Missão atualizada com sucesso:', data);
 
-      // Atualizar o estado local com os dados atualizados
-      const updatedMission = {
+      // Criar objeto da missão atualizada
+      const updatedMission: Mission = {
         ...mission,
-        ...formData
+        ...updateData,
+        id: mission.id
       };
 
+      console.log('Missão atualizada para callback:', updatedMission);
+
+      // Chamar callback para atualizar a lista
       onSave(updatedMission);
-      showSuccess('Sucesso', 'Missão atualizada com sucesso no banco de dados!');
+      showSuccess('Sucesso', 'Missão atualizada com sucesso!');
       onClose();
     } catch (error) {
       console.error('Erro inesperado ao atualizar missão:', error);
@@ -285,7 +275,7 @@ export const MissionEditModal = ({ isOpen, onClose, mission, onSave }: MissionEd
               className="flex-1"
               disabled={isLoading}
             >
-              {isLoading ? 'Salvando no Banco...' : 'Salvar Alterações'}
+              {isLoading ? 'Salvando...' : 'Salvar Alterações'}
             </Button>
             <Button 
               type="button" 
