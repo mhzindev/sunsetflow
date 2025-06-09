@@ -12,6 +12,7 @@ import { MissionStatusSelector } from '@/components/missions/MissionStatusSelect
 import { ServiceValueDistribution } from '@/components/missions/ServiceValueDistribution';
 import { useAuth } from '@/contexts/AuthContext';
 import { isAdmin } from '@/utils/authUtils';
+import { useSupabaseData } from '@/hooks/useSupabaseData';
 import { X } from 'lucide-react';
 
 interface Mission {
@@ -42,6 +43,7 @@ interface MissionEditModalProps {
 export const MissionEditModal = ({ isOpen, onClose, mission, onSave }: MissionEditModalProps) => {
   const { showSuccess, showError } = useToastFeedback();
   const { profile } = useAuth();
+  const { updateMission } = useSupabaseData();
   const [isLoading, setIsLoading] = useState(false);
   const [formData, setFormData] = useState({
     title: '',
@@ -97,21 +99,59 @@ export const MissionEditModal = ({ isOpen, onClose, mission, onSave }: MissionEd
       return;
     }
 
+    if (!mission?.id) {
+      showError('Erro', 'ID da missão não encontrado');
+      return;
+    }
+
     setIsLoading(true);
 
     try {
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      console.log('Atualizando missão no banco de dados:', mission.id, formData);
 
+      // Usar a função updateMission do useSupabaseData para salvar no banco
+      const { data, error } = await updateMission(mission.id, {
+        title: formData.title.trim(),
+        client_name: formData.client_name.trim(),
+        location: formData.location.trim(),
+        start_date: formData.start_date,
+        end_date: formData.end_date || null,
+        status: formData.status,
+        assigned_providers: formData.assigned_providers,
+        description: formData.description.trim(),
+        service_value: formData.service_value,
+        company_percentage: formData.company_percentage,
+        provider_percentage: formData.provider_percentage,
+        company_value: formData.company_value,
+        provider_value: formData.provider_value,
+        is_approved: formData.is_approved
+      });
+
+      if (error) {
+        console.error('Erro ao atualizar missão:', error);
+        showError('Erro', `Erro ao atualizar missão: ${error}`);
+        return;
+      }
+
+      if (!data) {
+        showError('Erro', 'Nenhum dado retornado ao atualizar missão');
+        return;
+      }
+
+      console.log('Missão atualizada com sucesso no banco:', data);
+
+      // Atualizar o estado local com os dados atualizados
       const updatedMission = {
-        ...mission!,
+        ...mission,
         ...formData
       };
 
       onSave(updatedMission);
-      showSuccess('Sucesso', 'Missão atualizada com sucesso!');
+      showSuccess('Sucesso', 'Missão atualizada com sucesso no banco de dados!');
       onClose();
     } catch (error) {
-      showError('Erro', 'Erro ao atualizar missão. Tente novamente.');
+      console.error('Erro inesperado ao atualizar missão:', error);
+      showError('Erro', 'Erro inesperado ao atualizar missão. Tente novamente.');
     } finally {
       setIsLoading(false);
     }
@@ -245,7 +285,7 @@ export const MissionEditModal = ({ isOpen, onClose, mission, onSave }: MissionEd
               className="flex-1"
               disabled={isLoading}
             >
-              {isLoading ? 'Salvando...' : 'Salvar Alterações'}
+              {isLoading ? 'Salvando no Banco...' : 'Salvar Alterações'}
             </Button>
             <Button 
               type="button" 
