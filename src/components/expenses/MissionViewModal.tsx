@@ -52,6 +52,11 @@ export const MissionViewModal = ({ isOpen, onClose, mission, onEdit }: MissionVi
     return Number(value).toLocaleString('pt-BR', { minimumFractionDigits: 2 });
   };
 
+  // Função segura para garantir que assignedEmployees seja um array
+  const safeGetEmployees = (employees: string[] | undefined | null): string[] => {
+    return Array.isArray(employees) ? employees : [];
+  };
+
   const getStatusColor = (status: string) => {
     const colors = {
       planned: 'bg-blue-100 text-blue-800',
@@ -105,6 +110,8 @@ export const MissionViewModal = ({ isOpen, onClose, mission, onEdit }: MissionVi
     onEdit?.(mission);
     onClose();
   };
+
+  const assignedEmployees = safeGetEmployees(mission.assignedEmployees);
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
@@ -161,11 +168,15 @@ export const MissionViewModal = ({ isOpen, onClose, mission, onEdit }: MissionVi
               Equipe Designada
             </h4>
             <div className="flex flex-wrap gap-2">
-              {mission.assignedEmployees.map((employee, index) => (
-                <Badge key={index} variant="outline" className="px-3 py-1">
-                  {employee}
-                </Badge>
-              ))}
+              {assignedEmployees.length > 0 ? (
+                assignedEmployees.map((employee, index) => (
+                  <Badge key={index} variant="outline" className="px-3 py-1">
+                    {employee}
+                  </Badge>
+                ))
+              ) : (
+                <p className="text-sm text-slate-500">Nenhum funcionário designado</p>
+              )}
             </div>
           </Card>
 
