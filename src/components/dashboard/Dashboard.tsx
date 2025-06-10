@@ -3,6 +3,7 @@ import { QuickActions } from "./QuickActions";
 import { RecentTransactions } from "./RecentTransactions";
 import { CashFlowChart } from "./CashFlowChart";
 import { FinancialSummaryComplete } from "./FinancialSummaryComplete";
+import { RLSStatusIndicator } from "./RLSStatusIndicator";
 import { useCompanyIsolation } from "@/hooks/useCompanyIsolation";
 import { useAuth } from "@/contexts/AuthContext";
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -53,7 +54,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
           <div>
             <h2 className="text-3xl font-bold text-slate-800">Dashboard Financeiro</h2>
             <p className="text-slate-600">
-              Visão completa da empresa
+              Visão completa da empresa com isolamento total de dados
             </p>
           </div>
           <div className="flex items-center space-x-2">
@@ -72,6 +73,9 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
           </div>
         </div>
       </div>
+
+      {/* Indicador de Status RLS */}
+      <RLSStatusIndicator />
 
       <FinancialSummaryComplete />
 

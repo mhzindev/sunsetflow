@@ -19,12 +19,13 @@ export const useSupabaseDataIsolated = () => {
 
     try {
       setLoading(true);
-      console.log('Buscando transações para empresa:', companyId);
+      console.log('Buscando transações com RLS ativo para empresa:', companyId);
 
+      // Com RLS ativo, não precisamos filtrar por company_id na query
+      // As políticas RLS garantem o isolamento automático
       const { data, error } = await supabase
         .from('transactions')
         .select('*')
-        .eq('company_id', companyId)
         .order('created_at', { ascending: false });
 
       if (error) {
@@ -32,7 +33,7 @@ export const useSupabaseDataIsolated = () => {
         throw error;
       }
 
-      console.log(`Transações encontradas para empresa ${companyId}:`, data?.length || 0);
+      console.log(`Transações encontradas (com isolamento RLS):`, data?.length || 0);
       return data || [];
     } catch (error) {
       console.error('Erro ao buscar transações:', error);
@@ -51,12 +52,12 @@ export const useSupabaseDataIsolated = () => {
 
     try {
       setLoading(true);
-      console.log('Buscando pagamentos para empresa:', companyId);
+      console.log('Buscando pagamentos com RLS ativo para empresa:', companyId);
 
+      // RLS garante isolamento automático
       const { data, error } = await supabase
         .from('payments')
         .select('*')
-        .eq('company_id', companyId)
         .order('created_at', { ascending: false });
 
       if (error) {
@@ -64,7 +65,7 @@ export const useSupabaseDataIsolated = () => {
         throw error;
       }
 
-      console.log(`Pagamentos encontrados para empresa ${companyId}:`, data?.length || 0);
+      console.log(`Pagamentos encontrados (com isolamento RLS):`, data?.length || 0);
       return data || [];
     } catch (error) {
       console.error('Erro ao buscar pagamentos:', error);
@@ -83,19 +84,19 @@ export const useSupabaseDataIsolated = () => {
 
     try {
       setLoading(true);
-      console.log('Buscando despesas para empresa:', companyId);
+      console.log('Buscando despesas com RLS ativo para empresa:', companyId);
 
-      // Buscar despesas via missões da empresa
+      // RLS garante isolamento via employee_id e mission_id
       const { data, error } = await supabase
         .from('expenses')
         .select(`
           *,
-          missions!inner(
-            created_by,
-            profiles!inner(company_id)
+          missions(
+            title,
+            location,
+            client_name
           )
         `)
-        .eq('missions.profiles.company_id', companyId)
         .order('created_at', { ascending: false });
 
       if (error) {
@@ -103,7 +104,7 @@ export const useSupabaseDataIsolated = () => {
         throw error;
       }
 
-      console.log(`Despesas encontradas para empresa ${companyId}:`, data?.length || 0);
+      console.log(`Despesas encontradas (com isolamento RLS):`, data?.length || 0);
       return data || [];
     } catch (error) {
       console.error('Erro ao buscar despesas:', error);
@@ -122,15 +123,12 @@ export const useSupabaseDataIsolated = () => {
 
     try {
       setLoading(true);
-      console.log('Buscando missões para empresa:', companyId);
+      console.log('Buscando missões com RLS ativo para empresa:', companyId);
 
+      // RLS garante isolamento via created_by
       const { data, error } = await supabase
         .from('missions')
-        .select(`
-          *,
-          profiles!inner(company_id)
-        `)
-        .eq('profiles.company_id', companyId)
+        .select('*')
         .order('created_at', { ascending: false });
 
       if (error) {
@@ -138,7 +136,7 @@ export const useSupabaseDataIsolated = () => {
         throw error;
       }
 
-      console.log(`Missões encontradas para empresa ${companyId}:`, data?.length || 0);
+      console.log(`Missões encontradas (com isolamento RLS):`, data?.length || 0);
       return data || [];
     } catch (error) {
       console.error('Erro ao buscar missões:', error);
@@ -157,18 +155,19 @@ export const useSupabaseDataIsolated = () => {
 
     try {
       setLoading(true);
-      console.log('Buscando receitas pendentes para empresa:', companyId);
+      console.log('Buscando receitas pendentes com RLS ativo para empresa:', companyId);
 
+      // RLS garante isolamento via mission_id
       const { data, error } = await supabase
         .from('pending_revenues')
         .select(`
           *,
-          missions!inner(
-            created_by,
-            profiles!inner(company_id)
+          missions(
+            title,
+            location,
+            client_name
           )
         `)
-        .eq('missions.profiles.company_id', companyId)
         .order('created_at', { ascending: false });
 
       if (error) {
@@ -176,7 +175,7 @@ export const useSupabaseDataIsolated = () => {
         throw error;
       }
 
-      console.log(`Receitas pendentes encontradas para empresa ${companyId}:`, data?.length || 0);
+      console.log(`Receitas pendentes encontradas (com isolamento RLS):`, data?.length || 0);
       return data || [];
     } catch (error) {
       console.error('Erro ao buscar receitas pendentes:', error);
@@ -195,18 +194,19 @@ export const useSupabaseDataIsolated = () => {
 
     try {
       setLoading(true);
-      console.log('Buscando receitas confirmadas para empresa:', companyId);
+      console.log('Buscando receitas confirmadas com RLS ativo para empresa:', companyId);
 
+      // RLS garante isolamento via mission_id
       const { data, error } = await supabase
         .from('confirmed_revenues')
         .select(`
           *,
-          missions!inner(
-            created_by,
-            profiles!inner(company_id)
+          missions(
+            title,
+            location,
+            client_name
           )
         `)
-        .eq('missions.profiles.company_id', companyId)
         .order('created_at', { ascending: false });
 
       if (error) {
@@ -214,7 +214,7 @@ export const useSupabaseDataIsolated = () => {
         throw error;
       }
 
-      console.log(`Receitas confirmadas encontradas para empresa ${companyId}:`, data?.length || 0);
+      console.log(`Receitas confirmadas encontradas (com isolamento RLS):`, data?.length || 0);
       return data || [];
     } catch (error) {
       console.error('Erro ao buscar receitas confirmadas:', error);

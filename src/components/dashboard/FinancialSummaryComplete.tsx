@@ -61,7 +61,7 @@ export const FinancialSummaryComplete = () => {
         return;
       }
 
-      // Buscar dados da empresa com isolamento correto
+      // Com RLS ativo, as consultas são automaticamente filtradas por empresa
       const [
         bankAccountsResult,
         creditCardsResult,
@@ -69,43 +69,30 @@ export const FinancialSummaryComplete = () => {
         paymentsResult,
         revenuesResult
       ] = await Promise.all([
-        // Contas bancárias da empresa (via user_id dos usuários da empresa)
+        // Contas bancárias (RLS ativo)
         supabase
           .from('bank_accounts')
-          .select('balance')
-          .in('user_id', [
-            companyId, // Pode ser que user_id seja usado como company_id em alguns casos
-          ]),
+          .select('balance'),
 
-        // Cartões de crédito da empresa
+        // Cartões de crédito (RLS ativo)
         supabase
           .from('credit_cards')
-          .select('credit_limit, available_limit, used_limit')
-          .in('user_id', [companyId]),
+          .select('credit_limit, available_limit, used_limit'),
 
-        // Transações da empresa
+        // Transações (RLS ativo)
         supabase
           .from('transactions')
-          .select('type, amount, status')
-          .eq('company_id', companyId),
+          .select('type, amount, status'),
 
-        // Pagamentos da empresa
+        // Pagamentos (RLS ativo)
         supabase
           .from('payments')
-          .select('amount, status')
-          .eq('company_id', companyId),
+          .select('amount, status'),
 
-        // Receitas confirmadas (via missões da empresa)
+        // Receitas confirmadas (RLS ativo)
         supabase
           .from('confirmed_revenues')
-          .select(`
-            total_amount,
-            missions!inner(
-              created_by,
-              profiles!inner(company_id)
-            )
-          `)
-          .eq('missions.profiles.company_id', companyId)
+          .select('total_amount')
       ]);
 
       // Processar contas bancárias
@@ -174,7 +161,6 @@ export const FinancialSummaryComplete = () => {
   };
 
   const liquidBalance = data.totalIncome - data.totalExpenses;
-  const creditUtilization = data.totalCreditLimit > 0 ? (data.totalCreditUsed / data.totalCreditLimit) * 100 : 0;
 
   return (
     <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
@@ -235,7 +221,7 @@ export const FinancialSummaryComplete = () => {
               {loading ? '---' : formatCurrency(liquidBalance)}
             </p>
             <p className="text-xs text-gray-500 mt-1">
-              {liquidBalance >= 0 ? '+12.4%' : 'Negativo'}
+              {liquidBalance >= 0 ? 'Positivo' : 'Negativo'}
             </p>
           </div>
           <DollarSign className={`h-8 w-8 ${liquidBalance >= 0 ? 'text-green-600' : 'text-red-600'}`} />
@@ -250,7 +236,7 @@ export const FinancialSummaryComplete = () => {
             <p className="text-2xl font-bold text-green-600">
               {loading ? '---' : formatCurrency(data.totalIncome)}
             </p>
-            <p className="text-xs text-green-600 mt-1">+8.7%</p>
+            <p className="text-xs text-green-600 mt-1">Total de entradas</p>
           </div>
           <TrendingUp className="h-8 w-8 text-green-600" />
         </div>
@@ -264,7 +250,7 @@ export const FinancialSummaryComplete = () => {
             <p className="text-2xl font-bold text-red-600">
               {loading ? '---' : formatCurrency(data.totalExpenses)}
             </p>
-            <p className="text-xs text-red-600 mt-1">-2.9%</p>
+            <p className="text-xs text-red-600 mt-1">Total de saídas</p>
           </div>
           <TrendingDown className="h-8 w-8 text-red-600" />
         </div>
@@ -278,23 +264,23 @@ export const FinancialSummaryComplete = () => {
             <p className="text-2xl font-bold text-orange-600">
               {loading ? '---' : formatCurrency(data.pendingPayments)}
             </p>
-            <p className="text-xs text-gray-500 mt-1">11 pendentes</p>
+            <p className="text-xs text-gray-500 mt-1">A pagar</p>
           </div>
           <Clock className="h-8 w-8 text-orange-600" />
         </div>
       </Card>
 
-      {/* Card 8 - Despesas Aprovadas */}
+      {/* Card 8 - Receitas Confirmadas */}
       <Card className="p-6">
         <div className="flex items-center justify-between">
           <div>
-            <p className="text-sm font-medium text-gray-600">Despesas Aprovadas</p>
-            <p className="text-2xl font-bold text-yellow-600">
-              {loading ? '---' : formatCurrency(0)}
+            <p className="text-sm font-medium text-gray-600">Receitas Confirmadas</p>
+            <p className="text-2xl font-bold text-blue-600">
+              {loading ? '---' : formatCurrency(data.confirmedRevenues)}
             </p>
-            <p className="text-xs text-gray-500 mt-1">0 para reembolso</p>
+            <p className="text-xs text-gray-500 mt-1">Já recebidas</p>
           </div>
-          <AlertTriangle className="h-8 w-8 text-yellow-600" />
+          <AlertTriangle className="h-8 w-8 text-blue-600" />
         </div>
       </Card>
     </div>
