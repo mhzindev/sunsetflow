@@ -1,3 +1,4 @@
+
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { useSupabaseDataIsolated } from '@/hooks/useSupabaseDataIsolated';
 import { useAuth } from './AuthContext';
@@ -319,5 +320,3 @@ export const useFinancial = () => {
   }
   return context;
 };
-
-}
