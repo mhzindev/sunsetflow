@@ -1,4 +1,3 @@
-
 import { useState } from 'react';
 import { TableCell, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
@@ -11,7 +10,7 @@ import { PaymentEditModal } from './PaymentEditModal';
 import { PaymentViewModal } from './PaymentViewModal';
 import { PaymentMarkAsPaidModal } from './PaymentMarkAsPaidModal';
 import { useToastFeedback } from '@/hooks/useToastFeedback';
-import { useFinancial } from '@/contexts/FinancialContext';
+import { useFinancialSimplified } from '@/contexts/FinancialContextSimplified';
 import { formatCurrency, formatDateForDisplay, parseDatabaseDate, convertToBrasiliaTimezone } from '@/utils/dateUtils';
 
 interface PaymentTableRowProps {
@@ -25,7 +24,7 @@ export const PaymentTableRow = ({ payment }: PaymentTableRowProps) => {
   const [isDeleting, setIsDeleting] = useState(false);
   
   const { showSuccess, showError } = useToastFeedback();
-  const { removePayment } = useFinancial();
+  const { removePayment } = useFinancialSimplified();
 
   const handleDelete = async () => {
     if (!confirm('Tem certeza que deseja excluir este pagamento?')) {
