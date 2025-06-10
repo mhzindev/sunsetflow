@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { useSupabaseDataIsolated } from '@/hooks/useSupabaseDataIsolated';
 import { useAuth } from './AuthContext';
+import { useCompanyIsolation } from '@/hooks/useCompanyIsolation';
 
 interface FinancialData {
   totalBalance: number;
@@ -42,6 +43,7 @@ const FinancialContext = createContext<FinancialContextType | undefined>(undefin
 
 export const FinancialProvider = ({ children }: { children: React.ReactNode }) => {
   const { profile } = useAuth();
+  const { isValidated, companyId } = useCompanyIsolation();
   const isOwner = profile?.role === 'admin' || profile?.user_type === 'admin';
   
   const [data, setData] = useState<FinancialData>({
@@ -76,10 +78,21 @@ export const FinancialProvider = ({ children }: { children: React.ReactNode }) =
   } = useSupabaseDataIsolated();
 
   const fetchData = async () => {
+    // Só buscar dados se estiver validado e tiver company_id
+    if (!isValidated || !companyId) {
+      console.log('FinancialContext: Aguardando validação de empresa...');
+      setData(prev => ({ 
+        ...prev, 
+        loading: false, 
+        error: 'Aguardando validação de empresa' 
+      }));
+      return;
+    }
+
     try {
       setData(prev => ({ ...prev, loading: true, error: null }));
 
-      console.log('FinancialContext: Iniciando busca de dados com isolamento RLS...');
+      console.log('FinancialContext: Iniciando busca de dados isolados para empresa:', companyId);
 
       const [transactions, expenses, payments, pendingRevenues, confirmedRevenues] = await Promise.all([
         fetchTransactions(),
@@ -89,7 +102,7 @@ export const FinancialProvider = ({ children }: { children: React.ReactNode }) =
         isOwner ? fetchConfirmedRevenues() : []
       ]);
 
-      console.log('FinancialContext: Dados carregados com isolamento RLS:', {
+      console.log('FinancialContext: Dados carregados com isolamento para empresa', companyId, {
         transactions: transactions?.length || 0,
         expenses: expenses?.length || 0,
         payments: payments?.length || 0,
@@ -150,10 +163,10 @@ export const FinancialProvider = ({ children }: { children: React.ReactNode }) =
         error: null
       });
 
-      console.log('FinancialContext: Dados processados com sucesso e isolamento RLS ativo');
+      console.log('FinancialContext: Dados processados com sucesso para empresa:', companyId);
 
     } catch (error: any) {
-      console.error('FinancialContext: Erro ao carregar dados:', error);
+      console.error('FinancialContext: Erro ao carregar dados para empresa', companyId, error);
       setData(prev => ({ 
         ...prev, 
         loading: false, 
@@ -266,11 +279,17 @@ export const FinancialProvider = ({ children }: { children: React.ReactNode }) =
   };
 
   useEffect(() => {
-    if (profile) {
-      console.log('FinancialContext: Perfil carregado, buscando dados com isolamento RLS...');
+    if (profile && isValidated && companyId) {
+      console.log('FinancialContext: Perfil e empresa validados, buscando dados isolados...');
       fetchData();
+    } else {
+      console.log('FinancialContext: Aguardando validação completa...', {
+        hasProfile: !!profile,
+        isValidated,
+        companyId
+      });
     }
-  }, [profile]);
+  }, [profile, isValidated, companyId]);
 
   const contextValue: FinancialContextType = {
     data,
@@ -300,3 +319,5 @@ export const useFinancial = () => {
   }
   return context;
 };
+
+}

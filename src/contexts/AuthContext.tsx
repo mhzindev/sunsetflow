@@ -52,35 +52,55 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     }
   };
 
+  const clearUserState = () => {
+    setUser(null);
+    setProfile(null);
+    setSession(null);
+  };
+
   useEffect(() => {
     // Set up auth state listener
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
-        console.log('Auth state changed:', event, session);
+        console.log('Auth state changed:', event, session?.user?.id);
+        
+        if (event === 'SIGNED_OUT' || !session) {
+          console.log('Usuário deslogado, limpando estado e redirecionando...');
+          clearUserState();
+          setLoading(false);
+          // Redirecionar para página de auth após logout
+          if (event === 'SIGNED_OUT') {
+            window.location.href = '/auth';
+          }
+          return;
+        }
+
         setSession(session);
-        setUser(session?.user ?? null);
+        setUser(session.user);
         
         if (session?.user) {
           // Aguardar criação do perfil com retry para novos signups
-          setTimeout(async () => {
-            const userProfile = await fetchProfile(session.user.id);
-            setProfile(userProfile);
-            setLoading(false);
-          }, 0);
-        } else {
-          setProfile(null);
-          setLoading(false);
+          const userProfile = await fetchProfile(session.user.id);
+          setProfile(userProfile);
         }
+        
+        setLoading(false);
       }
     );
 
     // Check for existing session
     supabase.auth.getSession().then(({ data: { session } }) => {
-      console.log('Initial session:', session);
-      setSession(session);
-      setUser(session?.user ?? null);
+      console.log('Initial session:', session?.user?.id);
       
-      if (session?.user) {
+      if (!session) {
+        setLoading(false);
+        return;
+      }
+      
+      setSession(session);
+      setUser(session.user);
+      
+      if (session.user) {
         fetchProfile(session.user.id).then((userProfile) => {
           setProfile(userProfile);
           setLoading(false);
@@ -124,10 +144,21 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   };
 
   const signOut = async () => {
-    await supabase.auth.signOut();
-    setUser(null);
-    setProfile(null);
-    setSession(null);
+    console.log('Iniciando logout...');
+    try {
+      const { error } = await supabase.auth.signOut();
+      if (error) {
+        console.error('Erro ao fazer logout:', error);
+      } else {
+        console.log('Logout realizado com sucesso');
+      }
+      // O estado será limpo pelo listener onAuthStateChange
+    } catch (error) {
+      console.error('Erro inesperado no logout:', error);
+      // Em caso de erro, limpar estado manualmente e redirecionar
+      clearUserState();
+      window.location.href = '/auth';
+    }
   };
 
   const value = {
@@ -138,10 +169,10 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     signUp,
     signIn,
     signOut,
-    isAuthenticated: !!user
+    isAuthenticated: !!user && !!session
   };
 
-  console.log('AuthProvider rendering with:', { user: !!user, profile: !!profile, loading, isAuthenticated: !!user });
+  console.log('AuthProvider rendering with:', { user: !!user, profile: !!profile, loading, isAuthenticated: !!user && !!session });
 
   return (
     <AuthContext.Provider value={value}>
