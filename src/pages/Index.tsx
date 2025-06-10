@@ -20,6 +20,7 @@ import { CashFlow } from '@/components/cashflow/CashFlow';
 const Index = () => {
   const { user, profile } = useAuth();
   const [currentSection, setCurrentSection] = useState('dashboard');
+  const [sidebarOpen, setSidebarOpen] = useState(true);
 
   if (!user || !profile) {
     return (
@@ -70,7 +71,11 @@ const Index = () => {
           onSectionChange={setCurrentSection} 
         />
         <div className="flex-1 flex flex-col">
-          <TopBar />
+          <TopBar 
+            activeSection={currentSection}
+            sidebarOpen={sidebarOpen}
+            setSidebarOpen={setSidebarOpen}
+          />
           <main className="flex-1 p-6 overflow-auto">
             {renderContent()}
           </main>
