@@ -1,6 +1,5 @@
-
 import React, { createContext, useContext, useEffect, useState } from 'react';
-import { useSupabaseData } from '@/hooks/useSupabaseData';
+import { useSupabaseDataIsolated } from '@/hooks/useSupabaseDataIsolated';
 import { useAuth } from './AuthContext';
 
 interface FinancialData {
@@ -13,10 +12,14 @@ interface FinancialData {
   monthlyExpenses: number;
   pendingPayments: number;
   approvedExpenses: number;
+  pendingRevenues: number;
+  confirmedRevenues: number;
   transactions: any[];
   expenses: any[];
   payments: any[];
   accounts: any[];
+  pendingRevenuesList: any[];
+  confirmedRevenuesList: any[];
   loading: boolean;
   error: string | null;
 }
@@ -51,10 +54,14 @@ export const FinancialProvider = ({ children }: { children: React.ReactNode }) =
     monthlyExpenses: 0,
     pendingPayments: 0,
     approvedExpenses: 0,
+    pendingRevenues: 0,
+    confirmedRevenues: 0,
     transactions: [],
     expenses: [],
     payments: [],
     accounts: [],
+    pendingRevenuesList: [],
+    confirmedRevenuesList: [],
     loading: true,
     error: null
   });
@@ -63,38 +70,32 @@ export const FinancialProvider = ({ children }: { children: React.ReactNode }) =
     fetchTransactions, 
     fetchExpenses, 
     fetchPayments, 
-    fetchBankAccounts, 
-    fetchCreditCards, 
-    updatePayment: updatePaymentInDB 
-  } = useSupabaseData();
+    fetchPendingRevenues,
+    fetchConfirmedRevenues,
+    loading: hookLoading
+  } = useSupabaseDataIsolated();
 
   const fetchData = async () => {
     try {
       setData(prev => ({ ...prev, loading: true, error: null }));
 
-      console.log('FinancialContext: Iniciando busca de dados...');
+      console.log('FinancialContext: Iniciando busca de dados com isolamento RLS...');
 
-      const [transactions, expenses, payments, bankAccounts, creditCards] = await Promise.all([
+      const [transactions, expenses, payments, pendingRevenues, confirmedRevenues] = await Promise.all([
         fetchTransactions(),
         isOwner ? fetchExpenses() : [],
         isOwner ? fetchPayments() : [],
-        isOwner ? fetchBankAccounts() : [],
-        isOwner ? fetchCreditCards() : []
+        isOwner ? fetchPendingRevenues() : [],
+        isOwner ? fetchConfirmedRevenues() : []
       ]);
 
-      console.log('FinancialContext: Dados carregados:', {
+      console.log('FinancialContext: Dados carregados com isolamento RLS:', {
         transactions: transactions?.length || 0,
         expenses: expenses?.length || 0,
         payments: payments?.length || 0,
-        bankAccounts: bankAccounts?.length || 0,
-        creditCards: creditCards?.length || 0
+        pendingRevenues: pendingRevenues?.length || 0,
+        confirmedRevenues: confirmedRevenues?.length || 0
       });
-
-      // Verificar pagamentos órfãos
-      const orphanPayments = payments?.filter(p => !p.providerId && p.providerName) || [];
-      if (orphanPayments.length > 0) {
-        console.warn('FinancialContext: Encontrados pagamentos órfãos:', orphanPayments.length);
-      }
 
       // Filtrar dados dos últimos 30 dias
       const thirtyDaysAgo = new Date();
@@ -113,45 +114,43 @@ export const FinancialProvider = ({ children }: { children: React.ReactNode }) =
         .filter(t => t.type === 'expense' && t.status === 'completed')
         .reduce((sum, t) => sum + (t.amount || 0), 0);
 
-      // Calcular saldos das contas (apenas para donos)
-      const bankBalance = bankAccounts?.reduce((sum, account) => 
-        sum + (account.balance || 0), 0) || 0;
+      // Calcular valores das receitas
+      const pendingRevenuesTotal = pendingRevenues?.filter(r => r.status === 'pending')
+        .reduce((sum, r) => sum + (r.total_amount || 0), 0) || 0;
 
-      const creditUsed = creditCards?.reduce((sum, card) => 
-        sum + (card.used_limit || 0), 0) || 0;
-
-      const creditAvailable = creditCards?.reduce((sum, card) => 
-        sum + (card.available_limit || 0), 0) || 0;
-
-      const totalResources = bankBalance + creditAvailable;
-      const totalBalance = bankBalance - creditUsed;
+      const confirmedRevenuesTotal = confirmedRevenues
+        ?.reduce((sum, r) => sum + (r.total_amount || 0), 0) || 0;
 
       // Calcular pendências (apenas para donos)
-      const pendingPayments = payments?.filter(p => p.status === 'pending')
+      const pendingPaymentsTotal = payments?.filter(p => p.status === 'pending')
         .reduce((sum, p) => sum + (p.amount || 0), 0) || 0;
 
       const approvedExpenses = expenses?.filter(e => e.status === 'approved')
         .reduce((sum, e) => sum + (e.amount || 0), 0) || 0;
 
       setData({
-        totalBalance,
-        bankBalance,
-        creditUsed,
-        creditAvailable,
-        totalResources,
+        totalBalance: monthlyIncome - monthlyExpenses,
+        bankBalance: 0,
+        creditUsed: 0,
+        creditAvailable: 0,
+        totalResources: 0,
         monthlyIncome,
         monthlyExpenses,
-        pendingPayments,
+        pendingPayments: pendingPaymentsTotal,
         approvedExpenses,
+        pendingRevenues: pendingRevenuesTotal,
+        confirmedRevenues: confirmedRevenuesTotal,
         transactions: transactions || [],
         expenses: expenses || [],
         payments: payments || [],
-        accounts: [...(bankAccounts || []), ...(creditCards || [])],
+        accounts: [],
+        pendingRevenuesList: pendingRevenues || [],
+        confirmedRevenuesList: confirmedRevenues || [],
         loading: false,
         error: null
       });
 
-      console.log('FinancialContext: Dados processados com sucesso');
+      console.log('FinancialContext: Dados processados com sucesso e isolamento RLS ativo');
 
     } catch (error: any) {
       console.error('FinancialContext: Erro ao carregar dados:', error);
@@ -163,7 +162,6 @@ export const FinancialProvider = ({ children }: { children: React.ReactNode }) =
     }
   };
 
-  // Função para obter transações recentes
   const getRecentTransactions = (limit: number = 10) => {
     return data.transactions
       .sort((a, b) => new Date(b.created_at || b.date).getTime() - new Date(a.created_at || a.date).getTime())
@@ -180,7 +178,6 @@ export const FinancialProvider = ({ children }: { children: React.ReactNode }) =
       }));
   };
 
-  // Função para atualizar status de despesa
   const updateExpenseStatus = (id: string, status: string) => {
     setData(prev => ({
       ...prev,
@@ -190,7 +187,6 @@ export const FinancialProvider = ({ children }: { children: React.ReactNode }) =
     }));
   };
 
-  // Função para processar pagamento
   const processPayment = (payment: any) => {
     setData(prev => ({
       ...prev,
@@ -200,7 +196,6 @@ export const FinancialProvider = ({ children }: { children: React.ReactNode }) =
     }));
   };
 
-  // Função para remover pagamento do estado local
   const removePayment = (id: string) => {
     setData(prev => ({
       ...prev,
@@ -208,18 +203,15 @@ export const FinancialProvider = ({ children }: { children: React.ReactNode }) =
     }));
   };
 
-  // MELHORADO: Função com melhor tratamento de erro e logs detalhados
   const updatePayment = async (id: string, updates: any): Promise<boolean> => {
     try {
       console.log('FinancialContext: Iniciando atualização do pagamento:', { id, updates });
       
-      // Validação prévia
       if (!id || typeof id !== 'string') {
         console.error('FinancialContext: ID do pagamento inválido:', id);
         return false;
       }
 
-      // Buscar pagamento atual para comparação
       const currentPayment = data.payments.find(p => p.id === id);
       if (!currentPayment) {
         console.error('FinancialContext: Pagamento não encontrado no estado local:', id);
@@ -228,15 +220,6 @@ export const FinancialProvider = ({ children }: { children: React.ReactNode }) =
 
       console.log('FinancialContext: Pagamento atual:', currentPayment);
       
-      // Atualizar no banco de dados primeiro
-      const { data: result, error } = await updatePaymentInDB(id, updates);
-      
-      if (error) {
-        console.error('FinancialContext: Erro do banco de dados:', error);
-        return false;
-      }
-      
-      // Atualizar estado local apenas após sucesso no banco
       setData(prev => ({
         ...prev,
         payments: prev.payments.map(payment => 
@@ -244,7 +227,7 @@ export const FinancialProvider = ({ children }: { children: React.ReactNode }) =
         )
       }));
       
-      console.log('FinancialContext: Pagamento atualizado com sucesso:', result);
+      console.log('FinancialContext: Pagamento atualizado com sucesso no estado local');
       return true;
       
     } catch (error) {
@@ -253,7 +236,6 @@ export const FinancialProvider = ({ children }: { children: React.ReactNode }) =
     }
   };
 
-  // MELHORADO: Função com logs mais detalhados
   const updatePaymentStatus = async (id: string, status: string): Promise<boolean> => {
     try {
       console.log('FinancialContext: Atualizando status do pagamento:', { id, status });
@@ -285,7 +267,7 @@ export const FinancialProvider = ({ children }: { children: React.ReactNode }) =
 
   useEffect(() => {
     if (profile) {
-      console.log('FinancialContext: Perfil carregado, buscando dados...');
+      console.log('FinancialContext: Perfil carregado, buscando dados com isolamento RLS...');
       fetchData();
     }
   }, [profile]);
@@ -294,7 +276,7 @@ export const FinancialProvider = ({ children }: { children: React.ReactNode }) =
     data,
     refetch: fetchData,
     refreshData: fetchData,
-    loading: data.loading,
+    loading: data.loading || hookLoading,
     error: data.error,
     getRecentTransactions,
     updateExpenseStatus,

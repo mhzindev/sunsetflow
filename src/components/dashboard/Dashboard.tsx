@@ -4,6 +4,7 @@ import { RecentTransactions } from "./RecentTransactions";
 import { CashFlowChart } from "./CashFlowChart";
 import { FinancialSummaryComplete } from "./FinancialSummaryComplete";
 import { RLSStatusIndicator } from "./RLSStatusIndicator";
+import { PendingRevenuesCard } from "./PendingRevenuesCard";
 import { useCompanyIsolation } from "@/hooks/useCompanyIsolation";
 import { useAuth } from "@/contexts/AuthContext";
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -78,6 +79,13 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
       <RLSStatusIndicator />
 
       <FinancialSummaryComplete />
+
+      {/* Adicionar card de receitas pendentes para donos */}
+      {isCompanyOwner && (
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+          <PendingRevenuesCard onNavigate={onNavigate} />
+        </div>
+      )}
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2">
