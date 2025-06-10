@@ -1,6 +1,6 @@
 
 import { Button } from "@/components/ui/button";
-import { useFinancial } from "@/contexts/FinancialContext";
+import { useFinancialSimplified } from "@/contexts/FinancialContextSimplified";
 import { useAuth } from "@/contexts/AuthContext";
 import { LogOut } from "lucide-react";
 
@@ -23,7 +23,7 @@ const sectionTitles: Record<string, string> = {
 };
 
 export const TopBar = ({ activeSection = 'dashboard', sidebarOpen = false, setSidebarOpen }: TopBarProps) => {
-  const { data } = useFinancial();
+  const { data } = useFinancialSimplified();
   const { profile, signOut } = useAuth();
 
   const getSectionTitle = () => {
