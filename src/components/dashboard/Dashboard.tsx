@@ -1,54 +1,54 @@
 
-import { CashFlowChart } from "@/components/dashboard/CashFlowChart";
-import { FinancialSummary } from "@/components/dashboard/FinancialSummary";
-import { QuickActions } from "@/components/dashboard/QuickActions";
-import { RecentTransactions } from "@/components/dashboard/RecentTransactions";
-import { FinancialSummaryDebug } from './FinancialSummaryDebug';
-import { RevenueManager } from "@/components/revenues/RevenueManager";
-import { ProviderDashboard } from "@/components/providers/ProviderDashboard";
-import { useAuth } from "@/contexts/AuthContext";
-import { Card } from "@/components/ui/card";
+import { QuickActions } from "./QuickActions";
+import { RecentTransactions } from "./RecentTransactions";
+import { CashFlowChart } from "./CashFlowChart";
+import { FinancialSummarySecure } from "./FinancialSummarySecure";
+import { useCompanyIsolation } from "@/hooks/useCompanyIsolation";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { AlertTriangle } from "lucide-react";
 
 interface DashboardProps {
   onNavigate: (section: string) => void;
 }
 
 export const Dashboard = ({ onNavigate }: DashboardProps) => {
-  const { profile } = useAuth();
-  const isOwner = profile?.role === 'admin' || profile?.user_type === 'admin';
-  const isProvider = profile?.user_type === 'provider';
+  const { isValidated, hasCompanyAccess } = useCompanyIsolation();
 
-  // Se for prestador, mostrar dashboard específico para prestadores
-  if (isProvider) {
-    return <ProviderDashboard />;
+  if (!hasCompanyAccess) {
+    return (
+      <div className="space-y-6">
+        <Alert className="border-orange-200 bg-orange-50">
+          <AlertTriangle className="h-4 w-4 text-orange-600" />
+          <AlertDescription className="text-orange-700">
+            <strong>Acesso Restrito:</strong> Sua conta não está associada a nenhuma empresa. 
+            Entre em contato com o administrador do sistema para obter acesso aos dados.
+          </AlertDescription>
+        </Alert>
+      </div>
+    );
   }
 
-  // Dashboard completo para donos da empresa
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <h1 className="text-3xl font-bold text-slate-800">Dashboard Financeiro</h1>
-        {isOwner && (
-          <div className="text-sm text-green-600 bg-green-50 px-3 py-1 rounded-lg">
-            Visão completa da empresa
-          </div>
-        )}
+      <div>
+        <h2 className="text-3xl font-bold text-slate-800">Dashboard</h2>
+        <p className="text-slate-600">
+          Visão geral das suas finanças e atividades recentes
+        </p>
       </div>
-      
-      <FinancialSummary />
-      
-      {/* Componente temporário de debug - remover em produção */}
-      <FinancialSummaryDebug />
-      
-      {/* Adicionar gerenciador de receitas */}
-      <RevenueManager />
-      
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <CashFlowChart />
-        <RecentTransactions />
+
+      <FinancialSummarySecure />
+
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div className="lg:col-span-2">
+          <CashFlowChart />
+        </div>
+        <div>
+          <QuickActions onNavigate={onNavigate} />
+        </div>
       </div>
-      
-      <QuickActions onNavigate={onNavigate} />
+
+      <RecentTransactions />
     </div>
   );
 };
