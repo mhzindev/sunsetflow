@@ -1,11 +1,10 @@
-
 import { Card } from "@/components/ui/card";
 import { TrendingUp, TrendingDown, DollarSign } from "lucide-react";
-import { useFinancial } from "@/contexts/FinancialContext";
+import { useFinancialSimplified } from "@/contexts/FinancialContextSimplified";
 import { useMemo } from "react";
 
 export const CashFlowChart = () => {
-  const { data } = useFinancial();
+  const { data } = useFinancialSimplified();
 
   // Calcular dados dos últimos 6 meses
   const chartData = useMemo(() => {
