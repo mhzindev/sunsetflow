@@ -21,16 +21,31 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Shield } from 'lucide-react';
 
 const IndexSimplified = () => {
-  const { user, profile } = useAuth();
+  const { user, profile, loading } = useAuth();
   const [currentSection, setCurrentSection] = useState('dashboard');
   const [sidebarOpen, setSidebarOpen] = useState(true);
 
-  if (!user || !profile) {
+  console.log('IndexSimplified rendering:', { user: !!user, profile: !!profile, loading });
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center space-y-3">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
+          <h2 className="text-xl font-semibold text-gray-900">Carregando...</h2>
+          <p className="text-gray-600">Carregando aplicação</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!user) {
+    console.log('IndexSimplified: Usuário não encontrado, não deveria estar aqui');
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
-          <h2 className="text-xl font-semibold text-gray-900">Carregando...</h2>
-          <p className="text-gray-600">Verificando autenticação</p>
+          <h2 className="text-xl font-semibold text-gray-900">Erro de Autenticação</h2>
+          <p className="text-gray-600">Por favor, faça login novamente</p>
         </div>
       </div>
     );
@@ -41,10 +56,8 @@ const IndexSimplified = () => {
       case 'dashboard':
         return (
           <div className="space-y-6">
-            {/* Monitor de Status RLS */}
             <RLSStatusMonitor />
             
-            {/* Aviso sobre o novo sistema */}
             <Alert className="border-blue-200 bg-blue-50">
               <Shield className="h-4 w-4 text-blue-600" />
               <AlertDescription className="text-blue-700">
