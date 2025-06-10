@@ -2,7 +2,7 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ArrowUpRight, ArrowDownRight, Eye, RefreshCw, AlertCircle } from "lucide-react";
-import { useFinancial } from "@/contexts/FinancialContext";
+import { useFinancialSimplified } from "@/contexts/FinancialContextSimplified";
 import { useTransactionSync } from "@/hooks/useTransactionSync";
 import { useState } from "react";
 
@@ -11,7 +11,7 @@ interface RecentTransactionsProps {
 }
 
 export const RecentTransactions = ({ onViewAll }: RecentTransactionsProps) => {
-  const { getRecentTransactions, loading, error } = useFinancial();
+  const { getRecentTransactions, loading, error } = useFinancialSimplified();
   const { syncTransactions, isRetrying, retryCount } = useTransactionSync();
   const [refreshing, setRefreshing] = useState(false);
   const recentTransactions = getRecentTransactions(4);
