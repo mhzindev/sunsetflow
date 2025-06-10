@@ -1,11 +1,11 @@
 
-import { useFinancial } from '@/contexts/FinancialContext';
+import { useFinancialSimplified } from '@/contexts/FinancialContextSimplified';
 import { PDFReportGenerator } from '@/utils/pdfGenerator';
 import { useToastFeedback } from '@/hooks/useToastFeedback';
 import { useState } from 'react';
 
 export const useReportGenerator = () => {
-  const { data } = useFinancial();
+  const { data } = useFinancialSimplified();
   const { showSuccess, showError } = useToastFeedback();
   const [isGenerating, setIsGenerating] = useState(false);
 

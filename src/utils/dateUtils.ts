@@ -1,3 +1,4 @@
+
 /**
  * Utilitários de data corrigidos DEFINITIVAMENTE para timezone de Brasília (America/Sao_Paulo)
  * Versão 3.0 - Corrige TODOS os problemas de timezone incluindo created_at
@@ -127,9 +128,16 @@ export const formatDateForDatabase = (date?: Date): string => {
 
 /**
  * Converte uma string de data do banco (YYYY-MM-DD) para um objeto Date no timezone de Brasília
+ * CORRIGIDO: Agora trata casos onde dateString é undefined ou null
  */
-export const parseDatabaseDate = (dateString: string): Date => {
+export const parseDatabaseDate = (dateString: string | null | undefined): Date => {
   console.log('parseDatabaseDate - String recebida:', dateString);
+  
+  // Verificar se dateString existe e é uma string válida
+  if (!dateString || typeof dateString !== 'string') {
+    console.warn('parseDatabaseDate - String de data inválida ou undefined:', dateString);
+    return getBrasiliaDate();
+  }
   
   // Se é uma data ISO completa, parse diretamente e converter timezone
   if (dateString.includes('T')) {
