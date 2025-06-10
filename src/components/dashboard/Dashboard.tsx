@@ -2,7 +2,7 @@
 import { QuickActions } from "./QuickActions";
 import { RecentTransactions } from "./RecentTransactions";
 import { CashFlowChart } from "./CashFlowChart";
-import { FinancialSummarySecure } from "./FinancialSummarySecure";
+import { FinancialSummaryComplete } from "./FinancialSummaryComplete";
 import { useCompanyIsolation } from "@/hooks/useCompanyIsolation";
 import { useAuth } from "@/contexts/AuthContext";
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -51,9 +51,9 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
       <div>
         <div className="flex items-center justify-between">
           <div>
-            <h2 className="text-3xl font-bold text-slate-800">Dashboard</h2>
+            <h2 className="text-3xl font-bold text-slate-800">Dashboard Financeiro</h2>
             <p className="text-slate-600">
-              Visão geral das suas finanças e atividades recentes
+              Visão completa da empresa
             </p>
           </div>
           <div className="flex items-center space-x-2">
@@ -73,7 +73,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
         </div>
       </div>
 
-      <FinancialSummarySecure />
+      <FinancialSummaryComplete />
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2">

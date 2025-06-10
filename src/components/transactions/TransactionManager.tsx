@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -8,7 +7,7 @@ import { TransactionForm } from './TransactionForm';
 import { TransactionCategories } from './TransactionCategories';
 import { SortSelector, SortOption } from '@/components/common/SortSelector';
 import { useAuth } from "@/contexts/AuthContext";
-import { useSupabaseData } from "@/hooks/useSupabaseData";
+import { useSupabaseDataIsolated } from "@/hooks/useSupabaseDataIsolated";
 import { Plus, RefreshCw, AlertCircle, Info, CheckCircle, Eye } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -22,7 +21,7 @@ export const TransactionManager = () => {
   const [error, setError] = useState<string | null>(null);
   const [debugInfo, setDebugInfo] = useState<string>('');
   const [sortOrder, setSortOrder] = useState<SortOption>('newest');
-  const { fetchTransactions } = useSupabaseData();
+  const { fetchTransactions } = useSupabaseDataIsolated();
 
   const isOwner = profile?.role === 'admin' || profile?.user_type === 'admin';
   const isProvider = profile?.user_type === 'provider';
@@ -33,38 +32,29 @@ export const TransactionManager = () => {
       setError(null);
       setDebugInfo('');
       
-      console.log('=== DEBUG: Carregando transações com nova lógica hierárquica ===');
+      console.log('=== DEBUG: Carregando transações com isolamento por empresa ===');
       console.log('User ID:', user?.id);
       console.log('User email:', user?.email);
       console.log('Profile:', profile);
+      console.log('Company ID:', profile?.company_id);
       console.log('É dono?', isOwner);
       console.log('É prestador?', isProvider);
       
       const data = await fetchTransactions();
       
-      console.log('=== DEBUG: Dados retornados com RLS hierárquica ===');
+      console.log('=== DEBUG: Dados retornados com isolamento ===');
       console.log('Tipo dos dados:', typeof data);
       console.log('É array?', Array.isArray(data));
       console.log('Quantidade de items:', data?.length);
       
-      if (isOwner) {
-        console.log('DONO DA EMPRESA: Deve ver todas as transações');
-        const revenueTransactions = data?.filter(t => 
-          t.type === 'income' && (t.category === 'fuel' || t.category === 'accommodation')
-        ) || [];
-        console.log('Receitas de deslocamento/hospedagem:', revenueTransactions.length);
-      } else {
-        console.log('PRESTADOR: Deve ver apenas suas próprias transações');
-      }
-      
       if (Array.isArray(data)) {
         setTransactions(data);
-        setDebugInfo(`${isOwner ? 'DONO' : 'PRESTADOR'}: ${data.length} transações carregadas`);
+        setDebugInfo(`${isOwner ? 'DONO' : 'PRESTADOR'}: ${data.length} transações da empresa`);
         
         if (showToast) {
           toast({
             title: "Transações atualizadas",
-            description: `${data.length} transações carregadas ${isOwner ? '(visão completa da empresa)' : '(suas transações)'}.`,
+            description: `${data.length} transações carregadas da sua empresa.`,
           });
         }
       } else {
@@ -92,9 +82,9 @@ export const TransactionManager = () => {
   };
 
   useEffect(() => {
-    console.log('=== DEBUG: useEffect executado com nova lógica ===');
+    console.log('=== DEBUG: useEffect executado com isolamento ===');
     loadTransactions();
-  }, [user, profile]); // Dependência do profile para recarregar quando o tipo mudar
+  }, [user, profile]);
 
   const handleNewTransaction = () => {
     setActiveTab('new');
@@ -115,17 +105,14 @@ export const TransactionManager = () => {
 
   const handleViewTransaction = (id: string) => {
     console.log('View transaction:', id);
-    // TODO: Implementar modal de visualização
   };
 
   const handleEditTransaction = (id: string) => {
     console.log('Edit transaction:', id);
-    // TODO: Implementar modal de edição
   };
 
   const handleDeleteTransaction = (id: string) => {
     console.log('Delete transaction:', id);
-    // TODO: Implementar exclusão
   };
 
   // Aplicar ordenação às transações
@@ -135,12 +122,10 @@ export const TransactionManager = () => {
         case 'alphabetical':
           return (a.description || '').localeCompare(b.description || '');
         case 'newest':
-          // Usar created_at se disponível, senão date
           const dateA = a.created_at ? new Date(a.created_at).getTime() : new Date(a.date).getTime();
           const dateB = b.created_at ? new Date(b.created_at).getTime() : new Date(b.date).getTime();
           return dateB - dateA;
         case 'oldest':
-          // Usar created_at se disponível, senão date
           const dateAOld = a.created_at ? new Date(a.created_at).getTime() : new Date(a.date).getTime();
           const dateBOld = b.created_at ? new Date(b.created_at).getTime() : new Date(b.date).getTime();
           return dateAOld - dateBOld;
@@ -171,9 +156,6 @@ export const TransactionManager = () => {
   // Filtrar transações por tipo para mostrar estatísticas
   const revenueTransactions = mappedTransactions.filter(t => t.type === 'income');
   const expenseTransactions = mappedTransactions.filter(t => t.type === 'expense');
-  const providerRevenueTransactions = revenueTransactions.filter(t => 
-    t.category === 'fuel' || t.category === 'accommodation'
-  );
 
   if (error && !loading) {
     return (
@@ -212,10 +194,7 @@ export const TransactionManager = () => {
               {isProvider && <span className="ml-2 text-blue-600">(Minhas Transações)</span>}
             </h3>
             <p className="text-slate-600">
-              {isOwner 
-                ? 'Visualize e gerencie todas as transações da empresa, incluindo receitas de deslocamento e hospedagem dos prestadores.'
-                : 'Registre suas despesas de viagem e visualize seus lançamentos.'
-              }
+              Visualize e gerencie as transações da sua empresa com isolamento total de dados.
             </p>
             <div className="text-sm text-slate-500 mt-2 space-y-1">
               <div className="flex items-center gap-2">
@@ -224,12 +203,6 @@ export const TransactionManager = () => {
                   <CheckCircle className="w-4 h-4 text-green-500" />
                 )}
               </div>
-              {isOwner && providerRevenueTransactions.length > 0 && (
-                <div className="flex items-center gap-2 text-green-600">
-                  <Eye className="w-4 h-4" />
-                  <span>Receitas de prestadores: {providerRevenueTransactions.length}</span>
-                </div>
-              )}
               {debugInfo && (
                 <p className="text-blue-600">Debug: {debugInfo}</p>
               )}
@@ -255,17 +228,11 @@ export const TransactionManager = () => {
           </div>
         </div>
 
-        {/* Mostrar estatísticas para donos */}
         {isOwner && !loading && (
           <Alert className="mb-4">
             <Info className="h-4 w-4" />
             <AlertDescription>
-              <strong>Estatísticas:</strong> {revenueTransactions.length} receitas, {expenseTransactions.length} despesas.
-              {providerRevenueTransactions.length > 0 && (
-                <span className="text-green-600 ml-2">
-                  Incluindo {providerRevenueTransactions.length} receitas de deslocamento/hospedagem.
-                </span>
-              )}
+              <strong>Isolamento ativo:</strong> Exibindo apenas dados da sua empresa ({revenueTransactions.length} receitas, {expenseTransactions.length} despesas).
             </AlertDescription>
           </Alert>
         )}
@@ -286,10 +253,7 @@ export const TransactionManager = () => {
               <div className="text-center py-8">
                 <RefreshCw className="w-8 h-8 animate-spin mx-auto mb-4 text-blue-500" />
                 <p className="text-slate-600">Carregando transações...</p>
-                <p className="text-sm text-blue-500 mt-2">Usando nova lógica hierárquica RLS</p>
-                {debugInfo && (
-                  <p className="text-sm text-blue-500 mt-2">Debug: {debugInfo}</p>
-                )}
+                <p className="text-sm text-blue-500 mt-2">Com isolamento por empresa</p>
               </div>
             ) : (
               <div className="space-y-4">
