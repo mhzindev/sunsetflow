@@ -23,7 +23,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
 
-  const fetchProfile = async (userId: string) => {
+  const fetchProfile = async (userId: string, retryCount = 0) => {
     try {
       const { data, error } = await supabase
         .from('profiles')
@@ -33,6 +33,15 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
       if (error) {
         console.error('Erro ao buscar perfil:', error);
+        
+        // Se o perfil não foi encontrado e não excedeu o limite de tentativas,
+        // aguardar um pouco e tentar novamente (para aguardar trigger de criação automática)
+        if (error.code === 'PGRST116' && retryCount < 3) {
+          console.log(`Perfil não encontrado, tentativa ${retryCount + 1}/3. Aguardando...`);
+          await new Promise(resolve => setTimeout(resolve, 1000));
+          return fetchProfile(userId, retryCount + 1);
+        }
+        
         return null;
       }
 
@@ -52,7 +61,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         setUser(session?.user ?? null);
         
         if (session?.user) {
-          // Fetch user profile when authenticated
+          // Aguardar criação do perfil com retry para novos signups
           setTimeout(async () => {
             const userProfile = await fetchProfile(session.user.id);
             setProfile(userProfile);

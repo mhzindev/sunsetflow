@@ -3,6 +3,7 @@ import { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { useToastFeedback } from './useToastFeedback';
+import { hasCompanyAccess, isCompanyOwner, getUserAccessLevel } from '@/utils/companyUtils';
 
 export const useCompanyIsolation = () => {
   const { profile } = useAuth();
@@ -19,9 +20,16 @@ export const useCompanyIsolation = () => {
       return;
     }
 
-    // Verificar se o usuário tem company_id válido
-    if (!profile.company_id) {
-      showError('Acesso Restrito', 'Usuário não está associado a nenhuma empresa. Entre em contato com o administrador.');
+    // Verificar se o usuário tem acesso válido à empresa
+    if (!hasCompanyAccess(profile)) {
+      const accessLevel = getUserAccessLevel(profile);
+      
+      if (accessLevel === 'none') {
+        showError('Acesso Restrito', 'Usuário não está associado a nenhuma empresa. Entre em contato com o administrador.');
+      } else if (accessLevel === 'provider' && !profile.provider_id) {
+        showError('Acesso Restrito', 'Prestador sem ID válido. Entre em contato com o administrador.');
+      }
+      
       setIsValidated(false);
       return;
     }
@@ -54,6 +62,8 @@ export const useCompanyIsolation = () => {
     ensureCompanyData,
     getUserCompanyId,
     validateCompanyOwnership,
-    hasCompanyAccess: !!profile?.company_id
+    hasCompanyAccess: hasCompanyAccess(profile),
+    isCompanyOwner: isCompanyOwner(profile),
+    accessLevel: getUserAccessLevel(profile)
   };
 };
