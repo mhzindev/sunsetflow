@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -27,17 +26,21 @@ export const CashFlowProjections = () => {
     try {
       setLoading(true);
       
-      // Buscar projeções usando a view criada
-      const { data: projectionsData, error } = await supabase
-        .from('cash_flow_projections')
-        .select('*')
-        .order('month');
+      // Use the new secure function instead of the problematic view
+      const { data: projectionsData, error } = await supabase.rpc('get_cash_flow_projections');
 
       if (error) {
         console.error('Erro ao buscar projeções:', error);
         setProjections([]);
       } else {
-        setProjections(projectionsData || []);
+        // Transform the data to match the expected format
+        const transformedData = (projectionsData || []).map(item => ({
+          month: item.month,
+          type: item.type,
+          amount: item.amount,
+          description: item.description
+        }));
+        setProjections(transformedData);
       }
     } catch (err) {
       console.error('Erro ao carregar projeções:', err);

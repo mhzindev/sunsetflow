@@ -4,6 +4,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { isAdmin } from '@/utils/authUtils';
 import { useToastFeedback } from './useToastFeedback';
+import { getUserCompanyId } from '@/utils/securityValidation';
 
 export const useSecureAuth = () => {
   const { profile } = useAuth();
@@ -18,6 +19,27 @@ export const useSecureAuth = () => {
 
     if (requiredRole === 'admin' && !isAdmin(profile)) {
       showError('Acesso Negado', 'Permissões insuficientes para esta operação');
+      return false;
+    }
+
+    return true;
+  };
+
+  const validateCompanyAccess = async (dataCompanyId: string | null): Promise<boolean> => {
+    if (!profile?.id) {
+      showError('Erro de Segurança', 'Usuário não identificado');
+      return false;
+    }
+
+    const userCompanyId = await getUserCompanyId(supabase, profile.id);
+    
+    if (!userCompanyId) {
+      showError('Erro de Segurança', 'Empresa do usuário não identificada');
+      return false;
+    }
+
+    if (dataCompanyId && userCompanyId !== dataCompanyId) {
+      showError('Acesso Negado', 'Dados de outra empresa não podem ser acessados');
       return false;
     }
 
@@ -63,6 +85,7 @@ export const useSecureAuth = () => {
   return {
     loading,
     validatePermission,
+    validateCompanyAccess,
     secureProviderAccess,
     secureEmployeeAccess
   };

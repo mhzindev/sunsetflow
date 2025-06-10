@@ -438,6 +438,7 @@ export type Database = {
           account_id: string | null
           account_type: string | null
           amount: number
+          company_id: string | null
           created_at: string | null
           current_installment: number | null
           description: string
@@ -457,6 +458,7 @@ export type Database = {
           account_id?: string | null
           account_type?: string | null
           amount: number
+          company_id?: string | null
           created_at?: string | null
           current_installment?: number | null
           description: string
@@ -476,6 +478,7 @@ export type Database = {
           account_id?: string | null
           account_type?: string | null
           amount?: number
+          company_id?: string | null
           created_at?: string | null
           current_installment?: number | null
           description?: string
@@ -739,6 +742,7 @@ export type Database = {
           account_type: string | null
           amount: number
           category: Database["public"]["Enums"]["transaction_category"]
+          company_id: string | null
           created_at: string | null
           date: string
           description: string
@@ -758,6 +762,7 @@ export type Database = {
           account_type?: string | null
           amount: number
           category: Database["public"]["Enums"]["transaction_category"]
+          company_id?: string | null
           created_at?: string | null
           date: string
           description: string
@@ -777,6 +782,7 @@ export type Database = {
           account_type?: string | null
           amount?: number
           category?: Database["public"]["Enums"]["transaction_category"]
+          company_id?: string | null
           created_at?: string | null
           date?: string
           description?: string
@@ -803,15 +809,7 @@ export type Database = {
       }
     }
     Views: {
-      cash_flow_projections: {
-        Row: {
-          amount: number | null
-          description: string | null
-          month: string | null
-          type: string | null
-        }
-        Relationships: []
-      }
+      [_ in never]: never
     }
     Functions: {
       admin_find_employee_access: {
@@ -878,6 +876,15 @@ export type Database = {
           active: boolean
           created_at: string
           updated_at: string
+        }[]
+      }
+      get_cash_flow_projections: {
+        Args: Record<PropertyKey, never>
+        Returns: {
+          month: string
+          type: string
+          amount: number
+          description: string
         }[]
       }
       get_current_user_role: {

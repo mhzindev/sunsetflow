@@ -28,3 +28,30 @@ export const isValidUUID = (uuid: string): boolean => {
   const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
   return uuidRegex.test(uuid);
 };
+
+// Add security validation for company isolation
+export const validateCompanyAccess = (userCompanyId: string | null, dataCompanyId: string | null): boolean => {
+  if (!userCompanyId || !dataCompanyId) return false;
+  return userCompanyId === dataCompanyId;
+};
+
+// Get user's company ID from profile for security checks
+export const getUserCompanyId = async (supabase: any, userId: string): Promise<string | null> => {
+  try {
+    const { data, error } = await supabase
+      .from('profiles')
+      .select('company_id')
+      .eq('id', userId)
+      .single();
+    
+    if (error) {
+      console.error('Error fetching user company ID:', error);
+      return null;
+    }
+    
+    return data?.company_id || null;
+  } catch (error) {
+    console.error('Error in getUserCompanyId:', error);
+    return null;
+  }
+};
