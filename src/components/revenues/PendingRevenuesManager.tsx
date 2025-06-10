@@ -6,13 +6,13 @@ import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Eye, DollarSign, Calendar, AlertTriangle, X } from 'lucide-react';
 import { usePendingRevenues } from '@/hooks/usePendingRevenues';
-import { useFinancial } from '@/contexts/FinancialContext';
+import { useFinancialSimplified } from '@/contexts/FinancialContextSimplified';
 import { PendingRevenueModal } from './PendingRevenueModal';
 import { formatCurrency } from '@/utils/dateUtils';
 
 export const PendingRevenuesManager = () => {
   const { pendingRevenues, loading, convertToConfirmed, cancelPendingRevenue } = usePendingRevenues();
-  const { data } = useFinancial();
+  const { data } = useFinancialSimplified();
   const [selectedRevenue, setSelectedRevenue] = useState<any>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
 
