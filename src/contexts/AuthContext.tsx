@@ -23,7 +23,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
 
-  const fetchProfile = async (userId: string, retryCount = 0) => {
+  const fetchProfile = async (userId: string) => {
     try {
       console.log('Buscando perfil para usuário:', userId);
       
@@ -36,11 +36,28 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       if (error) {
         console.error('Erro ao buscar perfil:', error);
         
-        // Se o perfil não foi encontrado e não excedeu o limite de tentativas
-        if (error.code === 'PGRST116' && retryCount < 3) {
-          console.log(`Perfil não encontrado, tentativa ${retryCount + 1}/3. Aguardando criação...`);
-          await new Promise(resolve => setTimeout(resolve, 2000));
-          return fetchProfile(userId, retryCount + 1);
+        // Se perfil não encontrado, criar um básico
+        if (error.code === 'PGRST116') {
+          console.log('Perfil não encontrado, criando perfil básico...');
+          const { data: newProfile, error: createError } = await supabase
+            .from('profiles')
+            .insert({
+              id: userId,
+              email: user?.email || '',
+              name: user?.user_metadata?.name || 'Usuário',
+              role: 'user',
+              active: true
+            })
+            .select()
+            .single();
+
+          if (createError) {
+            console.error('Erro ao criar perfil:', createError);
+            return null;
+          }
+
+          console.log('Perfil criado:', newProfile);
+          return newProfile;
         }
         
         return null;
@@ -68,7 +85,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       if (event === 'SIGNED_OUT' || !newSession) {
         console.log('Usuário deslogado ou sessão inválida');
         clearUserState();
-        setLoading(false);
         return;
       }
 
@@ -79,17 +95,33 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         
         if (newSession.user) {
           console.log('Buscando perfil do usuário...');
-          const userProfile = await fetchProfile(newSession.user.id);
-          setProfile(userProfile);
           
-          if (!userProfile) {
-            console.warn('Perfil não encontrado após tentativas. Usuário pode precisar completar cadastro.');
+          // Timeout de segurança para busca de perfil
+          const timeoutPromise = new Promise((_, reject) => 
+            setTimeout(() => reject(new Error('Timeout ao buscar perfil')), 10000)
+          );
+          
+          try {
+            const userProfile = await Promise.race([
+              fetchProfile(newSession.user.id),
+              timeoutPromise
+            ]);
+            
+            setProfile(userProfile as Profile | null);
+            
+            if (!userProfile) {
+              console.warn('Perfil não encontrado, mas permitindo acesso ao sistema');
+            }
+          } catch (timeoutError) {
+            console.warn('Timeout na busca do perfil, permitindo acesso sem perfil:', timeoutError);
+            setProfile(null);
           }
         }
       }
     } catch (error) {
       console.error('Erro ao processar mudança de estado de auth:', error);
     } finally {
+      // SEMPRE definir loading como false
       setLoading(false);
     }
   };
@@ -97,14 +129,31 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   useEffect(() => {
     console.log('Configurando AuthProvider...');
     
-    // Configurar listener de mudanças de estado ANTES de verificar sessão existente
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(handleAuthStateChange);
+    let mounted = true;
+    
+    // Configurar listener de mudanças de estado
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+      if (mounted) {
+        await handleAuthStateChange(event, session);
+      }
+    });
 
-    // Verificar sessão existente
+    // Verificar sessão existente com timeout
     const initializeAuth = async () => {
       try {
         console.log('Verificando sessão existente...');
-        const { data: { session }, error } = await supabase.auth.getSession();
+        
+        // Timeout de segurança para getSession
+        const timeoutPromise = new Promise((_, reject) => 
+          setTimeout(() => reject(new Error('Timeout ao verificar sessão')), 8000)
+        );
+        
+        const sessionResult = await Promise.race([
+          supabase.auth.getSession(),
+          timeoutPromise
+        ]);
+        
+        const { data: { session }, error } = sessionResult as any;
         
         if (error) {
           console.error('Erro ao obter sessão:', error);
@@ -119,19 +168,33 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         }
 
         console.log('Sessão existente encontrada:', session.user.id);
-        await handleAuthStateChange('SIGNED_IN', session);
+        if (mounted) {
+          await handleAuthStateChange('SIGNED_IN', session);
+        }
         
       } catch (error) {
         console.error('Erro na inicialização da autenticação:', error);
-        setLoading(false);
+        if (mounted) {
+          setLoading(false);
+        }
       }
     };
 
     initializeAuth();
 
+    // Fallback de segurança - sempre parar loading após 15 segundos
+    const fallbackTimeout = setTimeout(() => {
+      if (mounted && loading) {
+        console.warn('Timeout de segurança ativado - parando loading');
+        setLoading(false);
+      }
+    }, 15000);
+
     return () => {
+      mounted = false;
       console.log('Desvinculando listener de autenticação');
       subscription.unsubscribe();
+      clearTimeout(fallbackTimeout);
     };
   }, []);
 
@@ -192,15 +255,15 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       
       if (error) {
         console.error('Erro ao fazer logout:', error);
-        // Mesmo com erro, limpar estado local
-        clearUserState();
       } else {
         console.log('Logout realizado com sucesso');
       }
       
+      // Sempre limpar estado local
+      clearUserState();
+      
     } catch (error) {
       console.error('Erro inesperado no logout:', error);
-      // Em caso de erro, limpar estado manualmente
       clearUserState();
     } finally {
       setLoading(false);
