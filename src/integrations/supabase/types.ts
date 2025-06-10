@@ -860,6 +860,10 @@ export type Database = {
         }
         Returns: Json
       }
+      custom_access_token_hook: {
+        Args: { event: Json }
+        Returns: Json
+      }
       fix_orphan_payments: {
         Args: Record<PropertyKey, never>
         Returns: Json
@@ -916,6 +920,10 @@ export type Database = {
       get_payment_by_id: {
         Args: { payment_id: string }
         Returns: Json
+      }
+      get_user_company_id: {
+        Args: Record<PropertyKey, never>
+        Returns: string
       }
       get_user_transactions_simple: {
         Args: Record<PropertyKey, never>
