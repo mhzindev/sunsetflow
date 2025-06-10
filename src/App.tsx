@@ -4,8 +4,8 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
-import { AuthProvider, useAuth } from "@/contexts/AuthContext";
-import IndexSimplified from "./pages/IndexSimplified";
+import { AuthProvider, useAuth } from "@/contexts/AuthContextOptimized";
+import IndexOptimized from "./pages/IndexOptimized";
 import Auth from "./pages/Auth";
 import NotFound from "./pages/NotFound";
 
@@ -28,7 +28,6 @@ const LoadingScreen = ({ message }: { message: string }) => (
   </div>
 );
 
-// Componente para proteger rotas autenticadas
 const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
   const { user, loading } = useAuth();
   
@@ -46,7 +45,6 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
   return <>{children}</>;
 };
 
-// Componente para redirecionar usuários autenticados da página de auth
 const AuthRoute = ({ children }: { children: React.ReactNode }) => {
   const { user, loading } = useAuth();
   
@@ -74,7 +72,7 @@ const App = () => (
               path="/" 
               element={
                 <ProtectedRoute>
-                  <IndexSimplified />
+                  <IndexOptimized />
                 </ProtectedRoute>
               } 
             />
