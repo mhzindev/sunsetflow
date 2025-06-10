@@ -8,7 +8,7 @@ import { PendingRevenuesCard } from "./PendingRevenuesCard";
 import { useCompanyIsolation } from "@/hooks/useCompanyIsolation";
 import { useAuth } from "@/contexts/AuthContext";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { AlertTriangle, Building2, Crown } from "lucide-react";
+import { Building2, Crown } from "lucide-react";
 
 interface DashboardProps {
   onNavigate: (section: string) => void;
@@ -33,7 +33,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
     return (
       <div className="space-y-6">
         <Alert className="border-orange-200 bg-orange-50">
-          <AlertTriangle className="h-4 w-4 text-orange-600" />
+          <Building2 className="h-4 w-4 text-orange-600" />
           <AlertDescription className="text-orange-700">
             <strong>Acesso Restrito:</strong> Sua conta não está associada a nenhuma empresa. 
             {accessLevel === 'none' && (
@@ -55,7 +55,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
           <div>
             <h2 className="text-3xl font-bold text-slate-800">Dashboard Financeiro</h2>
             <p className="text-slate-600">
-              Visão completa da empresa com isolamento total de dados
+              Visão completa da empresa com isolamento automático de dados
             </p>
           </div>
           <div className="flex items-center space-x-2">
@@ -75,7 +75,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
         </div>
       </div>
 
-      {/* Indicador de Status RLS */}
+      {/* Status RLS simplificado - apenas indicador */}
       <RLSStatusIndicator />
 
       <FinancialSummaryComplete />
@@ -96,7 +96,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
         </div>
       </div>
 
-      <RecentTransactions />
+      <RecentTransactions onViewAll={() => onNavigate('transactions')} />
     </div>
   );
 };

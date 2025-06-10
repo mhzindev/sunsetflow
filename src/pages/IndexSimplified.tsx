@@ -16,9 +16,6 @@ import { RevenueManager } from '@/components/revenues/RevenueManager';
 import { PendingRevenuesManager } from '@/components/revenues/PendingRevenuesManager';
 import { ConfirmedRevenuesManager } from '@/components/revenues/ConfirmedRevenuesManager';
 import { CashFlow } from '@/components/cashflow/CashFlow';
-import { RLSStatusMonitor } from '@/components/dashboard/RLSStatusMonitor';
-import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Shield } from 'lucide-react';
 
 const IndexSimplified = () => {
   const { user, profile, loading } = useAuth();
@@ -54,21 +51,7 @@ const IndexSimplified = () => {
   const renderContent = () => {
     switch (currentSection) {
       case 'dashboard':
-        return (
-          <div className="space-y-6">
-            <RLSStatusMonitor />
-            
-            <Alert className="border-blue-200 bg-blue-50">
-              <Shield className="h-4 w-4 text-blue-600" />
-              <AlertDescription className="text-blue-700">
-                <strong>Sistema Multi-Tenant Ativo:</strong> O isolamento de dados agora é gerenciado automaticamente 
-                pelo Supabase RLS baseado em JWT claims. Cada empresa acessa apenas seus próprios dados.
-              </AlertDescription>
-            </Alert>
-            
-            <Dashboard onNavigate={setCurrentSection} />
-          </div>
-        );
+        return <Dashboard onNavigate={setCurrentSection} />;
       case 'transactions':
         return <TransactionManager />;
       case 'revenues':

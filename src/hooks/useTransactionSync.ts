@@ -1,11 +1,11 @@
 
 import { useEffect, useCallback, useState, useRef } from 'react';
-import { useSupabaseData } from './useSupabaseData';
+import { useSupabaseDataSimplified } from './useSupabaseDataSimplified';
 import { useFinancialSimplified } from '@/contexts/FinancialContextSimplified';
 import { useToastFeedback } from './useToastFeedback';
 
 export const useTransactionSync = () => {
-  const { fetchTransactions, fetchPayments } = useSupabaseData();
+  const { fetchTransactions, fetchPayments } = useSupabaseDataSimplified();
   const { refreshData } = useFinancialSimplified();
   const { showError } = useToastFeedback();
   const [retryCount, setRetryCount] = useState(0);
@@ -21,11 +21,11 @@ export const useTransactionSync = () => {
       return { success: false, error: 'Sync already in progress' };
     }
 
-    // Throttle mais restritivo: 2 minutos para evitar duplicações
+    // Throttle aumentado para 5 minutos para reduzir carga
     const now = Date.now();
     const timeSinceLastSync = now - lastSyncRef.current;
-    if (timeSinceLastSync < 120000 && !silent) {
-      console.log(`Sync muito recente (${Math.round(timeSinceLastSync/1000)}s atrás), ignorando para evitar duplicações...`);
+    if (timeSinceLastSync < 300000 && !silent) {
+      console.log(`Sync muito recente (${Math.round(timeSinceLastSync/1000)}s atrás), ignorando para melhorar performance...`);
       return { success: false, error: 'Too soon since last sync' };
     }
 
@@ -33,7 +33,7 @@ export const useTransactionSync = () => {
     lastSyncRef.current = now;
 
     try {
-      console.log('Iniciando sincronização controlada de transações...');
+      console.log('Iniciando sincronização otimizada de transações...');
       
       // Limpar timeout anterior
       if (syncTimeoutRef.current) {
@@ -41,7 +41,7 @@ export const useTransactionSync = () => {
         syncTimeoutRef.current = null;
       }
       
-      // Buscar dados atualizados
+      // Buscar dados atualizados com timeout reduzido
       const [transactions, payments] = await Promise.all([
         fetchTransactions(),
         fetchPayments()
@@ -54,7 +54,7 @@ export const useTransactionSync = () => {
         await refreshData();
       }
       
-      console.log('Sincronização controlada concluída com sucesso');
+      console.log('Sincronização otimizada concluída com sucesso');
       setRetryCount(0);
       setIsRetrying(false);
       
@@ -64,13 +64,13 @@ export const useTransactionSync = () => {
       
       // Retry apenas uma vez e com delay maior
       if (!silent && retryCount === 0) {
-        console.log('Agendando retry único em 30 segundos...');
+        console.log('Agendando retry único em 60 segundos...');
         setRetryCount(1);
         setIsRetrying(true);
         
         syncTimeoutRef.current = setTimeout(() => {
           syncTransactions(true);
-        }, 30000);
+        }, 60000); // Aumentado para 60 segundos
       } else if (!silent) {
         showError('Erro de Sincronização', 'Não foi possível sincronizar os dados');
         setIsRetrying(false);
@@ -82,20 +82,20 @@ export const useTransactionSync = () => {
     }
   }, [fetchTransactions, fetchPayments, refreshData, showError, retryCount, isSyncing]);
 
-  // Auto-sync com intervalo muito maior - 20 minutos
+  // Auto-sync com intervalo muito maior - 30 minutos para reduzir carga drasticamente
   useEffect(() => {
     // Sync inicial apenas se não estiver em retry
     if (!isRetrying) {
       syncTransactions(true);
     }
     
-    // Auto-sync a cada 20 minutos para reduzir carga
+    // Auto-sync a cada 30 minutos para reduzir carga significativamente
     const interval = setInterval(() => {
       if (!isRetrying && !isSyncing) {
-        console.log('Sincronização automática (20 minutos)');
+        console.log('Sincronização automática otimizada (30 minutos)');
         syncTransactions(true);
       }
-    }, 1200000); // 20 minutos
+    }, 1800000); // 30 minutos
 
     return () => {
       clearInterval(interval);

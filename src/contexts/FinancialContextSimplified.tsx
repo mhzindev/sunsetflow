@@ -1,4 +1,3 @@
-
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { useSupabaseDataSimplified } from '@/hooks/useSupabaseDataSimplified';
 import { useAuth } from './AuthContext';
@@ -41,30 +40,66 @@ interface FinancialContextType {
 
 const FinancialContext = createContext<FinancialContextType | undefined>(undefined);
 
+// Cache local para reduzir requisições
+const CACHE_KEY = 'financial_data_cache';
+const CACHE_DURATION = 5 * 60 * 1000; // 5 minutos
+
+const getFromCache = () => {
+  try {
+    const cached = localStorage.getItem(CACHE_KEY);
+    if (cached) {
+      const { data, timestamp } = JSON.parse(cached);
+      if (Date.now() - timestamp < CACHE_DURATION) {
+        console.log('Usando dados do cache local');
+        return data;
+      }
+    }
+  } catch (error) {
+    console.warn('Erro ao ler cache:', error);
+  }
+  return null;
+};
+
+const saveToCache = (data: FinancialData) => {
+  try {
+    localStorage.setItem(CACHE_KEY, JSON.stringify({
+      data,
+      timestamp: Date.now()
+    }));
+    console.log('Dados salvos no cache local');
+  } catch (error) {
+    console.warn('Erro ao salvar cache:', error);
+  }
+};
+
 export const FinancialProviderSimplified = ({ children }: { children: React.ReactNode }) => {
   const { profile, user } = useAuth();
   const isOwner = profile?.role === 'admin' || profile?.user_type === 'admin';
   
-  const [data, setData] = useState<FinancialData>({
-    totalBalance: 0,
-    bankBalance: 0,
-    creditUsed: 0,
-    creditAvailable: 0,
-    totalResources: 0,
-    monthlyIncome: 0,
-    monthlyExpenses: 0,
-    pendingPayments: 0,
-    approvedExpenses: 0,
-    pendingRevenues: 0,
-    confirmedRevenues: 0,
-    transactions: [],
-    expenses: [],
-    payments: [],
-    accounts: [],
-    pendingRevenuesList: [],
-    confirmedRevenuesList: [],
-    loading: true,
-    error: null
+  const [data, setData] = useState<FinancialData>(() => {
+    // Tentar carregar do cache inicialmente
+    const cached = getFromCache();
+    return cached || {
+      totalBalance: 0,
+      bankBalance: 0,
+      creditUsed: 0,
+      creditAvailable: 0,
+      totalResources: 0,
+      monthlyIncome: 0,
+      monthlyExpenses: 0,
+      pendingPayments: 0,
+      approvedExpenses: 0,
+      pendingRevenues: 0,
+      confirmedRevenues: 0,
+      transactions: [],
+      expenses: [],
+      payments: [],
+      accounts: [],
+      pendingRevenuesList: [],
+      confirmedRevenuesList: [],
+      loading: true,
+      error: null
+    };
   });
 
   const { 
@@ -76,7 +111,7 @@ export const FinancialProviderSimplified = ({ children }: { children: React.Reac
     loading: hookLoading
   } = useSupabaseDataSimplified();
 
-  const fetchData = async () => {
+  const fetchData = async (useCache: boolean = true) => {
     if (!user || !profile) {
       console.log('FinancialContext: Aguardando autenticação...');
       setData(prev => ({ 
@@ -87,10 +122,19 @@ export const FinancialProviderSimplified = ({ children }: { children: React.Reac
       return;
     }
 
+    // Verificar cache primeiro se permitido
+    if (useCache) {
+      const cached = getFromCache();
+      if (cached) {
+        setData(cached);
+        return;
+      }
+    }
+
     try {
       setData(prev => ({ ...prev, loading: true, error: null }));
 
-      console.log('FinancialContext: Iniciando busca de dados com RLS automático...');
+      console.log('FinancialContext: Buscando dados otimizados com RLS automático...');
 
       const [transactions, expenses, payments, pendingRevenues, confirmedRevenues] = await Promise.all([
         fetchTransactions(),
@@ -139,7 +183,7 @@ export const FinancialProviderSimplified = ({ children }: { children: React.Reac
       const approvedExpenses = expenses?.filter(e => e.status === 'approved')
         .reduce((sum, e) => sum + (e.amount || 0), 0) || 0;
 
-      setData({
+      const newData = {
         totalBalance: monthlyIncome - monthlyExpenses,
         bankBalance: 0,
         creditUsed: 0,
@@ -159,9 +203,14 @@ export const FinancialProviderSimplified = ({ children }: { children: React.Reac
         confirmedRevenuesList: confirmedRevenues || [],
         loading: false,
         error: null
-      });
+      };
 
-      console.log('FinancialContext: Dados processados com sucesso com RLS automático');
+      setData(newData);
+      
+      // Salvar no cache
+      saveToCache(newData);
+
+      console.log('FinancialContext: Dados processados e cacheados com sucesso');
 
     } catch (error: any) {
       console.error('FinancialContext: Erro ao carregar dados com RLS:', error);
@@ -254,8 +303,8 @@ export const FinancialProviderSimplified = ({ children }: { children: React.Reac
 
   useEffect(() => {
     if (user && profile) {
-      console.log('FinancialContext: Usuário autenticado, buscando dados com RLS automático...');
-      fetchData();
+      console.log('FinancialContext: Usuário autenticado, buscando dados otimizados...');
+      fetchData(true); // Usar cache inicialmente
     } else {
       console.log('FinancialContext: Aguardando autenticação...');
     }
@@ -263,8 +312,8 @@ export const FinancialProviderSimplified = ({ children }: { children: React.Reac
 
   const contextValue: FinancialContextType = {
     data,
-    refetch: fetchData,
-    refreshData: fetchData,
+    refetch: () => fetchData(false), // Force refresh sem cache
+    refreshData: () => fetchData(false), // Force refresh sem cache
     loading: data.loading || hookLoading,
     error: data.error,
     getRecentTransactions,
@@ -289,3 +338,5 @@ export const useFinancialSimplified = () => {
   }
   return context;
 };
+
+export default FinancialProviderSimplified;
