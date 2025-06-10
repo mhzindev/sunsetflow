@@ -1,12 +1,13 @@
+
 import { useState, useEffect } from 'react';
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { PaymentModal } from './PaymentModal';
+import { PaymentModal } from '@/components/payments/PaymentModal';
 import { ProviderBalanceDetailsEnhanced } from '@/components/providers/ProviderBalanceDetailsEnhanced';
-import { ProviderBalanceManagerRow } from './ProviderBalanceManagerRow';
+import { ProviderBalanceManagerRow } from '@/components/payments/ProviderBalanceManagerRow';
 import { useSupabaseData } from '@/hooks/useSupabaseData';
 import { useToastFeedback } from '@/hooks/useToastFeedback';
 import { supabase } from '@/integrations/supabase/client';
