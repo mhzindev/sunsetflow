@@ -9,7 +9,7 @@ import { AlertCircle, DollarSign } from 'lucide-react';
 import { Payment } from '@/types/payment';
 import { useToastFeedback } from '@/hooks/useToastFeedback';
 import { useSupabaseData } from '@/hooks/useSupabaseData';
-import { useFinancial } from '@/contexts/FinancialContext';
+import { useFinancialSimplified } from '@/contexts/FinancialContextSimplified';
 import { getCurrentDate } from '@/utils/dateUtils';
 
 interface PaymentMarkAsPaidModalProps {
@@ -35,7 +35,7 @@ export const PaymentMarkAsPaidModal = ({
   const [isProcessing, setIsProcessing] = useState(false);
   
   const { fetchBankAccounts, fetchCreditCards, updatePayment } = useSupabaseData();
-  const { updatePaymentStatus } = useFinancial();
+  const { updatePaymentStatus } = useFinancialSimplified();
   const { showSuccess, showError } = useToastFeedback();
 
   useEffect(() => {
