@@ -11,7 +11,7 @@ import { ExpenseViewModal } from './ExpenseViewModal';
 import { ExpenseEditModal } from './ExpenseEditModal';
 import { exportToCSV, exportToPDF, exportToExcel, ExportOptions } from '@/utils/exportUtils';
 import { useToastFeedback } from '@/hooks/useToastFeedback';
-import { useFinancial } from '@/contexts/FinancialContext';
+import { useFinancialSimplified } from '@/contexts/FinancialContextSimplified';
 import { useSupabaseData } from '@/hooks/useSupabaseData';
 
 interface ExpenseListItem {
@@ -61,7 +61,7 @@ export const ExpenseList = () => {
   });
 
   const { showSuccess, showError } = useToastFeedback();
-  const { data, updateExpenseStatus } = useFinancial();
+  const { data, updateExpenseStatus } = useFinancialSimplified();
   const { fetchTransactions } = useSupabaseData();
 
   // Carregar receitas de hospedagem/deslocamento
