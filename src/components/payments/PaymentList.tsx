@@ -1,4 +1,3 @@
-
 import { useState } from 'react';
 import { Card } from "@/components/ui/card";
 import { Payment, PaymentStatus } from '@/types/payment';
@@ -6,7 +5,7 @@ import { FilterModal, FilterConfig } from '@/components/common/FilterModal';
 import { ExportModal } from '@/components/common/ExportModal';
 import { exportToCSV, exportToPDF, exportToExcel, ExportOptions } from '@/utils/exportUtils';
 import { useToastFeedback } from '@/hooks/useToastFeedback';
-import { useFinancial } from '@/contexts/FinancialContext';
+import { useFinancialSimplified } from '@/contexts/FinancialContextSimplified';
 import { PaymentSummaryCards } from './PaymentSummaryCards';
 import { PaymentFilters } from './PaymentFilters';
 import { PaymentTable } from './PaymentTable';
@@ -26,7 +25,7 @@ export const PaymentList = () => {
   });
 
   const { showSuccess, showError } = useToastFeedback();
-  const { data } = useFinancial();
+  const { data } = useFinancialSimplified();
 
   // Usar dados do contexto financeiro em vez de mock data
   const payments = data.payments || [];
