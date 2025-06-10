@@ -1,4 +1,3 @@
-
 import { useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -8,7 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { CalendarIcon, FileText, Download, Filter, Info, Clock, TrendingUp } from 'lucide-react';
 import { useReportGenerator } from '@/hooks/useReportGenerator';
 import { useToastFeedback } from '@/hooks/useToastFeedback';
-import { useFinancial } from '@/contexts/FinancialContext';
+import { useFinancialSimplified } from '@/contexts/FinancialContextSimplified';
 import { formatCurrency, formatDate } from '@/utils/dateUtils';
 
 export const Reports = () => {
@@ -18,7 +17,7 @@ export const Reports = () => {
   const [periodApplied, setPeriodApplied] = useState(false);
   const { generateReport, isGenerating } = useReportGenerator();
   const { showSuccess, showInfo } = useToastFeedback();
-  const { data } = useFinancial();
+  const { data } = useFinancialSimplified();
 
   const reportTypes = [
     { value: 'financial', label: 'Relatório Financeiro', description: 'Receitas, despesas e saldo geral' },
