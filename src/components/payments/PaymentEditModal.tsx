@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -10,7 +9,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { AlertCircle } from 'lucide-react';
 import { Payment, PaymentStatus, PaymentType } from '@/types/payment';
 import { useToastFeedback } from '@/hooks/useToastFeedback';
-import { useFinancial } from '@/contexts/FinancialContext';
+import { useFinancialSimplified } from '@/contexts/FinancialContextSimplified';
 import { useSupabaseData } from '@/hooks/useSupabaseData';
 import { getCurrentDate } from '@/utils/dateUtils';
 
@@ -23,7 +22,7 @@ interface PaymentEditModalProps {
 
 export const PaymentEditModal = ({ isOpen, onClose, payment, onSave }: PaymentEditModalProps) => {
   const { showSuccess, showError } = useToastFeedback();
-  const { updatePayment: updatePaymentContext, updatePaymentStatus } = useFinancial();
+  const { updatePayment: updatePaymentContext, updatePaymentStatus } = useFinancialSimplified();
   const { fetchBankAccounts, fetchCreditCards, updatePayment } = useSupabaseData();
   const [isLoading, setIsLoading] = useState(false);
   const [accounts, setAccounts] = useState<any[]>([]);
