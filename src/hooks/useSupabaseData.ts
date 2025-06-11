@@ -161,6 +161,67 @@ export const useSupabaseData = () => {
     }
   };
 
+  // Payments methods
+  const fetchPayments = async () => {
+    try {
+      setLoading(true);
+      const { data, error } = await supabase
+        .from('payments')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+      return data;
+    } catch (error) {
+      console.error('Error fetching payments:', error);
+      return [];
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const insertPayment = async (paymentData: any) => {
+    try {
+      setLoading(true);
+      const { data, error } = await supabase
+        .from('payments')
+        .insert([{
+          ...paymentData,
+          company_id: profile?.company_id
+        }])
+        .select()
+        .single();
+
+      if (error) throw error;
+      return { data, error: null };
+    } catch (error) {
+      console.error('Error inserting payment:', error);
+      return { data: null, error: error instanceof Error ? error.message : 'Unknown error' };
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const updatePayment = async (paymentId: string, updates: any) => {
+    try {
+      setLoading(true);
+      const { data, error } = await supabase
+        .from('payments')
+        .update(updates)
+        .eq('id', paymentId)
+        .select()
+        .single();
+
+      if (error) throw error;
+      return { data, error: null };
+    } catch (error) {
+      console.error('Error updating payment:', error);
+      return { data: null, error: error instanceof Error ? error.message : 'Unknown error' };
+    } finally {
+      setLoading(false);
+    }
+  };
+
   // Expenses methods
   const fetchExpenses = async () => {
     try {
@@ -358,6 +419,10 @@ export const useSupabaseData = () => {
     // Transactions
     fetchTransactions,
     insertTransaction,
+    // Payments
+    fetchPayments,
+    insertPayment,
+    updatePayment,
     // Expenses
     fetchExpenses,
     insertExpense,

@@ -27,6 +27,11 @@ interface FinancialContextType {
   refetch: () => Promise<void>;
   refreshData: () => Promise<void>;
   updateExpenseStatus: (expenseId: string, status: string) => Promise<void>;
+  updatePayment: (id: string, updates: any) => Promise<boolean>;
+  updatePaymentStatus: (id: string, status: string) => Promise<boolean>;
+  removePayment: (id: string) => void;
+  fetchTransactions: () => Promise<any[]>;
+  fetchPayments: () => Promise<any[]>;
 }
 
 const FinancialContext = createContext<FinancialContextType>({
@@ -54,6 +59,11 @@ const FinancialContext = createContext<FinancialContextType>({
   refetch: async () => {},
   refreshData: async () => {},
   updateExpenseStatus: async () => {},
+  updatePayment: async () => false,
+  updatePaymentStatus: async () => false,
+  removePayment: () => {},
+  fetchTransactions: async () => [],
+  fetchPayments: async () => [],
 });
 
 export const FinancialProviderSimplified = ({ children }: { children: ReactNode }) => {
@@ -170,6 +180,37 @@ export const FinancialProviderSimplified = ({ children }: { children: ReactNode 
     }
   };
 
+  const fetchTransactions = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('transactions')
+        .select('*')
+        .eq('user_id', user?.id)
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+      return data || [];
+    } catch (error) {
+      console.error('Error fetching transactions:', error);
+      return [];
+    }
+  };
+
+  const fetchPayments = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('payments')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+      return data || [];
+    } catch (error) {
+      console.error('Error fetching payments:', error);
+      return [];
+    }
+  };
+
   const getRecentTransactions = (limit: number = 10) => {
     return data.transactions
       .sort((a, b) => new Date(b.created_at || b.date).getTime() - new Date(a.created_at || a.date).getTime())
@@ -201,6 +242,75 @@ export const FinancialProviderSimplified = ({ children }: { children: ReactNode 
     }
   };
 
+  const updatePayment = async (id: string, updates: any): Promise<boolean> => {
+    try {
+      console.log('FinancialContext: Iniciando atualização do pagamento:', { id, updates });
+      
+      if (!id || typeof id !== 'string') {
+        console.error('FinancialContext: ID do pagamento inválido:', id);
+        return false;
+      }
+
+      const currentPayment = data.payments.find(p => p.id === id);
+      if (!currentPayment) {
+        console.error('FinancialContext: Pagamento não encontrado no estado local:', id);
+        return false;
+      }
+
+      console.log('FinancialContext: Pagamento atual:', currentPayment);
+      
+      setData(prev => ({
+        ...prev,
+        payments: prev.payments.map(payment => 
+          payment.id === id ? { ...payment, ...updates } : payment
+        )
+      }));
+      
+      console.log('FinancialContext: Pagamento atualizado com sucesso no estado local');
+      return true;
+      
+    } catch (error) {
+      console.error('FinancialContext: Erro inesperado na atualização:', error);
+      return false;
+    }
+  };
+
+  const updatePaymentStatus = async (id: string, status: string): Promise<boolean> => {
+    try {
+      console.log('FinancialContext: Atualizando status do pagamento:', { id, status });
+      
+      const updates: any = { 
+        status: status
+      };
+      
+      if (status === 'completed') {
+        updates.payment_date = new Date().toISOString().split('T')[0];
+        console.log('FinancialContext: Adicionando data de pagamento:', updates.payment_date);
+      }
+      
+      const success = await updatePayment(id, updates);
+      
+      if (success) {
+        console.log('FinancialContext: Status atualizado com sucesso');
+      } else {
+        console.error('FinancialContext: Falha ao atualizar status');
+      }
+      
+      return success;
+      
+    } catch (error) {
+      console.error('FinancialContext: Erro ao atualizar status:', error);
+      return false;
+    }
+  };
+
+  const removePayment = (id: string) => {
+    setData(prev => ({
+      ...prev,
+      payments: prev.payments.filter(p => p.id !== id)
+    }));
+  };
+
   useEffect(() => {
     fetchFinancialData();
   }, [user]);
@@ -216,6 +326,11 @@ export const FinancialProviderSimplified = ({ children }: { children: ReactNode 
     refetch,
     refreshData,
     updateExpenseStatus,
+    updatePayment,
+    updatePaymentStatus,
+    removePayment,
+    fetchTransactions,
+    fetchPayments,
   };
 
   return (
@@ -236,3 +351,5 @@ export const useFinancial = () => {
 
 // Also export the provider with the original name for backward compatibility
 export const FinancialProvider = FinancialProviderSimplified;
+
+}
