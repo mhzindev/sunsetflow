@@ -26,6 +26,7 @@ interface FinancialContextType {
   getRecentTransactions: (limit?: number) => any[];
   refetch: () => Promise<void>;
   refreshData: () => Promise<void>;
+  updateExpenseStatus: (expenseId: string, status: string) => Promise<void>;
 }
 
 const FinancialContext = createContext<FinancialContextType>({
@@ -52,6 +53,7 @@ const FinancialContext = createContext<FinancialContextType>({
   getRecentTransactions: () => [],
   refetch: async () => {},
   refreshData: async () => {},
+  updateExpenseStatus: async () => {},
 });
 
 export const FinancialProviderSimplified = ({ children }: { children: ReactNode }) => {
@@ -182,6 +184,23 @@ export const FinancialProviderSimplified = ({ children }: { children: ReactNode 
     await fetchFinancialData();
   };
 
+  const updateExpenseStatus = async (expenseId: string, status: string) => {
+    try {
+      const { error } = await supabase
+        .from('expenses')
+        .update({ status })
+        .eq('id', expenseId);
+
+      if (error) throw error;
+      
+      // Refresh data after update
+      await fetchFinancialData();
+    } catch (error) {
+      console.error('Error updating expense status:', error);
+      throw error;
+    }
+  };
+
   useEffect(() => {
     fetchFinancialData();
   }, [user]);
@@ -196,6 +215,7 @@ export const FinancialProviderSimplified = ({ children }: { children: ReactNode 
     getRecentTransactions,
     refetch,
     refreshData,
+    updateExpenseStatus,
   };
 
   return (
