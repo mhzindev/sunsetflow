@@ -1,10 +1,9 @@
-
 import { useState, useEffect } from 'react';
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Shield, ShieldCheck, AlertTriangle, RefreshCw } from "lucide-react";
 import { supabase } from '@/integrations/supabase/client';
-import { useAuth } from '@/contexts/AuthContext';
+import { useAuth } from '@/contexts/AuthContextOptimized';
 
 interface RLSStatus {
   isActive: boolean;
