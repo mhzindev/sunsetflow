@@ -1,12 +1,10 @@
 
 import { useEffect, useCallback, useState, useRef } from 'react';
-import { useSupabaseDataSimplified } from './useSupabaseDataSimplified';
 import { useFinancialSimplified } from '@/contexts/FinancialContextSimplified';
 import { useToastFeedback } from './useToastFeedback';
 
 export const useTransactionSync = () => {
-  const { fetchTransactions, fetchPayments } = useSupabaseDataSimplified();
-  const { refreshData } = useFinancialSimplified();
+  const { fetchTransactions, fetchPayments, refreshData } = useFinancialSimplified();
   const { showError } = useToastFeedback();
   const [retryCount, setRetryCount] = useState(0);
   const [isRetrying, setIsRetrying] = useState(false);

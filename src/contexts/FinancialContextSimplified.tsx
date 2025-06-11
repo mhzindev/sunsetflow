@@ -19,6 +19,19 @@ interface FinancialData {
 interface FinancialContextType {
   data: FinancialData;
   refreshData: () => void;
+  // Funções para RecentTransactions
+  getRecentTransactions: (limit?: number) => any[];
+  loading: boolean;
+  error: string | null;
+  // Funções para ExpenseList
+  updateExpenseStatus: (id: string, status: string) => void;
+  // Funções para PaymentModals
+  updatePayment: (id: string, data: any) => void;
+  updatePaymentStatus: (id: string, status: string) => void;
+  removePayment: (id: string) => void;
+  // Funções para useTransactionSync
+  fetchTransactions: () => Promise<any[]>;
+  fetchPayments: () => Promise<any[]>;
 }
 
 const FinancialContextSimplified = createContext<FinancialContextType | undefined>(undefined);
@@ -86,13 +99,65 @@ export const FinancialProviderSimplified = ({ children }: { children: React.Reac
     error
   };
 
+  // Implementar funções necessárias
+  const getRecentTransactions = (limit: number = 5) => {
+    return transactions
+      .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+      .slice(0, limit);
+  };
+
+  const updateExpenseStatus = (id: string, status: string) => {
+    console.log('Atualizando status da despesa:', id, status);
+    // Implementar atualização no banco de dados
+    refetch();
+  };
+
+  const updatePayment = (id: string, paymentData: any) => {
+    console.log('Atualizando pagamento:', id, paymentData);
+    // Implementar atualização no banco de dados
+    refetch();
+  };
+
+  const updatePaymentStatus = (id: string, status: string) => {
+    console.log('Atualizando status do pagamento:', id, status);
+    // Implementar atualização no banco de dados
+    refetch();
+  };
+
+  const removePayment = (id: string) => {
+    console.log('Removendo pagamento:', id);
+    // Implementar remoção no banco de dados
+    refetch();
+  };
+
+  const fetchTransactions = async () => {
+    console.log('Buscando transações...');
+    refetch();
+    return transactions;
+  };
+
+  const fetchPayments = async () => {
+    console.log('Buscando pagamentos...');
+    refetch();
+    return payments;
+  };
+
   const refreshData = () => {
     refetch();
   };
 
   const value = {
     data,
-    refreshData
+    refreshData,
+    getRecentTransactions,
+    loading,
+    error,
+    updateExpenseStatus,
+    updatePayment,
+    updatePaymentStatus,
+    removePayment,
+    fetchTransactions,
+    fetchPayments
   };
 
   return (
