@@ -4,7 +4,7 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
-import { AuthProvider, useAuth } from "@/contexts/AuthContextOptimized";
+import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 import IndexOptimized from "./pages/IndexOptimized";
 import Auth from "./pages/Auth";
 import NotFound from "./pages/NotFound";
@@ -31,7 +31,7 @@ const LoadingScreen = ({ message }: { message: string }) => (
 const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
   const { user, profile, loading } = useAuth();
   
-  console.log('ProtectedRoute: Estado da autenticação:', { 
+  console.log('🛡️ ProtectedRoute: Estado da autenticação:', { 
     user: !!user, 
     profile: !!profile, 
     loading,
@@ -43,7 +43,7 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
   }
   
   if (!user || !profile) {
-    console.log('ProtectedRoute: Redirecionando para /auth - user:', !!user, 'profile:', !!profile);
+    console.log('🚫 ProtectedRoute: Redirecionando para /auth - user:', !!user, 'profile:', !!profile);
     return <Navigate to="/auth" replace />;
   }
   
@@ -53,7 +53,7 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
 const AuthRoute = ({ children }: { children: React.ReactNode }) => {
   const { user, profile, loading } = useAuth();
   
-  console.log('AuthRoute: Estado da autenticação:', { 
+  console.log('🔐 AuthRoute: Estado da autenticação:', { 
     user: !!user, 
     profile: !!profile, 
     loading 
@@ -64,7 +64,7 @@ const AuthRoute = ({ children }: { children: React.ReactNode }) => {
   }
   
   if (user && profile) {
-    console.log('AuthRoute: Usuário autenticado, redirecionando para /');
+    console.log('✅ AuthRoute: Usuário autenticado, redirecionando para /');
     return <Navigate to="/" replace />;
   }
   

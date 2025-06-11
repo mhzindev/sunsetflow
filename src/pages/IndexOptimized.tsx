@@ -1,6 +1,6 @@
 
 import React, { useState } from 'react';
-import { useAuth } from '@/contexts/AuthContextOptimized';
+import { useAuth } from '@/contexts/AuthContext';
 import { FinancialProvider } from '@/contexts/FinancialContext';
 import { Sidebar } from '@/components/layout/Sidebar';
 import { TopBar } from '@/components/layout/TopBar';
@@ -22,7 +22,7 @@ const IndexOptimized = () => {
   const [currentSection, setCurrentSection] = useState('dashboard');
   const [sidebarOpen, setSidebarOpen] = useState(true);
 
-  console.log('IndexOptimized: Estado da autenticação:', { 
+  console.log('🏠 IndexOptimized: Estado da autenticação:', { 
     user: !!user, 
     profile: !!profile, 
     loading,
@@ -43,7 +43,7 @@ const IndexOptimized = () => {
   }
 
   if (!user || !profile) {
-    console.log('IndexOptimized: Redirecionando para auth - user:', !!user, 'profile:', !!profile);
+    console.log('🚫 IndexOptimized: Redirecionando para auth - user:', !!user, 'profile:', !!profile);
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center space-y-3">

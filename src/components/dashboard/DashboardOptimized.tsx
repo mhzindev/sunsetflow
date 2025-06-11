@@ -6,7 +6,7 @@ import { FinancialSummaryComplete } from "./FinancialSummaryComplete";
 import { RLSStatusIndicator } from "./RLSStatusIndicator";
 import { PendingRevenuesCard } from "./PendingRevenuesCard";
 import { useCompanyIsolationOptimized } from "@/hooks/useCompanyIsolationOptimized";
-import { useAuth } from "@/contexts/AuthContextOptimized";
+import { useAuth } from "@/contexts/AuthContext";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Building2, Crown } from "lucide-react";
 import { getAuthCache, isValidProfile } from '@/utils/authCache';
@@ -32,7 +32,7 @@ export const DashboardOptimized = ({ onNavigate }: DashboardProps) => {
   const effectiveAccessLevel = effectiveProfile ? getUserAccessLevel(effectiveProfile) : 'none';
   const effectiveIsOwner = effectiveProfile?.role === 'admin' || effectiveProfile?.user_type === 'admin';
 
-  console.log('DashboardOptimized: Estado atual:', {
+  console.log('📊 DashboardOptimized: Estado atual:', {
     profile: !!effectiveProfile,
     authLoading,
     isolationLoading,

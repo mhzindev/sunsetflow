@@ -1,9 +1,10 @@
+
 import { useState, useEffect } from 'react';
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Shield, ShieldCheck, AlertTriangle, RefreshCw } from "lucide-react";
 import { supabase } from '@/integrations/supabase/client';
-import { useAuth } from '@/contexts/AuthContextOptimized';
+import { useAuth } from '@/contexts/AuthContext';
 
 interface RLSStatus {
   isActive: boolean;
@@ -34,8 +35,8 @@ export const RLSStatusIndicator = () => {
   const checkRLSStatus = async () => {
     try {
       setLoading(true);
+      console.log('🔍 Verificando status do RLS...');
 
-      // Verificar company_id do usuário
       const userCompanyId = profile?.company_id;
 
       // Buscar transações com RLS ativo
@@ -49,6 +50,7 @@ export const RLSStatusIndicator = () => {
         .select('id, company_id');
 
       if (transError || payError) {
+        console.error('❌ Erro ao verificar RLS:', transError || payError);
         setStatus({
           isActive: false,
           companyIsolated: false,
@@ -64,16 +66,25 @@ export const RLSStatusIndicator = () => {
       const allTransactionsBelongToCompany = transactions?.every(t => t.company_id === userCompanyId) ?? true;
       const allPaymentsBelongToCompany = payments?.every(p => p.company_id === userCompanyId) ?? true;
 
+      const isCompanyIsolated = allTransactionsBelongToCompany && allPaymentsBelongToCompany;
+
+      console.log('✅ Status RLS verificado:', {
+        userCompanyId,
+        totalTransactions: transactions?.length || 0,
+        totalPayments: payments?.length || 0,
+        isCompanyIsolated
+      });
+
       setStatus({
         isActive: true,
-        companyIsolated: allTransactionsBelongToCompany && allPaymentsBelongToCompany,
+        companyIsolated: isCompanyIsolated,
         userCompanyId,
         totalTransactions: transactions?.length || 0,
         totalPayments: payments?.length || 0
       });
 
     } catch (error) {
-      console.error('Erro ao verificar status RLS:', error);
+      console.error('💥 Erro ao verificar status RLS:', error);
       setStatus({
         isActive: false,
         companyIsolated: false,

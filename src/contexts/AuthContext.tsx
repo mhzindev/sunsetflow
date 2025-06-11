@@ -1,8 +1,10 @@
 
+// CONTEXTO ÚNICO CONSOLIDADO - Todas as funcionalidades em um só lugar
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { User, Session } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
 import { Profile } from '@/types/database';
+import { saveAuthCache, getAuthCache, clearAuthCache, isValidProfile } from '@/utils/authCache';
 
 interface AuthContextType {
   user: User | null;
@@ -23,9 +25,28 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
 
-  const fetchProfile = async (userId: string) => {
+  // Carregar cache imediatamente para início rápido
+  useEffect(() => {
+    const cache = getAuthCache();
+    if (cache?.profile && isValidProfile(cache.profile)) {
+      console.log('🚀 Cache: Usando perfil em cache para inicialização rápida');
+      setProfile(cache.profile);
+    }
+  }, []);
+
+  const fetchProfile = async (userId: string, useCache: boolean = true) => {
     try {
-      console.log('Buscando perfil para usuário:', userId);
+      console.log('👤 Buscando perfil para usuário:', userId);
+      
+      // Verificar cache primeiro se solicitado
+      if (useCache) {
+        const cache = getAuthCache();
+        if (cache?.profile && cache.profile.id === userId && isValidProfile(cache.profile)) {
+          console.log('📋 Cache: Perfil encontrado no cache');
+          setProfile(cache.profile);
+          return cache.profile;
+        }
+      }
       
       const { data, error } = await supabase
         .from('profiles')
@@ -34,11 +55,10 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         .single();
 
       if (error) {
-        console.error('Erro ao buscar perfil:', error);
+        console.error('❌ Erro ao buscar perfil:', error);
         
-        // Se perfil não encontrado, criar um básico
         if (error.code === 'PGRST116') {
-          console.log('Perfil não encontrado, criando perfil básico...');
+          console.log('➕ Perfil não encontrado, criando perfil básico...');
           const { data: newProfile, error: createError } = await supabase
             .from('profiles')
             .insert({
@@ -52,100 +72,110 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
             .single();
 
           if (createError) {
-            console.error('Erro ao criar perfil:', createError);
+            console.error('❌ Erro ao criar perfil:', createError);
             return null;
           }
 
-          console.log('Perfil criado:', newProfile);
+          console.log('✅ Perfil criado:', newProfile);
+          setProfile(newProfile);
+          saveAuthCache(newProfile);
           return newProfile;
         }
         
         return null;
       }
 
-      console.log('Perfil encontrado:', data);
+      console.log('✅ Perfil encontrado:', data);
+      setProfile(data);
+      saveAuthCache(data);
       return data;
     } catch (error) {
-      console.error('Erro inesperado ao buscar perfil:', error);
+      console.error('💥 Erro inesperado ao buscar perfil:', error);
       return null;
     }
   };
 
   const clearUserState = () => {
-    console.log('Limpando estado do usuário...');
+    console.log('🧹 Limpando estado do usuário...');
     setUser(null);
     setProfile(null);
     setSession(null);
+    clearAuthCache();
   };
 
   const handleAuthStateChange = async (event: string, newSession: Session | null) => {
-    console.log('Estado de autenticação alterado:', event, newSession?.user?.id);
+    console.log('🔄 Estado de autenticação alterado:', event, newSession?.user?.id);
     
     try {
       if (event === 'SIGNED_OUT' || !newSession) {
-        console.log('Usuário deslogado ou sessão inválida');
+        console.log('👋 Usuário deslogado ou sessão inválida');
         clearUserState();
+        setLoading(false);
         return;
       }
 
       if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
-        console.log('Usuário logado ou token atualizado');
+        console.log('🔐 Usuário logado ou token atualizado');
         setSession(newSession);
         setUser(newSession.user);
         
         if (newSession.user) {
-          console.log('Buscando perfil do usuário...');
-          
-          // Timeout de segurança para busca de perfil
-          const timeoutPromise = new Promise((_, reject) => 
-            setTimeout(() => reject(new Error('Timeout ao buscar perfil')), 10000)
-          );
+          console.log('📄 Buscando perfil do usuário...');
           
           try {
+            // Timeout para busca de perfil
+            const timeoutPromise = new Promise((_, reject) => 
+              setTimeout(() => reject(new Error('Timeout ao buscar perfil')), 5000)
+            );
+            
             const userProfile = await Promise.race([
-              fetchProfile(newSession.user.id),
+              fetchProfile(newSession.user.id, true),
               timeoutPromise
             ]);
             
-            setProfile(userProfile as Profile | null);
-            
-            if (!userProfile) {
-              console.warn('Perfil não encontrado, mas permitindo acesso ao sistema');
+            if (userProfile && isValidProfile(userProfile)) {
+              setProfile(userProfile);
+              saveAuthCache(userProfile);
+            } else {
+              console.warn('⚠️ Perfil inválido, usando cache se disponível');
+              const cache = getAuthCache();
+              if (cache?.profile && isValidProfile(cache.profile)) {
+                setProfile(cache.profile);
+              }
             }
           } catch (timeoutError) {
-            console.warn('Timeout na busca do perfil, permitindo acesso sem perfil:', timeoutError);
-            setProfile(null);
+            console.warn('⏱️ Timeout na busca do perfil, usando cache:', timeoutError);
+            const cache = getAuthCache();
+            if (cache?.profile && isValidProfile(cache.profile)) {
+              setProfile(cache.profile);
+            }
           }
         }
       }
     } catch (error) {
-      console.error('Erro ao processar mudança de estado de auth:', error);
+      console.error('💥 Erro ao processar mudança de estado:', error);
     } finally {
-      // SEMPRE definir loading como false
       setLoading(false);
     }
   };
 
   useEffect(() => {
-    console.log('Configurando AuthProvider...');
+    console.log('🚀 Configurando AuthProvider consolidado...');
     
     let mounted = true;
     
-    // Configurar listener de mudanças de estado
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
       if (mounted) {
         await handleAuthStateChange(event, session);
       }
     });
 
-    // Verificar sessão existente com timeout
     const initializeAuth = async () => {
       try {
-        console.log('Verificando sessão existente...');
+        console.log('🔍 Verificando sessão existente...');
         
-        // Timeout de segurança para getSession
         const timeoutPromise = new Promise((_, reject) => 
-          setTimeout(() => reject(new Error('Timeout ao verificar sessão')), 8000)
+          setTimeout(() => reject(new Error('Timeout ao verificar sessão')), 5000)
         );
         
         const sessionResult = await Promise.race([
@@ -156,24 +186,24 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         const { data: { session }, error } = sessionResult as any;
         
         if (error) {
-          console.error('Erro ao obter sessão:', error);
+          console.error('❌ Erro ao obter sessão:', error);
           setLoading(false);
           return;
         }
 
         if (!session) {
-          console.log('Nenhuma sessão existente encontrada');
+          console.log('🚫 Nenhuma sessão existente encontrada');
           setLoading(false);
           return;
         }
 
-        console.log('Sessão existente encontrada:', session.user.id);
+        console.log('✅ Sessão existente encontrada:', session.user.id);
         if (mounted) {
           await handleAuthStateChange('SIGNED_IN', session);
         }
         
       } catch (error) {
-        console.error('Erro na inicialização da autenticação:', error);
+        console.error('💥 Erro na inicialização:', error);
         if (mounted) {
           setLoading(false);
         }
@@ -182,17 +212,17 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
     initializeAuth();
 
-    // Fallback de segurança - sempre parar loading após 15 segundos
+    // Fallback de segurança
     const fallbackTimeout = setTimeout(() => {
       if (mounted && loading) {
-        console.warn('Timeout de segurança ativado - parando loading');
+        console.warn('⏱️ Timeout de segurança - parando loading');
         setLoading(false);
       }
-    }, 15000);
+    }, 8000);
 
     return () => {
       mounted = false;
-      console.log('Desvinculando listener de autenticação');
+      console.log('🔌 Desconectando listener de autenticação');
       subscription.unsubscribe();
       clearTimeout(fallbackTimeout);
     };
@@ -200,7 +230,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   const signUp = async (email: string, password: string, name: string) => {
     try {
-      console.log('Tentando criar conta para:', email);
+      console.log('📝 Criando conta para:', email);
       
       const { error } = await supabase.auth.signUp({
         email,
@@ -212,21 +242,21 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       });
 
       if (error) {
-        console.error('Erro no signup:', error);
+        console.error('❌ Erro no signup:', error);
       } else {
-        console.log('Signup realizado com sucesso');
+        console.log('✅ Signup realizado com sucesso');
       }
 
       return { error };
     } catch (error) {
-      console.error('Erro inesperado no signup:', error);
+      console.error('💥 Erro inesperado no signup:', error);
       return { error };
     }
   };
 
   const signIn = async (email: string, password: string) => {
     try {
-      console.log('Tentando fazer login para:', email);
+      console.log('🔑 Fazendo login para:', email);
       
       const { error } = await supabase.auth.signInWithPassword({
         email,
@@ -234,36 +264,35 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       });
 
       if (error) {
-        console.error('Erro no login:', error);
+        console.error('❌ Erro no login:', error);
       } else {
-        console.log('Login realizado com sucesso');
+        console.log('✅ Login realizado com sucesso');
       }
 
       return { error };
     } catch (error) {
-      console.error('Erro inesperado no login:', error);
+      console.error('💥 Erro inesperado no login:', error);
       return { error };
     }
   };
 
   const signOut = async () => {
     try {
-      console.log('Iniciando logout...');
+      console.log('👋 Iniciando logout...');
       setLoading(true);
       
       const { error } = await supabase.auth.signOut();
       
       if (error) {
-        console.error('Erro ao fazer logout:', error);
+        console.error('❌ Erro ao fazer logout:', error);
       } else {
-        console.log('Logout realizado com sucesso');
+        console.log('✅ Logout realizado com sucesso');
       }
       
-      // Sempre limpar estado local
       clearUserState();
       
     } catch (error) {
-      console.error('Erro inesperado no logout:', error);
+      console.error('💥 Erro inesperado no logout:', error);
       clearUserState();
     } finally {
       setLoading(false);
@@ -281,11 +310,14 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     isAuthenticated: !!user && !!session
   };
 
-  console.log('AuthProvider state:', { 
+  console.log('📊 AuthProvider state:', { 
     user: !!user, 
     profile: !!profile, 
     loading, 
-    isAuthenticated: !!user && !!session 
+    isAuthenticated: !!user && !!session,
+    profileRole: profile?.role,
+    profileUserType: profile?.user_type,
+    companyId: profile?.company_id
   });
 
   return (

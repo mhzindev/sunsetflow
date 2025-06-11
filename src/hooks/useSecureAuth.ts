@@ -1,7 +1,7 @@
 
 import { useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import { useAuth } from '@/contexts/AuthContextOptimized';
+import { useAuth } from '@/contexts/AuthContext';
 import { isAdmin } from '@/utils/authUtils';
 import { useToastFeedback } from './useToastFeedback';
 import { getUserCompanyId } from '@/utils/securityValidation';
@@ -49,7 +49,6 @@ export const useSecureAuth = () => {
   const secureProviderAccess = async (email: string, accessCode: string) => {
     setLoading(true);
     try {
-      // Use edge function for secure password verification
       const { data, error } = await supabase.functions.invoke('verify-provider-access', {
         body: { email, access_code: accessCode }
       });
@@ -57,7 +56,7 @@ export const useSecureAuth = () => {
       if (error) throw error;
       return { data, error: null };
     } catch (err) {
-      console.error('Secure access verification failed');
+      console.error('🚫 Secure access verification failed');
       return { data: null, error: err instanceof Error ? err.message : 'Erro de autenticação' };
     } finally {
       setLoading(false);
@@ -67,7 +66,6 @@ export const useSecureAuth = () => {
   const secureEmployeeAccess = async (email: string, accessCode: string) => {
     setLoading(true);
     try {
-      // Use edge function for secure access verification
       const { data, error } = await supabase.functions.invoke('verify-employee-access', {
         body: { email, access_code: accessCode }
       });
@@ -75,7 +73,7 @@ export const useSecureAuth = () => {
       if (error) throw error;
       return { data, error: null };
     } catch (err) {
-      console.error('Secure employee access verification failed');
+      console.error('🚫 Secure employee access verification failed');
       return { data: null, error: err instanceof Error ? err.message : 'Erro de autenticação' };
     } finally {
       setLoading(false);
