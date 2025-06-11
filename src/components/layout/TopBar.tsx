@@ -1,7 +1,7 @@
 
 import { Button } from "@/components/ui/button";
 import { useFinancialSimplified } from "@/contexts/FinancialContextSimplified";
-import { useAuth } from "@/contexts/AuthContext";
+import { useAuth } from "@/contexts/AuthContextOptimized";
 import { LogOut } from "lucide-react";
 
 interface TopBarProps {
