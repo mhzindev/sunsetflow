@@ -1,7 +1,7 @@
 
 import { useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import { useAuth } from '@/contexts/AuthContext';
+import { useAuth } from '@/contexts/AuthContextOptimized';
 import { isAdmin } from '@/utils/authUtils';
 import { useToastFeedback } from './useToastFeedback';
 import { getUserCompanyId } from '@/utils/securityValidation';

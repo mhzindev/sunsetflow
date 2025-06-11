@@ -29,16 +29,21 @@ const LoadingScreen = ({ message }: { message: string }) => (
 );
 
 const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
-  const { user, loading } = useAuth();
+  const { user, profile, loading } = useAuth();
   
-  console.log('ProtectedRoute:', { user: !!user, loading });
+  console.log('ProtectedRoute: Estado da autenticação:', { 
+    user: !!user, 
+    profile: !!profile, 
+    loading,
+    isAuthenticated: !!user && !!profile
+  });
   
   if (loading) {
-    return <LoadingScreen message="Verificando autenticação" />;
+    return <LoadingScreen message="Verificando autenticação e empresa" />;
   }
   
-  if (!user) {
-    console.log('Usuário não autenticado, redirecionando para /auth');
+  if (!user || !profile) {
+    console.log('ProtectedRoute: Redirecionando para /auth - user:', !!user, 'profile:', !!profile);
     return <Navigate to="/auth" replace />;
   }
   
@@ -46,16 +51,20 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
 };
 
 const AuthRoute = ({ children }: { children: React.ReactNode }) => {
-  const { user, loading } = useAuth();
+  const { user, profile, loading } = useAuth();
   
-  console.log('AuthRoute:', { user: !!user, loading });
+  console.log('AuthRoute: Estado da autenticação:', { 
+    user: !!user, 
+    profile: !!profile, 
+    loading 
+  });
   
   if (loading) {
-    return <LoadingScreen message="Verificando autenticação" />;
+    return <LoadingScreen message="Verificando se já está logado" />;
   }
   
-  if (user) {
-    console.log('Usuário autenticado, redirecionando para /');
+  if (user && profile) {
+    console.log('AuthRoute: Usuário autenticado, redirecionando para /');
     return <Navigate to="/" replace />;
   }
   

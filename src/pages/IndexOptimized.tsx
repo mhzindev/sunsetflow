@@ -1,8 +1,8 @@
 
 import React, { useState } from 'react';
 import { useAuth } from '@/contexts/AuthContextOptimized';
-import { FinancialProviderSimplified } from '@/contexts/FinancialContextSimplified';
-import { SidebarOptimized } from '@/components/layout/SidebarOptimized';
+import { FinancialProvider } from '@/contexts/FinancialContext';
+import { Sidebar } from '@/components/layout/Sidebar';
 import { TopBar } from '@/components/layout/TopBar';
 import { DashboardOptimized } from '@/components/dashboard/DashboardOptimized';
 import { TransactionManager } from '@/components/transactions/TransactionManager';
@@ -22,7 +22,13 @@ const IndexOptimized = () => {
   const [currentSection, setCurrentSection] = useState('dashboard');
   const [sidebarOpen, setSidebarOpen] = useState(true);
 
-  console.log('IndexOptimized rendering:', { user: !!user, profile: !!profile, loading });
+  console.log('IndexOptimized: Estado da autenticação:', { 
+    user: !!user, 
+    profile: !!profile, 
+    loading,
+    profileCompanyId: profile?.company_id,
+    profileRole: profile?.role
+  });
 
   if (loading) {
     return (
@@ -30,19 +36,20 @@ const IndexOptimized = () => {
         <div className="text-center space-y-3">
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
           <h2 className="text-xl font-semibold text-gray-900">Carregando...</h2>
-          <p className="text-gray-600">Inicializando sistema</p>
+          <p className="text-gray-600">Verificando autenticação e empresa</p>
         </div>
       </div>
     );
   }
 
-  if (!user) {
-    console.log('IndexOptimized: Usuário não encontrado, não deveria estar aqui');
+  if (!user || !profile) {
+    console.log('IndexOptimized: Redirecionando para auth - user:', !!user, 'profile:', !!profile);
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-center">
-          <h2 className="text-xl font-semibold text-gray-900">Erro de Autenticação</h2>
-          <p className="text-gray-600">Por favor, faça login novamente</p>
+        <div className="text-center space-y-3">
+          <h2 className="text-xl font-semibold text-gray-900">Acesso Negado</h2>
+          <p className="text-gray-600">Usuário ou perfil não encontrado</p>
+          <p className="text-sm text-gray-500">Redirecionando para autenticação...</p>
         </div>
       </div>
     );
@@ -79,9 +86,9 @@ const IndexOptimized = () => {
   };
 
   return (
-    <FinancialProviderSimplified>
+    <FinancialProvider>
       <div className="min-h-screen bg-gray-50 flex">
-        <SidebarOptimized 
+        <Sidebar 
           currentSection={currentSection} 
           onSectionChange={setCurrentSection} 
         />
@@ -96,7 +103,7 @@ const IndexOptimized = () => {
           </main>
         </div>
       </div>
-    </FinancialProviderSimplified>
+    </FinancialProvider>
   );
 };
 

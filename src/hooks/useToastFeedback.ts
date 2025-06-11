@@ -20,12 +20,17 @@ export const useToastFeedback = () => {
     });
   };
 
-  const showInfo = (title: string, description?: string) => {
+  const showWarning = (title: string, description?: string) => {
     toast({
       title,
       description,
+      variant: "default",
     });
   };
 
-  return { showSuccess, showError, showInfo };
+  return {
+    showSuccess,
+    showError,
+    showWarning,
+  };
 };
