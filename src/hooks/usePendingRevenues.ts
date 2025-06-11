@@ -1,7 +1,7 @@
 
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import { useAuth } from '@/contexts/AuthContextOptimized';
+import { useAuth } from '@/contexts/AuthContext';
 import { useToastFeedback } from './useToastFeedback';
 import type { PendingRevenue } from '@/types/revenue';
 

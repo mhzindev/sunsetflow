@@ -7,7 +7,7 @@ import { TransactionList } from './TransactionList';
 import { TransactionForm } from './TransactionForm';
 import { TransactionCategories } from './TransactionCategories';
 import { SortSelector, SortOption } from '@/components/common/SortSelector';
-import { useAuth } from "@/contexts/AuthContextOptimized";
+import { useAuth } from "@/contexts/AuthContext";
 import { useSupabaseDataIsolated } from "@/hooks/useSupabaseDataIsolated";
 import { Plus, RefreshCw, AlertCircle, Info, CheckCircle, Eye } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";

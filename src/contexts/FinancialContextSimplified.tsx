@@ -1,176 +1,111 @@
+import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/contexts/AuthContext';
 
-import React, { createContext, useContext, useState, useEffect } from 'react';
-import { useAuth } from '@/contexts/AuthContextOptimized';
-import { useSupabaseDataSimplified } from '@/hooks/useSupabaseDataSimplified';
-
-interface FinancialData {
+interface FinancialContextType {
   totalBalance: number;
   totalRevenue: number;
   totalExpenses: number;
-  pendingPayments: number;
-  transactions: any[];
-  expenses: any[];
-  payments: any[];
-  accounts: any[];
   loading: boolean;
   error: string | null;
 }
 
-interface FinancialContextType {
-  data: FinancialData;
-  refreshData: () => void;
-  // Funções para RecentTransactions
-  getRecentTransactions: (limit?: number) => any[];
-  loading: boolean;
-  error: string | null;
-  // Funções para ExpenseList
-  updateExpenseStatus: (id: string, status: string) => void;
-  // Funções para PaymentModals
-  updatePayment: (id: string, data: any) => void;
-  updatePaymentStatus: (id: string, status: string) => void;
-  removePayment: (id: string) => void;
-  // Funções para useTransactionSync
-  fetchTransactions: () => Promise<any[]>;
-  fetchPayments: () => Promise<any[]>;
-}
+const FinancialContext = createContext<FinancialContextType>({
+  totalBalance: 0,
+  totalRevenue: 0,
+  totalExpenses: 0,
+  loading: true,
+  error: null,
+});
 
-const FinancialContextSimplified = createContext<FinancialContextType | undefined>(undefined);
-
-export const FinancialProviderSimplified = ({ children }: { children: React.ReactNode }) => {
-  const { profile, loading: authLoading } = useAuth();
+export const FinancialProvider = ({ children }: { children: ReactNode }) => {
+  const [totalBalance, setTotalBalance] = useState(0);
+  const [totalRevenue, setTotalRevenue] = useState(0);
+  const [totalExpenses, setTotalExpenses] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-
-  console.log('FinancialProviderSimplified: Estado atual:', {
-    profile: !!profile,
-    authLoading,
-    companyId: profile?.company_id
-  });
-
-  const {
-    transactions = [],
-    expenses = [],
-    payments = [],
-    accounts = [],
-    loading: dataLoading,
-    error: dataError,
-    refetch
-  } = useSupabaseDataSimplified();
+  const { user } = useAuth();
 
   useEffect(() => {
-    if (!authLoading) {
-      setLoading(dataLoading);
-      setError(dataError);
-    }
-  }, [authLoading, dataLoading, dataError]);
+    const fetchFinancialData = async () => {
+      setLoading(true);
+      setError(null);
 
-  const calculateTotals = () => {
-    const totalRevenue = transactions
-      .filter(t => t.type === 'income')
-      .reduce((sum, t) => sum + (t.amount || 0), 0);
+      try {
+        if (!user) {
+          setTotalBalance(0);
+          setTotalRevenue(0);
+          setTotalExpenses(0);
+          return;
+        }
 
-    const totalExpenses = expenses
-      .reduce((sum, e) => sum + (e.amount || 0), 0);
+        // Buscar saldo total das contas bancárias
+        const { data: accounts, error: accountsError } = await supabase
+          .from('bank_accounts')
+          .select('balance')
+          .eq('user_id', user.id);
 
-    const pendingPayments = payments
-      .filter(p => p.status === 'pending')
-      .reduce((sum, p) => sum + (p.amount || 0), 0);
+        if (accountsError) {
+          throw accountsError;
+        }
 
-    const accountBalances = accounts
-      .reduce((sum, a) => sum + (a.balance || 0), 0);
+        const balance = accounts?.reduce((acc, account) => acc + (account.balance || 0), 0) || 0;
+        setTotalBalance(balance);
 
-    return {
-      totalRevenue,
-      totalExpenses,
-      pendingPayments,
-      totalBalance: accountBalances
+        // Buscar receitas
+        const { data: revenues, error: revenuesError } = await supabase
+          .from('transactions')
+          .select('amount')
+          .eq('user_id', user.id)
+          .eq('type', 'income');
+
+        if (revenuesError) {
+          throw revenuesError;
+        }
+
+        const revenue = revenues?.reduce((acc, transaction) => acc + (transaction.amount || 0), 0) || 0;
+        setTotalRevenue(revenue);
+
+        // Buscar despesas
+        const { data: expenses, error: expensesError } = await supabase
+          .from('transactions')
+          .select('amount')
+          .eq('user_id', user.id)
+          .eq('type', 'expense');
+
+        if (expensesError) {
+          throw expensesError;
+        }
+
+        const expense = expenses?.reduce((acc, transaction) => acc + (transaction.amount || 0), 0) || 0;
+        setTotalExpenses(expense);
+
+      } catch (err: any) {
+        console.error('Erro ao carregar dados financeiros:', err);
+        setError(err.message || 'Erro ao carregar dados');
+      } finally {
+        setLoading(false);
+      }
     };
-  };
 
-  const totals = calculateTotals();
-
-  const data: FinancialData = {
-    ...totals,
-    transactions,
-    expenses,
-    payments,
-    accounts,
-    loading,
-    error
-  };
-
-  // Implementar funções necessárias
-  const getRecentTransactions = (limit: number = 5) => {
-    return transactions
-      .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
-      .slice(0, limit);
-  };
-
-  const updateExpenseStatus = (id: string, status: string) => {
-    console.log('Atualizando status da despesa:', id, status);
-    // Implementar atualização no banco de dados
-    refetch();
-  };
-
-  const updatePayment = (id: string, paymentData: any) => {
-    console.log('Atualizando pagamento:', id, paymentData);
-    // Implementar atualização no banco de dados
-    refetch();
-  };
-
-  const updatePaymentStatus = (id: string, status: string) => {
-    console.log('Atualizando status do pagamento:', id, status);
-    // Implementar atualização no banco de dados
-    refetch();
-  };
-
-  const removePayment = (id: string) => {
-    console.log('Removendo pagamento:', id);
-    // Implementar remoção no banco de dados
-    refetch();
-  };
-
-  const fetchTransactions = async () => {
-    console.log('Buscando transações...');
-    refetch();
-    return transactions;
-  };
-
-  const fetchPayments = async () => {
-    console.log('Buscando pagamentos...');
-    refetch();
-    return payments;
-  };
-
-  const refreshData = () => {
-    refetch();
-  };
+    fetchFinancialData();
+  }, [user]);
 
   const value = {
-    data,
-    refreshData,
-    getRecentTransactions,
+    totalBalance,
+    totalRevenue,
+    totalExpenses,
     loading,
     error,
-    updateExpenseStatus,
-    updatePayment,
-    updatePaymentStatus,
-    removePayment,
-    fetchTransactions,
-    fetchPayments
   };
 
   return (
-    <FinancialContextSimplified.Provider value={value}>
+    <FinancialContext.Provider value={value}>
       {children}
-    </FinancialContextSimplified.Provider>
+    </FinancialContext.Provider>
   );
 };
 
-export const useFinancialSimplified = () => {
-  const context = useContext(FinancialContextSimplified);
-  if (!context) {
-    throw new Error('useFinancialSimplified must be used within a FinancialProviderSimplified');
-  }
-  return context;
+export const useFinancial = () => {
+  return useContext(FinancialContext);
 };

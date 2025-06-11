@@ -7,7 +7,7 @@ import { PaymentForm } from './PaymentForm';
 import { ServiceProviders } from './ServiceProviders';
 import { PaymentCalendar } from './PaymentCalendar';
 import { ProviderBalanceManager } from './ProviderBalanceManager';
-import { useAuth } from '@/contexts/AuthContextOptimized';
+import { useAuth } from '@/contexts/AuthContext';
 import { canCreatePayments } from '@/utils/authUtils';
 import { ShieldX } from 'lucide-react';
 

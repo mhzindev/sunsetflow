@@ -13,7 +13,7 @@ import {
   Clock,
   CheckCircle
 } from "lucide-react";
-import { useAuth } from "@/contexts/AuthContextOptimized";
+import { useAuth } from "@/contexts/AuthContext";
 import { getUserAccessLevel } from "@/utils/companyUtils";
 import { getAuthCache, isValidProfile } from '@/utils/authCache';
 

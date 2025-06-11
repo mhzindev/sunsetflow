@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useSupabaseData } from './useSupabaseData';
 import { BankAccount, CreditCard, AccountTransaction, AccountSummary } from '@/types/account';
 import { supabase } from '@/integrations/supabase/client';
-import { useAuth } from '@/contexts/AuthContextOptimized';
+import { useAuth } from '@/contexts/AuthContext';
 
 export const useAccounts = () => {
   const { user } = useAuth();
