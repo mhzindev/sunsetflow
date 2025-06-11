@@ -163,8 +163,8 @@ export const PaymentList = () => {
     .map(id => {
       const payment = payments.find(p => p && p.providerId === id);
       return { 
-        value: id, 
-        label: payment?.providerName || `Provider ${id}`
+        value: id as string, 
+        label: (payment?.providerName || `Provider ${id}`) as string
       };
     })
     .filter(provider => provider.value && provider.label);
