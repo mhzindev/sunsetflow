@@ -351,5 +351,3 @@ export const useFinancial = () => {
 
 // Also export the provider with the original name for backward compatibility
 export const FinancialProvider = FinancialProviderSimplified;
-
-}
