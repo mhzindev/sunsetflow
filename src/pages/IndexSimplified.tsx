@@ -4,12 +4,12 @@ import { useAuth } from '@/contexts/AuthContext';
 import { FinancialProviderSimplified } from '@/contexts/FinancialContextSimplified';
 import { Sidebar } from '@/components/layout/Sidebar';
 import { TopBar } from '@/components/layout/TopBar';
-import { Dashboard } from '@/components/dashboard/Dashboard';
+import { DashboardSecure } from '@/components/dashboard/DashboardSecure';
 import { TransactionManager } from '@/components/transactions/TransactionManager';
 import { ExpenseManager } from '@/components/expenses/ExpenseManager';
-import { PaymentManager } from '@/components/payments/PaymentManager';
+import { PaymentListSecure } from '@/components/payments/PaymentListSecure';
 import { AccountsManager } from '@/components/accounts/AccountsManager';
-import { ProviderManagement } from '@/components/providers/ProviderManagement';
+import { ProviderManagementSecure } from '@/components/providers/ProviderManagementSecure';
 import { Reports } from '@/components/reports/Reports';
 import { Settings } from '@/components/settings/Settings';
 import { RevenueManager } from '@/components/revenues/RevenueManager';
@@ -22,15 +22,15 @@ const IndexSimplified = () => {
   const [currentSection, setCurrentSection] = useState('dashboard');
   const [sidebarOpen, setSidebarOpen] = useState(true);
 
-  console.log('IndexSimplified rendering:', { user: !!user, profile: !!profile, loading });
+  console.log('IndexSimplified rendering with secure components:', { user: !!user, profile: !!profile, loading });
 
   if (loading) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center space-y-3">
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
-          <h2 className="text-xl font-semibold text-gray-900">Carregando...</h2>
-          <p className="text-gray-600">Carregando aplicação</p>
+          <h2 className="text-xl font-semibold text-gray-900">Carregando Sistema Seguro...</h2>
+          <p className="text-gray-600">Inicializando isolamento de dados</p>
         </div>
       </div>
     );
@@ -51,7 +51,7 @@ const IndexSimplified = () => {
   const renderContent = () => {
     switch (currentSection) {
       case 'dashboard':
-        return <Dashboard onNavigate={setCurrentSection} />;
+        return <DashboardSecure onNavigate={setCurrentSection} />;
       case 'transactions':
         return <TransactionManager />;
       case 'revenues':
@@ -62,11 +62,11 @@ const IndexSimplified = () => {
       case 'expenses':
         return <ExpenseManager />;
       case 'payments':
-        return <PaymentManager />;
+        return <PaymentListSecure />;
       case 'accounts':
         return <AccountsManager />;
       case 'providers':
-        return <ProviderManagement />;
+        return <ProviderManagementSecure />;
       case 'cashflow':
         return <CashFlow />;
       case 'reports':
@@ -74,7 +74,7 @@ const IndexSimplified = () => {
       case 'settings':
         return <Settings />;
       default:
-        return <Dashboard onNavigate={setCurrentSection} />;
+        return <DashboardSecure onNavigate={setCurrentSection} />;
     }
   };
 
