@@ -1,3 +1,4 @@
+
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
@@ -87,66 +88,81 @@ export const FinancialProviderSimplified = ({ children }: { children: ReactNode 
     pendingRevenues: 0,
     confirmedRevenues: 0,
   });
-  const { user } = useAuth();
+  const { user, profile } = useAuth();
 
   const fetchFinancialData = async () => {
     setLoading(true);
     setError(null);
 
     try {
-      if (!user) {
+      if (!user || !profile?.company_id) {
+        console.log('🔒 FinancialContext: Usuário sem empresa associada');
         setTotalBalance(0);
         setTotalRevenue(0);
         setTotalExpenses(0);
+        setData({
+          transactions: [],
+          expenses: [],
+          payments: [],
+          accounts: [],
+          pendingRevenuesList: [],
+          confirmedRevenuesList: [],
+          totalBalance: 0,
+          monthlyIncome: 0,
+          monthlyExpenses: 0,
+          pendingPayments: 0,
+          approvedExpenses: 0,
+          pendingRevenues: 0,
+          confirmedRevenues: 0,
+        });
         return;
       }
 
-      // Buscar saldo total das contas bancárias
+      console.log('🏢 FinancialContext: Carregando dados para empresa:', profile.company_id);
+
+      // Buscar saldo total das contas bancárias (filtrado por user_id para contas pessoais)
       const { data: accounts, error: accountsError } = await supabase
         .from('bank_accounts')
         .select('balance')
         .eq('user_id', user.id);
 
       if (accountsError) {
-        throw accountsError;
+        throw new Error(`Erro ao buscar contas: ${accountsError.message}`);
       }
 
       const balance = accounts?.reduce((acc, account) => acc + (account.balance || 0), 0) || 0;
       setTotalBalance(balance);
 
-      // Buscar receitas
+      // Buscar receitas (RLS já filtra por company_id)
       const { data: revenues, error: revenuesError } = await supabase
         .from('transactions')
         .select('amount')
-        .eq('user_id', user.id)
         .eq('type', 'income');
 
       if (revenuesError) {
-        throw revenuesError;
+        console.warn('⚠️ Erro ao buscar receitas:', revenuesError);
       }
 
       const revenue = revenues?.reduce((acc, transaction) => acc + (transaction.amount || 0), 0) || 0;
       setTotalRevenue(revenue);
 
-      // Buscar despesas
+      // Buscar despesas (RLS já filtra por company_id)
       const { data: expenses, error: expensesError } = await supabase
         .from('transactions')
         .select('amount')
-        .eq('user_id', user.id)
         .eq('type', 'expense');
 
       if (expensesError) {
-        throw expensesError;
+        console.warn('⚠️ Erro ao buscar despesas:', expensesError);
       }
 
       const expense = expenses?.reduce((acc, transaction) => acc + (transaction.amount || 0), 0) || 0;
       setTotalExpenses(expense);
 
-      // Buscar dados completos para o contexto data
+      // Buscar dados completos para o contexto data (RLS já filtra por company_id)
       const { data: transactions, error: transactionsError } = await supabase
         .from('transactions')
         .select('*')
-        .eq('user_id', user.id)
         .order('created_at', { ascending: false });
 
       if (!transactionsError) {
@@ -159,7 +175,7 @@ export const FinancialProviderSimplified = ({ children }: { children: ReactNode 
         }));
       }
 
-      // Buscar pagamentos
+      // Buscar pagamentos (RLS já filtra por company_id)
       const { data: payments, error: paymentsError } = await supabase
         .from('payments')
         .select('*')
@@ -172,8 +188,38 @@ export const FinancialProviderSimplified = ({ children }: { children: ReactNode 
         }));
       }
 
+      // Buscar receitas pendentes (RLS já filtra por company_id)
+      const { data: pendingRevenues, error: pendingError } = await supabase
+        .from('pending_revenues')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      if (!pendingError) {
+        setData(prev => ({
+          ...prev,
+          pendingRevenuesList: pendingRevenues || [],
+          pendingRevenues: pendingRevenues?.length || 0,
+        }));
+      }
+
+      // Buscar receitas confirmadas (RLS já filtra por company_id)
+      const { data: confirmedRevenues, error: confirmedError } = await supabase
+        .from('confirmed_revenues')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      if (!confirmedError) {
+        setData(prev => ({
+          ...prev,
+          confirmedRevenuesList: confirmedRevenues || [],
+          confirmedRevenues: confirmedRevenues?.length || 0,
+        }));
+      }
+
+      console.log('✅ FinancialContext: Dados carregados com isolamento por empresa');
+
     } catch (err: any) {
-      console.error('Erro ao carregar dados financeiros:', err);
+      console.error('❌ Erro ao carregar dados financeiros:', err);
       setError(err.message || 'Erro ao carregar dados');
     } finally {
       setLoading(false);
@@ -182,22 +228,33 @@ export const FinancialProviderSimplified = ({ children }: { children: ReactNode 
 
   const fetchTransactions = async () => {
     try {
+      if (!profile?.company_id) {
+        console.log('🔒 fetchTransactions: Sem empresa associada');
+        return [];
+      }
+
+      // RLS já filtra por company_id automaticamente
       const { data, error } = await supabase
         .from('transactions')
         .select('*')
-        .eq('user_id', user?.id)
         .order('created_at', { ascending: false });
 
       if (error) throw error;
       return data || [];
     } catch (error) {
-      console.error('Error fetching transactions:', error);
+      console.error('❌ Error fetching transactions:', error);
       return [];
     }
   };
 
   const fetchPayments = async () => {
     try {
+      if (!profile?.company_id) {
+        console.log('🔒 fetchPayments: Sem empresa associada');
+        return [];
+      }
+
+      // RLS já filtra por company_id automaticamente
       const { data, error } = await supabase
         .from('payments')
         .select('*')
@@ -206,7 +263,7 @@ export const FinancialProviderSimplified = ({ children }: { children: ReactNode 
       if (error) throw error;
       return data || [];
     } catch (error) {
-      console.error('Error fetching payments:', error);
+      console.error('❌ Error fetching payments:', error);
       return [];
     }
   };
@@ -312,8 +369,13 @@ export const FinancialProviderSimplified = ({ children }: { children: ReactNode 
   };
 
   useEffect(() => {
-    fetchFinancialData();
-  }, [user]);
+    if (user && profile?.company_id) {
+      fetchFinancialData();
+    } else if (user && !profile?.company_id) {
+      console.log('🔒 FinancialContext: Usuário logado mas sem empresa associada');
+      setLoading(false);
+    }
+  }, [user, profile?.company_id]);
 
   const value = {
     totalBalance,

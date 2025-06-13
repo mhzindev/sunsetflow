@@ -143,6 +143,7 @@ export type Database = {
           account_type: string | null
           client_name: string
           company_amount: number
+          company_id: string | null
           created_at: string
           description: string | null
           id: string
@@ -159,6 +160,7 @@ export type Database = {
           account_type?: string | null
           client_name: string
           company_amount: number
+          company_id?: string | null
           created_at?: string
           description?: string | null
           id?: string
@@ -175,6 +177,7 @@ export type Database = {
           account_type?: string | null
           client_name?: string
           company_amount?: number
+          company_id?: string | null
           created_at?: string
           description?: string | null
           id?: string
@@ -255,6 +258,7 @@ export type Database = {
           actual_amount: number | null
           amount: number
           category: string
+          company_id: string | null
           created_at: string | null
           date: string
           description: string
@@ -280,6 +284,7 @@ export type Database = {
           actual_amount?: number | null
           amount: number
           category: string
+          company_id?: string | null
           created_at?: string | null
           date: string
           description: string
@@ -305,6 +310,7 @@ export type Database = {
           actual_amount?: number | null
           amount?: number
           category?: string
+          company_id?: string | null
           created_at?: string | null
           date?: string
           description?: string
@@ -348,6 +354,7 @@ export type Database = {
           budget: number | null
           client_id: string | null
           client_name: string | null
+          company_id: string | null
           company_percentage: number | null
           company_value: number | null
           created_at: string | null
@@ -374,6 +381,7 @@ export type Database = {
           budget?: number | null
           client_id?: string | null
           client_name?: string | null
+          company_id?: string | null
           company_percentage?: number | null
           company_value?: number | null
           created_at?: string | null
@@ -400,6 +408,7 @@ export type Database = {
           budget?: number | null
           client_id?: string | null
           client_name?: string | null
+          company_id?: string | null
           company_percentage?: number | null
           company_value?: number | null
           created_at?: string | null
@@ -513,6 +522,7 @@ export type Database = {
           account_type: string | null
           client_name: string
           company_amount: number
+          company_id: string | null
           created_at: string
           description: string | null
           due_date: string
@@ -529,6 +539,7 @@ export type Database = {
           account_type?: string | null
           client_name: string
           company_amount: number
+          company_id?: string | null
           created_at?: string
           description?: string | null
           due_date: string
@@ -545,6 +556,7 @@ export type Database = {
           account_type?: string | null
           client_name?: string
           company_amount?: number
+          company_id?: string | null
           created_at?: string
           description?: string | null
           due_date?: string
@@ -922,6 +934,10 @@ export type Database = {
         Returns: Json
       }
       get_user_company_id: {
+        Args: Record<PropertyKey, never>
+        Returns: string
+      }
+      get_user_company_id_secure: {
         Args: Record<PropertyKey, never>
         Returns: string
       }
