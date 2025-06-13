@@ -1,8 +1,7 @@
-
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { useSupabaseDataSecure } from "@/hooks/useSupabaseDataSecure";
+import { useTransactionsSecure } from "@/hooks/useTransactionsSecure";
 import { formatCurrency } from "@/utils/dateUtils";
 import { ArrowUpCircle, ArrowDownCircle, Eye, Shield } from "lucide-react";
 
@@ -11,7 +10,7 @@ interface RecentTransactionsProps {
 }
 
 export const RecentTransactionsSecure = ({ onViewAll }: RecentTransactionsProps) => {
-  const { transactions, loading } = useSupabaseDataSecure();
+  const { transactions, loading } = useTransactionsSecure();
 
   // Pegar apenas as 5 transações mais recentes
   const recentTransactions = transactions

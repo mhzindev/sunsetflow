@@ -1,11 +1,10 @@
-
 import { Card } from "@/components/ui/card";
 import { TrendingUp, TrendingDown, DollarSign, Shield } from "lucide-react";
-import { useSupabaseDataSecure } from "@/hooks/useSupabaseDataSecure";
+import { useTransactionsSecure } from "@/hooks/useTransactionsSecure";
 import { useMemo } from "react";
 
 export const CashFlowChartSecure = () => {
-  const { transactions } = useSupabaseDataSecure();
+  const { transactions } = useTransactionsSecure();
 
   // Calcular dados dos últimos 6 meses
   const chartData = useMemo(() => {
